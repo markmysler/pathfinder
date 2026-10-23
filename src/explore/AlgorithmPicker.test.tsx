@@ -23,6 +23,13 @@ describe('AlgorithmPicker', () => {
     expect(screen.getByRole('group', { name: /Algorithms/ })).toHaveTextContent('3 selected');
   });
 
+  it('stops offering more algorithms once the limit is reached', () => {
+    render(<AlgorithmPicker value={['dijkstra', 'astar']} limit={2} onToggle={() => {}} />);
+    expect(screen.getByRole('checkbox', { name: /Breadth-first search/ })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /A\* search/ })).toBeEnabled();
+    expect(screen.getByText('Up to 2 at once. Untick one to pick another.')).toBeInTheDocument();
+  });
+
   it('reports the algorithm the user ticks or unticks', async () => {
     const onToggle = vi.fn();
     render(<AlgorithmPicker value={['astar']} onToggle={onToggle} />);

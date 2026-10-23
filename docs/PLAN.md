@@ -100,4 +100,4 @@ Follow-ups noted during phase 4:
 
 Follow-ups noted during phase 5:
 
-- Each comparison map uses two WebGL contexts (MapLibre plus deck.gl's overlay canvas); browsers allow about 16. deck.gl's interleaved mode, which would share one, fails on MapLibre 6 (`_nearZ` errors). With the algorithms added in phases 7 and 9, cap the desktop grid or revisit interleaving.
+- Each comparison map uses two WebGL contexts (MapLibre plus deck.gl's overlay canvas), and browsers allow about 16. deck.gl's interleaved mode, which would share one, fails on MapLibre 6 (`_nearZ` errors). A run is therefore capped at 6 algorithms (`MAX_ALGORITHMS`).

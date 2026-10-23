@@ -3,14 +3,18 @@ import { algorithms, type AlgorithmId } from '../algorithms';
 import { ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { CheckIcon } from '../ui/icons';
 import styles from './AlgorithmPicker.module.css';
+import { MAX_ALGORITHMS } from './exploreState';
 
 interface Props {
   value: readonly AlgorithmId[];
   onToggle(algorithm: AlgorithmId): void;
+  /** Most that may be ticked at once. */
+  limit?: number;
 }
 
 /** Choose one algorithm to study, or several to compare side by side. */
-export function AlgorithmPicker({ value, onToggle }: Props) {
+export function AlgorithmPicker({ value, onToggle, limit = MAX_ALGORITHMS }: Props) {
+  const full = value.length >= limit;
   return (
     <fieldset className={styles.group}>
       <legend className={styles.legend}>
@@ -31,6 +35,7 @@ export function AlgorithmPicker({ value, onToggle }: Props) {
               name="algorithms"
               value={id}
               checked={value.includes(id)}
+              disabled={full && !value.includes(id)}
               onChange={() => onToggle(id)}
               aria-labelledby={`algorithm-${id}`}
               aria-describedby={`algorithm-${id}-blurb`}
@@ -53,6 +58,7 @@ export function AlgorithmPicker({ value, onToggle }: Props) {
           </label>
         );
       })}
+      {full && <p className={styles.limit}>Up to {limit} at once. Untick one to pick another.</p>}
     </fieldset>
   );
 }

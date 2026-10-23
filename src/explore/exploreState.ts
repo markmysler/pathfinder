@@ -76,9 +76,23 @@ export const initialExplore: ExploreState = {
 
 const LISTED = Object.keys(algorithms) as AlgorithmId[];
 
-function toggled(chosen: readonly AlgorithmId[], algorithm: AlgorithmId): AlgorithmId[] {
+/**
+ * Most algorithms one run may compare. Each desktop map takes two WebGL contexts (MapLibre and
+ * the deck.gl overlay) and browsers allow about 16, so 6 maps leave some to spare.
+ */
+export const MAX_ALGORITHMS = 6;
+
+/** Ticks or unticks an algorithm, keeping the listed order; past the limit, ticking does nothing. */
+export function toggleAlgorithm(
+  chosen: readonly AlgorithmId[],
+  algorithm: AlgorithmId,
+  limit = MAX_ALGORITHMS,
+): AlgorithmId[] {
   const next = new Set(chosen);
-  if (!next.delete(algorithm)) next.add(algorithm);
+  if (!next.delete(algorithm)) {
+    if (next.size >= limit) return [...chosen];
+    next.add(algorithm);
+  }
   return LISTED.filter((id) => next.has(id));
 }
 
@@ -123,7 +137,7 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
     case 'objectiveChosen':
       return { ...state, objective: action.objective };
     case 'algorithmToggled':
-      return { ...state, algorithms: toggled(state.algorithms, action.algorithm) };
+      return { ...state, algorithms: toggleAlgorithm(state.algorithms, action.algorithm) };
     case 'mapsLinkToggled':
       return { ...state, mapsLinked: !state.mapsLinked };
     case 'runRequested':

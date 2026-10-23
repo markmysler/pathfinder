@@ -1,7 +1,13 @@
 import { initialPlayback, play, setSpeed, suggestedSpeed } from '../playback/playback';
 import type { AlgorithmId } from '../algorithms';
 import type { JobResult } from '../worker/job';
-import { exploreReducer, initialExplore, type ExploreState } from './exploreState';
+import {
+  exploreReducer,
+  initialExplore,
+  MAX_ALGORITHMS,
+  toggleAlgorithm,
+  type ExploreState,
+} from './exploreState';
 
 const casaRosada = { name: 'Casa Rosada', detail: 'Buenos Aires', lat: -34.608, lon: -58.3703 };
 const cabildo = { name: 'Cabildo', detail: 'Buenos Aires', lat: -34.6087, lon: -58.3738 };
@@ -99,6 +105,12 @@ describe('exploreReducer', () => {
     state = exploreReducer(state, { type: 'algorithmToggled', algorithm: 'bfs' });
     state = exploreReducer(state, { type: 'algorithmToggled', algorithm: 'dijkstra' });
     expect(state.algorithms).toEqual(['bfs', 'greedy', 'dijkstra', 'astar']);
+  });
+
+  it('caps how many algorithms run at once, since each map needs its own WebGL contexts', () => {
+    expect(MAX_ALGORITHMS).toBe(6);
+    expect(toggleAlgorithm(['bfs', 'astar'], 'dijkstra', 2)).toEqual(['bfs', 'astar']);
+    expect(toggleAlgorithm(['bfs', 'astar'], 'astar', 2)).toEqual(['bfs']);
   });
 
   it('only starts a run once both places and an algorithm are set', () => {

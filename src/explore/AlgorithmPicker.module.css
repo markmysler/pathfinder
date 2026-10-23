@@ -44,6 +44,18 @@
   border-color: var(--algo);
 }
 
+.card:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.limit {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .card:has(input:focus-visible) {
   outline: 2px solid var(--primary-bg);
   outline-offset: 2px;

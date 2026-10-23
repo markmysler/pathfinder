@@ -156,3 +156,16 @@ function describeRoute(graph: Graph, path: number[], cost: number) {
   });
   return { positions, cost, meters };
 }
+
+/** How many explored roads are drawn at a step: those stamped with it or earlier. */
+export function roadsExploredBy(timeline: Pick<Timeline, 'roadStep' | 'roadCount'>, step: number) {
+  // Roads are stamped in push order, so their steps never decrease: binary search the boundary.
+  let low = 0;
+  let high = timeline.roadCount;
+  while (low < high) {
+    const mid = (low + high) >>> 1;
+    if (timeline.roadStep[mid]! <= step) low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}

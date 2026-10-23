@@ -36,7 +36,7 @@ export const algorithms = {
   },
   greedy: {
     id: 'greedy',
-    name: 'Greedy best-first search',
+    name: 'Greedy best-first',
     search: greedy,
     optimal: false,
     weighted: false,
@@ -44,7 +44,7 @@ export const algorithms = {
   },
   dijkstra: {
     id: 'dijkstra',
-    name: "Dijkstra's algorithm",
+    name: 'Dijkstra',
     search: dijkstra,
     optimal: true,
     weighted: true,

@@ -6,7 +6,7 @@ import { edgeRange, type Graph } from '../graph/graph';
 import { haversineMeters } from '../graph/geo';
 import { randomGeoProblem } from '../test/arbitraries';
 import { binaryTree, grid } from '../test/fixtures';
-import { buildTimeline, NEVER } from './timeline';
+import { buildTimeline, NEVER, roadsExploredBy } from './timeline';
 
 const pops = (trace: Trace) => trace.events.filter((e) => e.type === 'pop');
 
@@ -129,5 +129,21 @@ describe('buildTimeline', () => {
         expect(t.frontierSizeAt.length).toBe(t.steps + 1);
       }),
     );
+  });
+});
+
+describe('roadsExploredBy', () => {
+  it('counts the roads drawn up to and including a step', () => {
+    const graph = grid(5);
+    const h = straightLineHeuristic(graph, 24);
+    const t = buildTimeline(
+      graph,
+      runSearch(algorithms.dijkstra.search, { graph, source: 0, target: 24 }),
+      h,
+    );
+    for (const step of [0, 1, 2, Math.floor(t.steps / 2), t.steps]) {
+      const expected = [...t.roadStep].filter((s) => s <= step).length;
+      expect(roadsExploredBy(t, step)).toBe(expected);
+    }
   });
 });

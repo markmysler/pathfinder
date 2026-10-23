@@ -1,5 +1,8 @@
+import { aStar } from './astar';
 import { bfs } from './bfs';
 import { dfs } from './dfs';
+import { dijkstra } from './dijkstra';
+import { greedy } from './greedy';
 import type { SearchAlgorithm } from './types';
 
 export interface AlgorithmInfo {
@@ -30,6 +33,30 @@ export const algorithms = {
     optimal: false,
     weighted: false,
     informed: false,
+  },
+  greedy: {
+    id: 'greedy',
+    name: 'Greedy best-first search',
+    search: greedy,
+    optimal: false,
+    weighted: false,
+    informed: true,
+  },
+  dijkstra: {
+    id: 'dijkstra',
+    name: "Dijkstra's algorithm",
+    search: dijkstra,
+    optimal: true,
+    weighted: true,
+    informed: false,
+  },
+  astar: {
+    id: 'astar',
+    name: 'A* search',
+    search: aStar,
+    optimal: true,
+    weighted: true,
+    informed: true,
   },
 } as const satisfies Record<string, AlgorithmInfo>;
 

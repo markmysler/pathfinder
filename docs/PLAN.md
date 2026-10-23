@@ -85,4 +85,5 @@ Phase 1 can run in parallel with the design review in phase 2.
 ## Progress
 
 - [x] Phase 0 — Setup (repo, Vite + React + TS, Vitest, Playwright desktop+mobile, ESLint, Prettier, CI + Pages deploy)
-- [ ] Phase 1 — Graph core + base algorithms
+- [x] Phase 1 — Graph core + base algorithms (CSR graph, event protocol, BFS, DFS, Greedy, Dijkstra, A*; property-tested against a brute-force reference)
+- [ ] Phase 2 — Design: overall UI

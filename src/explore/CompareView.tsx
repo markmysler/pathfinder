@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
-import { algorithms } from '../algorithms';
 import type { Place } from '../geo/nominatim';
 import type { CameraSync } from '../map/cameraSync';
 import { hexToRgb, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas } from '../map/MapCanvas';
-import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
+import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCount } from '../ui/format';
 import { CheckIcon, EditIcon, LinkIcon } from '../ui/icons';
 import type { AlgorithmRun } from '../worker/job';
@@ -222,7 +221,7 @@ const STACKED_PADDING = { top: 52, bottom: 24, left: 32, right: 32 };
 function ComparisonMap({ run, step, start, target, snaps, sync, phone }: MapProps) {
   const { algorithm, timeline } = run;
   const { badge, short, color } = ALGORITHM_STYLE[algorithm];
-  const name = algorithms[algorithm].name;
+  const name = algorithmName(algorithm, run.weight);
   // A finished search stops changing, so its map is left alone while the others play on.
   const at = Math.min(step, timeline.steps);
   const rgb = useMemo(() => hexToRgb(color), [color]);

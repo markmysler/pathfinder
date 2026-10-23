@@ -75,6 +75,7 @@ export function ExplorePage() {
         mode: state.mode,
         objective: state.objective,
         algorithms: state.algorithms,
+        astarWeight: state.astarWeight,
       },
       (stage, server) => {
         if (job.current === running) dispatch({ type: 'runProgressed', stage, server });
@@ -327,7 +328,7 @@ function PhoneRun({ run, playback, step, dispatch, onEdit }: PhoneRunProps) {
           aria-expanded={details}
           onClick={() => setDetails((open) => !open)}
         >
-          <span>{describeStep(run.timeline, step, run.algorithm, run.objective)}</span>
+          <span>{describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}</span>
           <span className={styles.details}>
             Details
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}

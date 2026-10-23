@@ -11,7 +11,7 @@ function run(algorithm: AlgorithmId, steps: number, cost: number): AlgorithmRun 
     frontierPeakAt: Uint32Array.from({ length: steps + 1 }, (_, t) => 2 * t + 1),
     route: { cost, meters: cost * 7, positions: new Float64Array() },
   } as Timeline;
-  return { algorithm, timeline, stats: { expanded: steps, pushed: 0, maxFrontier: 0 } };
+  return { algorithm, weight: 1, timeline, stats: { expanded: steps, pushed: 0, maxFrontier: 0 } };
 }
 const runs = [
   run('greedy', 1_203, 1_230),
@@ -41,6 +41,12 @@ describe('ResultsTable', () => {
     expect(dijkstra.getByText('Searching…')).toBeInTheDocument();
     expect(dijkstra.getByText('9,874')).toBeInTheDocument();
     expect(dijkstra.getByText('so far')).toBeInTheDocument();
+  });
+
+  it('names the weight of a weighted A*', () => {
+    const weighted = runs.map((r) => (r.algorithm === 'astar' ? { ...r, weight: 2 } : r));
+    render(<ResultsTable runs={weighted} objective="fastest" step={0} />);
+    expect(screen.getByRole('row', { name: /A\* search · 2×/ })).toBeInTheDocument();
   });
 
   it('weighs routes by distance when optimising for the shortest', () => {

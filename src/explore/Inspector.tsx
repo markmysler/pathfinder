@@ -1,6 +1,6 @@
 import { algorithms } from '../algorithms';
 import { roadsExploredBy } from '../playback/timeline';
-import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
+import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
 import type { Objective } from '../osm/network';
 import type { AlgorithmRun } from '../worker/job';
@@ -21,7 +21,7 @@ const STATUS_LABEL = { searching: 'Searching', found: 'Found route', 'no-route':
 /** The algorithm's badge, name and status, shown over the map. */
 export function RunCard({ run, step, compact = false }: Props & { compact?: boolean }) {
   const { timeline, objective } = run;
-  const { name } = algorithms[run.algorithm];
+  const name = algorithmName(run.algorithm, run.weight);
   return (
     <div className={styles.card} style={algoColor(run.algorithm)}>
       <div className={styles.cardHeader}>
@@ -96,7 +96,7 @@ export function Inspector({ run, step }: Props) {
 
       <section className={styles.step} aria-labelledby="inspector-step">
         <h3 id="inspector-step">Step {formatCount(step)}</h3>
-        <p>{describeStep(timeline, step, run.algorithm, objective)}</p>
+        <p>{describeStep(timeline, step, run.algorithm, objective, run.weight)}</p>
       </section>
 
       {found && (

@@ -13,6 +13,8 @@ export interface JobRequest {
   objective: Objective;
   /** Run in this order, all on the same roads between the same snapped points. */
   algorithms: AlgorithmId[];
+  /** Multiplies A*'s estimate (weighted A*): above 1 it expands less but may miss the best route. */
+  astarWeight?: number;
 }
 
 export type Stage = 'download' | 'graph' | 'search';
@@ -32,6 +34,8 @@ export interface SnappedPoint extends LatLon {
 /** One algorithm's search, ready to play back. */
 export interface AlgorithmRun {
   algorithm: AlgorithmId;
+  /** The weight on the estimate: A*'s setting, 1 for everything else. */
+  weight: number;
   timeline: Timeline;
   stats: SearchStats;
 }
@@ -77,10 +81,18 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   const { graph, snapped } = prepared;
   const runs = request.algorithms.map((algorithm): AlgorithmRun => {
     signal?.throwIfAborted();
-    const trace = runSearch(algorithms[algorithm].search, prepared);
+    const weight = algorithm === 'astar' ? (request.astarWeight ?? 1) : 1;
+    const { heuristic } = prepared;
+    const search = {
+      ...prepared,
+      heuristic: weight === 1 ? heuristic : (n: number) => weight * heuristic(n),
+    };
+    const trace = runSearch(algorithms[algorithm].search, search);
     return {
       algorithm,
-      timeline: buildTimeline(graph, trace, prepared.heuristic),
+      weight,
+      // The timeline keeps the plain estimate, which is what the inspector explains.
+      timeline: buildTimeline(graph, trace, heuristic),
       stats: summarize(trace.events),
     };
   });

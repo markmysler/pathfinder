@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId } from '../algorithms';
 
 export interface AlgorithmStyle {
   /** Night Chart colour; each also differs in lightness, and always comes with the badge. */
@@ -46,3 +46,12 @@ export const ALGORITHM_STYLE: Record<AlgorithmId, AlgorithmStyle> = {
 /** Sets `--algo` to the algorithm's colour, for styles that tint by algorithm. */
 export const algoColor = (algorithm: AlgorithmId) =>
   ({ '--algo': ALGORITHM_STYLE[algorithm].color }) as CSSProperties;
+
+/** A weight on the estimate, like "1.5×". */
+export const formatWeight = (weight: number) => `${Math.round(weight * 10) / 10}×`;
+
+/** The algorithm's name, with the weight when A* weighs its estimate. */
+export const algorithmName = (algorithm: AlgorithmId, weight = 1) =>
+  weight === 1
+    ? algorithms[algorithm].name
+    : `${algorithms[algorithm].name} · ${formatWeight(weight)}`;

@@ -1,6 +1,6 @@
-import { algorithms, type AlgorithmId } from '../algorithms';
+import type { AlgorithmId } from '../algorithms';
 import type { Objective } from '../osm/network';
-import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
+import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
 import type { AlgorithmRun } from '../worker/job';
 import { compareRuns, type ComparisonRow } from './comparison';
@@ -33,6 +33,7 @@ function status(row: ComparisonRow) {
 /** How each search compares, filling in as each one reaches B. */
 export function ResultsTable({ runs, objective, step, variant = 'full', hidden = [] }: Props) {
   const rows = compareRuns(runs, step);
+  const weightOf = (id: AlgorithmId) => runs.find((r) => r.algorithm === id)?.weight ?? 1;
   const costLabel = objective === 'fastest' ? 'Route time' : 'Distance';
   const cost = (row: ComparisonRow) => row.route && formatCost(row.route.cost, objective);
 
@@ -104,7 +105,7 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
               <th scope="row">
                 <span className={styles.name}>
                   <span className={styles.badge}>{ALGORITHM_STYLE[row.algorithm].badge}</span>
-                  {algorithms[row.algorithm].name}
+                  {algorithmName(row.algorithm, weightOf(row.algorithm))}
                 </span>
               </th>
               <td className={styles.word}>{status(row)}</td>

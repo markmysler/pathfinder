@@ -170,6 +170,15 @@ describe('exploreReducer', () => {
     });
   });
 
+  it("sets the weight on A*'s estimate between 1× and 3×, in tenths", () => {
+    expect(initialExplore.astarWeight).toBe(1);
+    const set = (weight: number) =>
+      exploreReducer(initialExplore, { type: 'astarWeightChosen', weight }).astarWeight;
+    expect(set(1.54)).toBe(1.5);
+    expect(set(0.4)).toBe(1);
+    expect(set(7)).toBe(3);
+  });
+
   it('links and unlinks the maps', () => {
     const state = exploreReducer(initialExplore, { type: 'mapsLinkToggled' });
     expect(state.mapsLinked).toBe(false);

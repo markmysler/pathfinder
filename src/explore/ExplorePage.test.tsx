@@ -93,6 +93,7 @@ describe('ExplorePage', () => {
       mode: 'walk',
       objective: 'fastest',
       algorithms: ['dijkstra'],
+      astarWeight: 1,
     });
 
     jobs[0]!.progress('download');

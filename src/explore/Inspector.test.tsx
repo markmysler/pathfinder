@@ -63,4 +63,12 @@ describe('RunCard', () => {
     render(<RunCard run={resultFor('astar')} step={3} compact />);
     expect(screen.getByText('Expanded').nextSibling).toHaveTextContent('3');
   });
+
+  it('names the weight when A* weighs its estimate, and narrates with it', () => {
+    const run = { ...resultFor('astar'), weight: 1.5 };
+    render(<RunCard run={run} step={3} />);
+    expect(screen.getByRole('heading', { name: 'A* search · 1.5×' })).toBeInTheDocument();
+    render(<Inspector run={run} step={3} />);
+    expect(screen.getByRole('region', { name: 'Step 3' })).toHaveTextContent(/g \+ 1\.5 × h/);
+  });
 });

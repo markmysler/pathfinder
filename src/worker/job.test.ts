@@ -55,6 +55,27 @@ describe('runJob', () => {
     expect(bfs!.route!.cost).toBeGreaterThanOrEqual(dijkstra!.route!.cost - 1e-6);
   });
 
+  it('runs A* with its estimate weighted, keeping the plain estimate for display', async () => {
+    const result = await runJob(
+      {
+        ...request,
+        objective: 'shortest',
+        algorithms: ['dijkstra', 'astar', 'greedy'],
+        astarWeight: 2,
+      },
+      deps().deps,
+    );
+    const [dijkstra, astar, greedy] = result.runs;
+    expect(astar!.weight).toBe(2);
+    expect(dijkstra!.weight).toBe(1);
+    expect(greedy!.weight).toBe(1);
+    // Weighted A* trades optimality for speed, but never by more than the weight.
+    expect(astar!.timeline.route!.cost).toBeLessThanOrEqual(2 * dijkstra!.timeline.route!.cost);
+    const plain = await runJob({ ...request, objective: 'shortest' }, deps().deps);
+    const t = astar!.timeline;
+    expect(t.expandedEstimate[1]).toBeCloseTo(plain.runs[0]!.timeline.expandedEstimate[1]!, 9);
+  });
+
   it('refuses a request without algorithms', async () => {
     await expect(runJob({ ...request, algorithms: [] }, deps().deps)).rejects.toThrow(
       /at least one algorithm/,

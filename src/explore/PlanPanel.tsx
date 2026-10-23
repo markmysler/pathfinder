@@ -110,6 +110,8 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
         <AlgorithmPicker
           value={state.algorithms}
           onToggle={(algorithm) => dispatch({ type: 'algorithmToggled', algorithm })}
+          weight={state.astarWeight}
+          onWeight={(weight) => dispatch({ type: 'astarWeightChosen', weight })}
         />
 
         <div className={styles.runBar}>

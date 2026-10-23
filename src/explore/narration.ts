@@ -64,6 +64,8 @@ export function describeStep(
   step: number,
   algorithm: AlgorithmId,
   objective: Objective,
+  /** Weight on the estimate; only A* uses one. */
+  weight = 1,
 ): string {
   if (step <= 0) return 'Start: A is the only node in the frontier.';
   if (step >= timeline.steps) {
@@ -76,13 +78,17 @@ export function describeStep(
 
   const cost = (value: number) => formatCost(value, objective);
   const g = timeline.expandedCost[step]!;
+  const w = Math.round(weight * 10) / 10;
   const h = timeline.expandedEstimate[step]!;
   const choice = {
     bfs: 'Took the oldest node in the queue.',
     dfs: 'Took the newest node on the stack.',
     greedy: `Took the frontier node that looks closest to B (estimate ${cost(h)}).`,
     dijkstra: `Took the frontier node with the lowest cost so far, ${cost(g)}.`,
-    astar: `Took the frontier node with the lowest f = g + h: ${cost(g)} + ${cost(h)} = ${cost(g + h)}.`,
+    astar:
+      weight === 1
+        ? `Took the frontier node with the lowest f = g + h: ${cost(g)} + ${cost(h)} = ${cost(g + h)}.`
+        : `Took the frontier node with the lowest f = g + ${w} × h: ${cost(g)} + ${w} × ${cost(h)} = ${cost(g + weight * h)}.`,
   }[algorithm];
 
   const roads = describeRoads(algorithm, timeline.pushesAt[step]!, timeline.expandedDegree[step]!);

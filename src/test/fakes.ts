@@ -41,6 +41,7 @@ export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
     });
     return {
       algorithm,
+      weight: 1,
       timeline: buildTimeline(graph, trace, heuristic),
       stats: summarize(trace.events),
     };

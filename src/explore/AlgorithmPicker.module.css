@@ -111,6 +111,78 @@
 }
 
 /* Phones: compact chips, as in the approved phone design. */
+/* A* with its estimate weight: the card and its settings read as one. */
+.item {
+  display: flex;
+  flex-direction: column;
+}
+
+.withSettings {
+  background: var(--raised);
+  border: 1px solid var(--algo);
+  border-radius: var(--radius-m);
+}
+
+.withSettings > .card,
+.withSettings > .card:has(input:checked) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 12px;
+  padding: 10px 0 12px 30px;
+  border-top: 1px solid var(--border);
+}
+
+.weight {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.weightLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.weightValue {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.range {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--algo);
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.advice {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.dot,
+.phoneOnly {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .group {
     flex-direction: row;
@@ -181,5 +253,47 @@
   .card:has(input:checked) .short {
     color: #fff;
     font-weight: 600;
+  }
+
+  /* The chips stay in one row; A*'s settings drop below all of them. */
+  .item {
+    display: contents;
+  }
+
+  .settings {
+    order: 1;
+    width: 100%;
+    margin: 2px 0 0;
+    padding: 10px 12px;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .limit {
+    order: 2;
+  }
+
+  .weightLabel {
+    font-size: 13.5px;
+    color: var(--text);
+  }
+
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--algo);
+  }
+
+  .phoneOnly {
+    display: inline;
+  }
+
+  .desktopOnly,
+  .ticks {
+    display: none;
   }
 }

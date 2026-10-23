@@ -27,6 +27,12 @@ describe('describeStep', () => {
     );
   });
 
+  it('shows the weight when A* weighs its estimate', () => {
+    expect(describeStep(timeline(), 1, 'astar', 'shortest', 1.5)).toMatch(
+      /^Took the frontier node with the lowest f = g \+ 1\.5 × h: 372 m \+ 1\.5 × 303 m = 827 m\. /,
+    );
+  });
+
   it('describes each algorithm by its own rule for picking the next node', () => {
     expect(describeStep(timeline(), 1, 'dijkstra', 'shortest')).toBe(
       'Took the frontier node with the lowest cost so far, 372 m. ' +

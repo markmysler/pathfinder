@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AlgorithmPicker } from './AlgorithmPicker';
 
@@ -36,5 +36,27 @@ describe('AlgorithmPicker', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /Dijkstra/ }));
     await userEvent.click(screen.getByRole('checkbox', { name: /A\* search/ }));
     expect(onToggle.mock.calls).toEqual([['dijkstra'], ['astar']]);
+  });
+
+  it("offers a weight for A*'s estimate while A* is ticked", () => {
+    const onWeight = vi.fn();
+    const { rerender } = render(
+      <AlgorithmPicker value={['astar']} onToggle={() => {}} weight={1.5} onWeight={onWeight} />,
+    );
+    const slider = screen.getByRole('slider', { name: 'Estimate weight' });
+    expect(slider).toHaveValue('1.5');
+    expect(screen.getByText(/route can be up to 50% worse than the best/)).toBeInTheDocument();
+    fireEvent.change(slider, { target: { value: '2.2' } });
+    expect(onWeight).toHaveBeenCalledWith(2.2);
+
+    rerender(
+      <AlgorithmPicker value={['astar']} onToggle={() => {}} weight={1} onWeight={onWeight} />,
+    );
+    expect(screen.getByText(/guaranteed the best route/)).toBeInTheDocument();
+
+    rerender(
+      <AlgorithmPicker value={['dijkstra']} onToggle={() => {}} weight={1.5} onWeight={onWeight} />,
+    );
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 });

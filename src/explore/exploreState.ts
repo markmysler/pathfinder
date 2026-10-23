@@ -40,6 +40,8 @@ export interface ExploreState {
   objective: Objective;
   /** Chosen algorithms, in the order they are listed. */
   algorithms: AlgorithmId[];
+  /** Weight on A*'s estimate: 1 is plain A*. */
+  astarWeight: number;
   /** Whether panning or zooming one comparison map moves the others. */
   mapsLinked: boolean;
   run: RunState;
@@ -54,6 +56,7 @@ export type ExploreAction =
   | { type: 'modeChosen'; mode: TravelMode }
   | { type: 'objectiveChosen'; objective: Objective }
   | { type: 'algorithmToggled'; algorithm: AlgorithmId }
+  | { type: 'astarWeightChosen'; weight: number }
   | { type: 'runRequested' }
   | { type: 'runProgressed'; stage: Stage; server?: ServerAttempt }
   | { type: 'runSucceeded'; result: JobResult }
@@ -70,9 +73,13 @@ export const initialExplore: ExploreState = {
   mode: 'car',
   objective: 'fastest',
   algorithms: ['greedy', 'dijkstra', 'astar'],
+  astarWeight: 1,
   mapsLinked: true,
   run: { status: 'idle' },
 };
+
+export const MIN_WEIGHT = 1;
+export const MAX_WEIGHT = 3;
 
 const LISTED = Object.keys(algorithms) as AlgorithmId[];
 
@@ -138,6 +145,10 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return { ...state, objective: action.objective };
     case 'algorithmToggled':
       return { ...state, algorithms: toggleAlgorithm(state.algorithms, action.algorithm) };
+    case 'astarWeightChosen': {
+      const tenths = Math.round(action.weight * 10) / 10;
+      return { ...state, astarWeight: Math.min(MAX_WEIGHT, Math.max(MIN_WEIGHT, tenths)) };
+    }
     case 'mapsLinkToggled':
       return { ...state, mapsLinked: !state.mapsLinked };
     case 'runRequested':

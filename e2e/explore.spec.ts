@@ -127,3 +127,27 @@ test('on a phone, shows up to three maps and swaps in the one picked', async ({
   await expect(page.getByRole('article', { name: 'Greedy best-first' })).toHaveCount(0);
   await expect(page.getByRole('table').getByRole('row')).toHaveCount(6);
 });
+
+test('shows the frontier and the pseudocode line by line', async ({ page, context, isMobile }) => {
+  await fakeTheInternet(context);
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('slider', { name: 'Estimate weight' }).fill('1.5');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await expect(page.getByRole('heading', { name: 'A* search · 1.5×' })).toBeVisible();
+  await page.getByRole('button', { name: 'Step back' }).click(); // pauses
+  await page.getByRole('slider', { name: 'Step' }).fill('5');
+  if (isMobile) await page.getByRole('button', { name: /Details/ }).click();
+
+  await page.getByRole('tab', { name: 'Frontier' }).click();
+  const frontier = page.getByRole('tabpanel', { name: 'Frontier' });
+  await expect(frontier).toContainText('A* takes the lowest f first');
+  await expect(frontier.getByText('next')).toBeVisible();
+
+  await page.getByRole('tab', { name: isMobile ? 'Code' : 'Pseudocode' }).click();
+  const code = page.getByRole('tabpanel', { name: isMobile ? 'Code' : 'Pseudocode' });
+  await expect(code.locator('[aria-current="step"]')).toContainText('popLowest');
+  await code.getByRole('button', { name: 'Next line' }).click();
+  await expect(code).toContainText('2 of');
+});

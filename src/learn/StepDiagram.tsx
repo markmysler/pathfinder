@@ -51,8 +51,15 @@ export function StepDiagram({ network, algorithm, compareWith }: Props) {
   const state = states[at]!;
   const phone = useMediaQuery(PHONE);
   const layout = phone ? 'tall' : 'wide';
-  const [width, height] = network[layout];
   const box = phone ? { w: 124, h: 64 } : { w: 136, h: 68 };
+  // Fit the picture to its boxes, with a small margin, whatever the layout's coordinates.
+  const xs = network.nodes.map((n) => n[layout][0]);
+  const ys = network.nodes.map((n) => n[layout][1]);
+  const margin = 8;
+  const left = Math.min(...xs) - box.w / 2 - margin;
+  const top = Math.min(...ys) - box.h / 2 - margin;
+  const width = Math.max(...xs) - Math.min(...xs) + box.w + 2 * margin;
+  const height = Math.max(...ys) - Math.min(...ys) + box.h + 2 * margin;
   const position = (id: string) => network.nodes.find((n) => n.id === id)![layout];
   const onRoute = (a: string, b: string) => {
     const path = state.route?.path ?? [];
@@ -126,7 +133,7 @@ export function StepDiagram({ network, algorithm, compareWith }: Props) {
 
       <div className={styles.canvas}>
         <svg
-          viewBox={`0 0 ${width} ${height}`}
+          viewBox={`${left} ${top} ${width} ${height}`}
           className={styles.svg}
           role="img"
           aria-label={`Step ${at + 1}. ${description}.`}

@@ -56,8 +56,8 @@ export default function GreedyArticle() {
       <Section id="step" title="Step through it">
         <p>
           A looks very close to T, but the only road from A to T is a long detour costing 10. The
-          road through B costs 3 more at the start and is much cheaper overall. Press{' '}
-          <b>Show as A*</b>, which adds the cost so far to the same estimate.
+          road through B costs 3 more at the start and is much cheaper overall. Replay it as{' '}
+          <b>A*</b>, which adds the cost so far to the same estimate.
         </p>
         <StepDiagram network={DETOUR} algorithm="greedy" compareWith="astar" />
       </Section>

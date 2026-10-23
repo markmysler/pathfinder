@@ -15,13 +15,7 @@ export interface DiagramNetwork {
   edges: readonly (readonly [string, string, number])[];
   source: string;
   target: string;
-  /** Size of each layout, in the same units as node positions. */
-  wide: readonly [number, number];
-  tall: readonly [number, number];
 }
-
-const WIDE: readonly [number, number] = [720, 380];
-const TALL: readonly [number, number] = [326, 376];
 
 /** Two ways from S to T that cost 6 and 7, with a sense of direction to help A*. */
 export const SIX: DiagramNetwork = {
@@ -44,8 +38,6 @@ export const SIX: DiagramNetwork = {
   ],
   source: 'S',
   target: 'T',
-  wide: WIDE,
-  tall: TALL,
 };
 
 /** One expensive road straight to T, and three cheap ones around: BFS counts roads, not cost. */
@@ -64,8 +56,6 @@ export const HOPS: DiagramNetwork = {
   ],
   source: 'S',
   target: 'T',
-  wide: WIDE,
-  tall: TALL,
 };
 
 /** A looks close to T, but the only road from A to T is a long detour. */
@@ -84,6 +74,4 @@ export const DETOUR: DiagramNetwork = {
   ],
   source: 'S',
   target: 'T',
-  wide: WIDE,
-  tall: TALL,
 };

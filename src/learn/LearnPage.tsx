@@ -18,7 +18,10 @@ export function LearnPage() {
   const topic = slug ? topicBySlug(slug) : undefined;
 
   // A new topic starts at the top of the page, like a new page would.
-  useEffect(() => window.scrollTo?.(0, 0), [slug]);
+  useEffect(() => {
+    // Braces matter: newer browsers return a promise from scrollTo, which React would call.
+    window.scrollTo?.(0, 0);
+  }, [slug]);
 
   const Article = topic ? ARTICLES[topic.slug] : undefined;
   const content = !slug ? (

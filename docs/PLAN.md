@@ -92,6 +92,7 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 3 — OSM pipeline (search area + size cap, OSM tag rules per mode, road network, routing graphs, largest SCC + snapping, Overpass client with fallback, IndexedDB cache; tested on recorded Plaza de Mayo data)
 - [x] Phase 4 — Single-algorithm visualization (MapLibre + deck.gl map, address search, worker, playback, inspector, desktop and phone layouts per the approved designs)
 - [x] Phase 5 — Multi-algorithm comparison
+- [x] Phase 6 — Learning features + Learn section (frontier and line-by-line pseudocode in the inspector, weighted A*, Learn home and 11 articles with trace-driven diagrams; design boards on the canvas under "Phase 6")
 
 Follow-ups noted during phase 4:
 

@@ -52,7 +52,7 @@ export default function DfsArticle() {
       <Section id="step" title="Step through it">
         <p>
           The same six intersections as in the A* article. The cheapest route costs 6. Watch which
-          road depth-first takes from each node, then press <b>Show as BFS</b>.
+          road depth-first takes from each node, then replay it as <b>BFS</b>.
         </p>
         <StepDiagram network={SIX} algorithm="dfs" compareWith="bfs" />
       </Section>

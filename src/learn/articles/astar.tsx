@@ -71,8 +71,8 @@ export default function AStarArticle() {
       <Section id="step" title="Step through it">
         <p>
           A tiny road network: six intersections, with the travel cost written on each road. Each
-          box shows its <M>g</M>, <M>h</M> and <M>f</M> once A* has reached it. Press{' '}
-          <b>Show as Dijkstra</b> to replay the same roads without the estimate.
+          box shows its <M>g</M>, <M>h</M> and <M>f</M> once A* has reached it. Replay it as{' '}
+          <b>Dijkstra</b> to see the same roads without the estimate.
         </p>
         <StepDiagram network={SIX} algorithm="astar" compareWith="dijkstra" />
       </Section>

@@ -75,6 +75,15 @@ describe('LearnPage', () => {
     );
   });
 
+  it('moves between topics where scrolling returns a promise, as in newer Chrome', () => {
+    vi.stubGlobal('scrollTo', () => Promise.resolve());
+    goTo('#/learn/astar');
+    render(<LearnPage />);
+    goTo('#/learn/dijkstra');
+    goTo('#/learn');
+    expect(screen.getByRole('heading', { level: 1, name: 'Learn' })).toBeInTheDocument();
+  });
+
   it('says so when a topic does not exist', () => {
     goTo('#/learn/teleportation');
     render(<LearnPage />);

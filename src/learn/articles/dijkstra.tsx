@@ -59,7 +59,7 @@ export default function DijkstraArticle() {
       <Section id="step" title="Step through it">
         <p>
           Six intersections and the cost of each road between them. Each box shows <M>g</M> once
-          Dijkstra has reached it. Press <b>Show as A*</b> to see how an estimate changes the order.
+          Dijkstra has reached it. Replay it as <b>A*</b> to see how an estimate changes the order.
         </p>
         <StepDiagram network={SIX} algorithm="dijkstra" compareWith="astar" />
       </Section>

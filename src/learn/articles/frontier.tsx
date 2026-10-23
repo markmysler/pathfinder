@@ -69,8 +69,8 @@ export default function FrontierArticle() {
 
       <Section id="step" title="Step through it">
         <p>
-          Breadth-first search, the simplest choice: it takes whatever has waited longest. Press{' '}
-          <b>Show as DFS</b> to take whatever arrived most recently instead, and watch the same loop
+          Breadth-first search, the simplest choice: it takes whatever has waited longest. Replay it
+          as <b>DFS</b> to take whatever arrived most recently instead, and watch the same loop
           wander off.
         </p>
         <StepDiagram network={SIX} algorithm="bfs" compareWith="dfs" />

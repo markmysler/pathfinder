@@ -52,7 +52,7 @@ export default function BfsArticle() {
       <Section id="step" title="Step through it">
         <p>
           A road straight from S to T that costs 9, and a detour through A and B that costs 3 in
-          all. Press <b>Show as Dijkstra</b> to compare.
+          all. Then replay it as <b>Dijkstra</b> to compare.
         </p>
         <StepDiagram network={HOPS} algorithm="bfs" compareWith="dijkstra" />
       </Section>

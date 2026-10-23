@@ -269,7 +269,8 @@
   color: var(--bg);
 }
 
-.stripItem[data-first] .mono {
+.stripItem[data-first] .mono,
+.stripItem[data-first] b {
   color: var(--bg);
 }
 

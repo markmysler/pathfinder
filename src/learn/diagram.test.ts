@@ -3,6 +3,7 @@ import {
   bothWaysStates,
   caption,
   diagramStates,
+  rushHour,
   type DiagramState,
 } from './diagram';
 import { DETOUR, HOPS, SIX, TRAP } from './networks';
@@ -174,5 +175,19 @@ describe('bothWaysCaption', () => {
         'S → Q → R → T costs 4 + 2 = 6. The next nodes are 4 from A and 2 from B, together 6: ' +
         'no less than 6, so nothing left can beat it. The search stops.',
     );
+  });
+});
+
+describe('rushHour', () => {
+  it('reroutes Dijkstra when one road slows to a quarter of its speed', () => {
+    const clear = rushHour(SIX, null);
+    expect(clear.route).toEqual({ path: ['S', 'A', 'B', 'T'], cost: 6 });
+    expect(clear.before).toBeNull();
+
+    const jam = rushHour(SIX, { road: ['A', 'B'], share: 0.25 });
+    expect(jam.route).toEqual({ path: ['S', 'C', 'D', 'T'], cost: 7 });
+    expect(jam.before).toEqual({ path: ['S', 'A', 'B', 'T'], cost: 6, costNow: 15 });
+    expect(jam.costs.get('A–B')).toEqual({ usual: 3, now: 12 });
+    expect(jam.costs.get('S–A')).toEqual({ usual: 2, now: 2 });
   });
 });

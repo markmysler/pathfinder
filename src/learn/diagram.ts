@@ -335,3 +335,57 @@ export function bothWaysCaption(state: BothWaysState): string {
   }
   return `${text} ${nexts}, still less than ${best}, so the search goes on.`;
 }
+
+/** One road slowed by traffic: its two ends, and its speed as a share of free flow. */
+export interface Jam {
+  road: readonly [string, string];
+  share: number;
+}
+
+export interface RushHour {
+  /** Dijkstra's best route with the traffic. */
+  route: { path: string[]; cost: number };
+  /** With a jam: the route on clear roads, and what those roads cost now. */
+  before: { path: string[]; cost: number; costNow: number } | null;
+  /** Each road's cost on clear roads and now, keyed like "A–B" in the network's order. */
+  costs: Map<string, { usual: number; now: number }>;
+}
+
+/** Runs Dijkstra on a diagram network, with one road slowed by traffic if `jam` is given. */
+export function rushHour(network: DiagramNetwork, jam: Jam | null): RushHour {
+  const isJammed = ([a, b]: readonly [string, string, number]) =>
+    jam !== null &&
+    ((a === jam.road[0] && b === jam.road[1]) || (a === jam.road[1] && b === jam.road[0]));
+  const slowed: DiagramNetwork = {
+    ...network,
+    edges: network.edges.map((edge) =>
+      isJammed(edge) ? [edge[0], edge[1], edge[2] / jam!.share] : edge,
+    ),
+  };
+  const best = (net: DiagramNetwork) => {
+    const { ids, index, graph } = graphOf(net);
+    const { result } = runSearch(algorithms.dijkstra.search, {
+      graph,
+      source: index(net.source),
+      target: index(net.target),
+    });
+    if (!result.found) throw new Error('Diagram networks always connect S and T');
+    return { path: result.path.map((node) => ids[node]!), cost: result.cost };
+  };
+  const costs = new Map(
+    network.edges.map((edge, i) => [
+      `${edge[0]}–${edge[1]}`,
+      { usual: edge[2], now: slowed.edges[i]![2] },
+    ]),
+  );
+  const route = best(slowed);
+  if (!jam) return { route, before: null, costs };
+  const clear = best(network);
+  const costOf = (path: string[]) =>
+    path.slice(1).reduce((sum, to, i) => {
+      const from = path[i]!;
+      const cost = costs.get(`${from}–${to}`) ?? costs.get(`${to}–${from}`);
+      return sum + cost!.now;
+    }, 0);
+  return { route, before: { ...clear, costNow: costOf(clear.path) }, costs };
+}

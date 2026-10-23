@@ -95,6 +95,17 @@ describe('LearnPage', () => {
     );
   });
 
+  it('explains live traffic in the roads article, with a rush hour to switch on', () => {
+    goTo('#/learn/roads');
+    render(<LearnPage />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Live traffic' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Traffic' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Why A* still finds the best route' }),
+    ).toBeVisible();
+    expect(screen.getByRole('img', { name: /provider line points right/ })).toBeInTheDocument();
+  });
+
   it('moves between topics where scrolling returns a promise, as in newer Chrome', () => {
     vi.stubGlobal('scrollTo', () => Promise.resolve());
     goTo('#/learn/astar');

@@ -630,3 +630,44 @@
   line-height: 1.6;
   color: var(--text-2);
 }
+
+.traffic {
+  color: var(--traffic-text);
+}
+
+.figureBox {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.figureBox figcaption {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.figureSvg {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+}
+
+@media (max-width: 720px) {
+  .figureBox {
+    padding: 12px 8px 16px;
+  }
+
+  .figureBox figcaption {
+    margin: 0 6px;
+    font-size: 14.5px;
+  }
+}

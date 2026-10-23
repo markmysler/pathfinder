@@ -154,6 +154,21 @@ describe('describePart', () => {
     );
   });
 
+  it('gives short travel times in tenths of a second, so they do not read as zero', () => {
+    const fast = describePart(
+      { kind: 'road', entry: 1 },
+      {
+        timeline: { ...t, entryCost: Float64Array.from([0, 0.4, 300, 200]) } as unknown as Timeline,
+        step: 1,
+        algorithm: 'dijkstra',
+        objective: 'fastest',
+        weight: 1,
+        names,
+      },
+    );
+    expect(fast).toMatch(/^Road to Bolívar & Perú, taking 0\.4 s: 0:00 \+ 0\.4 s = 0:00/);
+  });
+
   it('explains roads that led nowhere better, skips and the goal', () => {
     expect(say({ kind: 'rejected', count: 2 }, 'astar')).toBe(
       'The other 2 roads did not reach anywhere more cheaply.',

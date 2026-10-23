@@ -155,14 +155,16 @@ export function describePart(part: StepPart, context: PartContext): string {
         return `Road to ${to}: not seen before, so it joins the frontier with h = ${cost(h)}.`;
       }
       const from = t.entryCost[t.expandedEntry[step]!]!;
-      const length =
-        objective === 'fastest' ? `taking ${cost(g - from)}` : `${cost(g - from)} long`;
+      // Many street segments take a few seconds; whole seconds would round them to nothing.
+      const c = g - from;
+      const road = objective === 'fastest' && c < 10 ? `${c.toFixed(1)} s` : cost(c);
+      const length = objective === 'fastest' ? `taking ${road}` : `${road} long`;
       const previous = t.entryPrevious[part.entry]!;
       const verdict = Number.isFinite(previous)
         ? `beats the best known way there, ${cost(previous)}`
         : 'is the first way found there';
       const joins = algorithm === 'dijkstra' ? `g = ${cost(g)}` : `f = ${sum(g, h)}`;
-      return `Road to ${to}, ${length}: ${cost(from)} + ${cost(g - from)} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.`;
+      return `Road to ${to}, ${length}: ${cost(from)} + ${road} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.`;
     }
     case 'rejected': {
       const others = t.pushesAt[step]! > 0;

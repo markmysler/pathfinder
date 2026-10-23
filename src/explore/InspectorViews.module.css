@@ -146,9 +146,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-m);
   font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 22px;
-  overflow-x: auto;
+  font-size: 12px;
+  line-height: 21px;
 }
 
 .line {
@@ -157,7 +156,16 @@
   padding: 1px 10px 1px 6px;
   border-radius: 4px;
   color: var(--text-2);
-  white-space: pre;
+}
+
+/* Long lines wrap under themselves instead of scrolling out of the narrow inspector. */
+.code {
+  flex: 1;
+  min-width: 0;
+  padding-left: 4ch;
+  text-indent: -4ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .line[data-run] {
@@ -185,7 +193,5 @@
 }
 
 .note {
-  margin-left: auto;
-  padding-left: 8px;
   color: var(--algo);
 }

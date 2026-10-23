@@ -90,6 +90,9 @@ describe('Inspector views', () => {
     unmount();
     render(<Inspector {...base} run={resultFor('astar')} step={3} compact />);
     expect(screen.getByRole('tab', { name: 'Code' })).toBeInTheDocument();
+    // On phones the card over the map already shows the name and the numbers.
+    expect(screen.queryByRole('heading', { name: /doing right now/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Expanded')).not.toBeInTheDocument();
   });
 
   it('lists the frontier in the order the search will take it', async () => {

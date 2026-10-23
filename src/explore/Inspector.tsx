@@ -92,35 +92,39 @@ export function Inspector({
 
   return (
     <div className={styles.inspector} style={algoColor(run.algorithm)}>
-      <header>
-        <p className={styles.eyebrow}>Inspector</p>
-        <h2 className={styles.title}>What {name} is doing right now</h2>
-      </header>
-      <dl className={styles.tiles}>
-        <div className={styles.tile}>
-          <dt>Expanded</dt>
-          <dd>{formatCount(step)}</dd>
-        </div>
-        <div className={styles.tile}>
-          <dt>In frontier</dt>
-          <dd>{formatCount(timeline.frontierSizeAt[step]!)}</dd>
-        </div>
-        <div className={styles.tile}>
-          <dt>Cost so far · g</dt>
-          <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
-        </div>
-        {informed ? (
-          <div className={styles.tile}>
-            <dt>Estimate left · h</dt>
-            <dd>{formatCost(timeline.expandedEstimate[step]!, objective)}</dd>
-          </div>
-        ) : (
-          <div className={styles.tile}>
-            <dt>Roads explored</dt>
-            <dd>{formatCount(roadsExploredBy(timeline, step))}</dd>
-          </div>
-        )}
-      </dl>
+      {!compact && (
+        <>
+          <header>
+            <p className={styles.eyebrow}>Inspector</p>
+            <h2 className={styles.title}>What {name} is doing right now</h2>
+          </header>
+          <dl className={styles.tiles}>
+            <div className={styles.tile}>
+              <dt>Expanded</dt>
+              <dd>{formatCount(step)}</dd>
+            </div>
+            <div className={styles.tile}>
+              <dt>In frontier</dt>
+              <dd>{formatCount(timeline.frontierSizeAt[step]!)}</dd>
+            </div>
+            <div className={styles.tile}>
+              <dt>Cost so far · g</dt>
+              <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
+            </div>
+            {informed ? (
+              <div className={styles.tile}>
+                <dt>Estimate left · h</dt>
+                <dd>{formatCost(timeline.expandedEstimate[step]!, objective)}</dd>
+              </div>
+            ) : (
+              <div className={styles.tile}>
+                <dt>Roads explored</dt>
+                <dd>{formatCount(roadsExploredBy(timeline, step))}</dd>
+              </div>
+            )}
+          </dl>
+        </>
+      )}
 
       <div role="tablist" aria-label="Inspector views" className={styles.tabs}>
         {views.map((v) => (

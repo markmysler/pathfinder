@@ -123,10 +123,12 @@
   border-radius: var(--radius-m);
 }
 
-.withSettings > .card,
-.withSettings > .card:has(input:checked) {
-  background: transparent;
-  border-color: transparent;
+@media (min-width: 721px) {
+  .withSettings > .card,
+  .withSettings > .card:has(input:checked) {
+    background: transparent;
+    border-color: transparent;
+  }
 }
 
 .settings {

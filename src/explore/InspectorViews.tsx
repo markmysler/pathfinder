@@ -126,7 +126,7 @@ export function FrontierView({
 const KEYWORDS = /\b(function|while|for each|if|return|in|is not|not in)\b/g;
 
 /** A line of pseudocode with its keywords marked. */
-function Code({ text }: { text: string }) {
+function Code({ text, note }: { text: string; note?: string }) {
   const pieces: (string | { keyword: string })[] = [];
   let last = 0;
   for (const match of text.matchAll(KEYWORDS)) {
@@ -145,6 +145,7 @@ function Code({ text }: { text: string }) {
           </span>
         ),
       )}
+      {note && <span className={styles.note}> {note}</span>}
     </span>
   );
 }
@@ -228,8 +229,7 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
               <span className={styles.number} aria-hidden="true">
                 {n}
               </span>
-              <Code text={text} />
-              {focus && note && <span className={styles.note}>{note}</span>}
+              <Code text={text} note={focus ? note : undefined} />
             </div>
           );
         })}

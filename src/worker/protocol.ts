@@ -12,6 +12,7 @@ export type JobError =
 
 export type WorkerReply =
   | { type: 'progress'; id: number; stage: Stage; server?: ServerAttempt }
+  | { type: 'traffic'; id: number; done: number; total: number }
   | { type: 'done'; id: number; result: JobResult }
   | { type: 'error'; id: number; error: JobError };
 

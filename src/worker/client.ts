@@ -16,6 +16,7 @@ interface Pending {
   resolve(result: JobResult): void;
   reject(error: JobError): void;
   onProgress(stage: Stage, server?: ServerAttempt): void;
+  onTraffic?(done: number, total: number): void;
 }
 
 /** A promise-based front end to the search worker; several jobs may be in flight. */
@@ -27,6 +28,7 @@ export function createSearchClient(worker: WorkerLike) {
     const job = pending.get(data.id);
     if (!job) return;
     if (data.type === 'progress') return job.onProgress(data.stage, data.server);
+    if (data.type === 'traffic') return job.onTraffic?.(data.done, data.total);
     pending.delete(data.id);
     if (data.type === 'done') job.resolve(data.result);
     else job.reject(data.error);
@@ -36,10 +38,12 @@ export function createSearchClient(worker: WorkerLike) {
     run(
       request: JobRequest,
       onProgress: (stage: Stage, server?: ServerAttempt) => void,
+      /** How many pieces of live traffic have arrived, out of how many. */
+      onTraffic?: (done: number, total: number) => void,
     ): RunningJob {
       const id = ++lastId;
       const result = new Promise<JobResult>((resolve, reject) => {
-        pending.set(id, { resolve, reject, onProgress });
+        pending.set(id, { resolve, reject, onProgress, onTraffic });
       });
       worker.postMessage({ type: 'run', id, request });
       return {

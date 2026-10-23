@@ -50,6 +50,21 @@ describe('createSearchClient', () => {
     ]);
   });
 
+  it('forwards how much traffic has arrived', async () => {
+    const { worker } = fakeWorker();
+    const traffic: [number, number][] = [];
+    const job = createSearchClient(worker).run(
+      request,
+      () => {},
+      (done, total) => traffic.push([done, total]),
+    );
+    worker.reply({ type: 'traffic', id: 1, done: 3, total: 36 });
+    worker.reply({ type: 'traffic', id: 2, done: 1, total: 1 });
+    worker.reply({ type: 'done', id: 1, result: {} as never });
+    await job.result;
+    expect(traffic).toEqual([[3, 36]]);
+  });
+
   it('rejects with the error the worker reported', async () => {
     const { worker } = fakeWorker();
     const job = createSearchClient(worker).run(request, () => {});

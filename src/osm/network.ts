@@ -104,6 +104,8 @@ export interface RoutingGraph {
    * by it gives a heuristic that never overestimates.
    */
   maxSpeed: number;
+  /** The road network segment each edge runs along, in graph edge order. */
+  edgeSegment: Uint32Array;
   /**
    * For car graphs built with traffic: each edge's current speed as a share of free flow, in
    * graph edge order, NaN where there was no reading.
@@ -128,7 +130,8 @@ export function routingGraph(
   }));
   const live = mode === 'car' ? traffic : undefined;
 
-  const edges: { from: number; to: number; weight: number; traffic: number }[] = [];
+  const edges: { from: number; to: number; weight: number; traffic: number; segment: number }[] =
+    [];
   let maxSpeed = objective === 'shortest' ? 1 : 0;
   for (let s = 0; s < network.segmentCount; s++) {
     const { directions, metersPerSecond } = rules[network.segmentWay[s]!]!;
@@ -141,7 +144,7 @@ export function routingGraph(
       const speed = metersPerSecond * (Number.isNaN(share) ? 1 : share);
       const weight = objective === 'shortest' ? meters : meters / speed;
       if (objective === 'fastest') maxSpeed = Math.max(maxSpeed, speed);
-      edges.push({ from, to, weight, traffic: share });
+      edges.push({ from, to, weight, traffic: share, segment: s });
     };
     if (directions.forward) add(a, b, live?.forward[s] ?? NaN);
     if (directions.backward) add(b, a, live?.backward[s] ?? NaN);
@@ -152,11 +155,15 @@ export function routingGraph(
     lon: network.lon[i]!,
   }));
   const graph = buildGraph({ nodes, edges });
-  if (!live) return { graph, maxSpeed: maxSpeed || 1 };
 
   // buildGraph groups edges by source and keeps their order, so the same pass lines them up.
-  const edgeTraffic = new Float32Array(graph.edgeCount);
+  const edgeSegment = new Uint32Array(graph.edgeCount);
+  const edgeTraffic = live ? new Float32Array(graph.edgeCount) : undefined;
   const nextSlot = graph.firstEdge.slice(0, graph.nodeCount);
-  for (const { from, traffic: share } of edges) edgeTraffic[nextSlot[from]!++] = share;
-  return { graph, maxSpeed: maxSpeed || 1, edgeTraffic };
+  for (const { from, traffic: share, segment } of edges) {
+    const e = nextSlot[from]!++;
+    edgeSegment[e] = segment;
+    if (edgeTraffic) edgeTraffic[e] = share;
+  }
+  return { graph, maxSpeed: maxSpeed || 1, edgeSegment, edgeTraffic };
 }

@@ -5,9 +5,10 @@ import type { Objective, RoadNetwork } from '../osm/network';
 import { nodeLabels, type NodeLabels } from '../osm/places';
 import { prepareSearch } from '../osm/prepare';
 import type { TravelMode } from '../osm/roads';
-import { buildTimeline, type Timeline } from '../playback/timeline';
+import { buildTimeline, entryTraffic, type Timeline } from '../playback/timeline';
 import type { TimedTraffic, TrafficSource } from '../traffic/fetch';
 import { matchTraffic, trafficCoverage, type TrafficCoverage } from '../traffic/match';
+import { trafficRoads, trafficStory, type TrafficRoads, type TrafficStory } from '../traffic/story';
 import { TrafficError, type TrafficFailure, type TrafficProvider } from '../traffic/types';
 
 export interface JobRequest {
@@ -34,6 +35,10 @@ export type TrafficOutcome =
       fetchedAt: number;
       /** Tiles that never arrived; their roads kept their usual speeds. */
       missingTiles: number;
+      /** Car roads to draw as slow, jammed or closed. */
+      slowRoads: TrafficRoads;
+      /** How traffic changed the best route; missing if there is no route. */
+      story?: TrafficStory;
     } & TrafficCoverage)
   | { status: 'failed'; provider: TrafficProvider; reason: TrafficFailure };
 
@@ -79,9 +84,11 @@ export interface JobDeps {
   fetchTraffic?(
     source: TrafficSource,
     area: BBox,
-    options: { signal?: AbortSignal },
+    options: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void },
   ): Promise<TimedTraffic>;
   onProgress(stage: Stage, server?: ServerAttempt): void;
+  /** How many pieces of traffic (TomTom's tiles, HERE's one answer) have arrived. */
+  onTrafficProgress?(done: number, total: number): void;
   signal?: AbortSignal;
 }
 
@@ -97,7 +104,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   const source = request.mode === 'car' ? request.traffic : undefined;
   const traffic =
     source && deps.fetchTraffic
-      ? deps.fetchTraffic(source, area, { signal }).then(
+      ? deps.fetchTraffic(source, area, { signal, onProgress: deps.onTrafficProgress }).then(
           (fetched) => ({ fetched }),
           (error: unknown) => ({ error }),
         )
@@ -114,6 +121,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
 
   let outcome: TrafficOutcome = { status: 'off' };
   let segmentTraffic;
+  let live: Omit<Extract<TrafficOutcome, { status: 'live' }>, 'story'> | undefined;
   if (source && traffic) {
     deps.onProgress('traffic');
     const answer = await traffic;
@@ -122,7 +130,14 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
       const { readings, missingTiles, fetchedAt } = answer.fetched;
       segmentTraffic = matchTraffic(network, readings);
       const coverage = trafficCoverage(network, segmentTraffic);
-      outcome = { status: 'live', provider: source.provider, fetchedAt, missingTiles, ...coverage };
+      live = {
+        status: 'live',
+        provider: source.provider,
+        fetchedAt,
+        missingTiles,
+        ...coverage,
+        slowRoads: trafficRoads(network, segmentTraffic),
+      };
     } else {
       if (isAbort(answer.error)) throw answer.error;
       const reason = answer.error instanceof TrafficError ? answer.error.reason : 'unavailable';
@@ -135,7 +150,19 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   signal?.throwIfAborted();
 
   deps.onProgress('search');
-  const { graph, snapped } = prepared;
+  const { graph, snapped, edgeTraffic } = prepared;
+  if (live) {
+    const { mode, objective } = request;
+    const story = trafficStory(
+      network,
+      prepared,
+      prepared.source,
+      prepared.target,
+      mode,
+      objective,
+    );
+    outcome = { ...live, story };
+  }
   const runs = request.algorithms.map((algorithm): AlgorithmRun => {
     signal?.throwIfAborted();
     const weight = algorithm === 'astar' ? (request.astarWeight ?? 1) : 1;
@@ -145,19 +172,16 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
       heuristic: weight === 1 ? heuristic : (n: number) => weight * heuristic(n),
     };
     const trace = runSearch(algorithms[algorithm].search, search);
-    return {
-      algorithm,
-      weight,
-      // The timeline keeps the plain estimate, which is what the inspector explains.
-      timeline: buildTimeline(
-        graph,
-        trace,
-        heuristic,
-        algorithms[algorithm].frontier,
-        backwardHeuristic,
-      ),
-      stats: summarize(trace.events),
-    };
+    // The timeline keeps the plain estimate, which is what the inspector explains.
+    const timeline = buildTimeline(
+      graph,
+      trace,
+      heuristic,
+      algorithms[algorithm].frontier,
+      backwardHeuristic,
+    );
+    if (edgeTraffic) Object.assign(timeline, entryTraffic(graph, trace, edgeTraffic));
+    return { algorithm, weight, timeline, stats: summarize(trace.events) };
   });
   const at = ({ node, meters }: { node: number; meters: number }) => ({
     lat: graph.lat[node]!,
@@ -183,5 +207,10 @@ export function transferablesOf(result: JobResult): ArrayBuffer[] {
     return timeline.route ? [...own, timeline.route.positions] : own;
   });
   views.push(result.places.nodeLabel);
+  if (result.traffic.status === 'live') {
+    const { slowRoads, story } = result.traffic;
+    views.push(slowRoads.positions, slowRoads.share);
+    if (story) views.push(story.clear.positions);
+  }
   return views.map((view) => view.buffer as ArrayBuffer);
 }

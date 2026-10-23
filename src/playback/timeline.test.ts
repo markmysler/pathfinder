@@ -7,7 +7,7 @@ import { incomingRange, reverseIndex } from '../graph/reverse';
 import { haversineMeters } from '../graph/geo';
 import { randomGeoProblem } from '../test/arbitraries';
 import { binaryTree, grid } from '../test/fixtures';
-import { buildTimeline, meetingAt, NEVER, roadsExploredBy } from './timeline';
+import { buildTimeline, entryTraffic, meetingAt, NEVER, roadsExploredBy } from './timeline';
 
 const pops = (trace: Trace) => trace.events.filter((e) => e.type === 'pop');
 
@@ -292,5 +292,32 @@ describe('roadsExploredBy', () => {
       const expected = [...t.roadStep].filter((s) => s <= step).length;
       expect(roadsExploredBy(t, step)).toBe(expected);
     }
+  });
+});
+
+describe('entryTraffic', () => {
+  it('gives each frontier entry the traffic and length of the road it came along', () => {
+    const graph = grid(3);
+    const edgeTraffic = new Float32Array(graph.edgeCount).map((_, e) => (e % 2 ? 0.5 : NaN));
+    const trace = runSearch(algorithms.dijkstra.search, { graph, source: 0, target: 8 });
+    const { entryShare, entryMeters } = entryTraffic(graph, trace, edgeTraffic);
+    const pushes = trace.events.filter((e) => e.type === 'push');
+    expect(entryShare).toHaveLength(pushes.length);
+    pushes.forEach((push, i) => {
+      if (push.edge === null) {
+        expect(entryShare[i]).toBeNaN();
+        expect(entryMeters[i]).toBe(0);
+        return;
+      }
+      const e = push.edge;
+      if (Number.isNaN(edgeTraffic[e]!)) expect(entryShare[i]).toBeNaN();
+      else expect(entryShare[i]).toBe(edgeTraffic[e]);
+      const a = graph.edgeSource[e]!;
+      const b = graph.edgeTarget[e]!;
+      expect(entryMeters[i]).toBeCloseTo(
+        haversineMeters(graph.lat[a]!, graph.lon[a]!, graph.lat[b]!, graph.lon[b]!),
+        2,
+      );
+    });
   });
 });

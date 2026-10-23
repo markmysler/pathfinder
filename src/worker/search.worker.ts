@@ -33,6 +33,7 @@ scope.onmessage = async ({ data }) => {
       fetchTraffic: (source, area, options) =>
         fetchTraffic(source, area, { cache: recent, ...options }),
       onProgress: (stage, server) => scope.postMessage({ type: 'progress', id, stage, server }),
+      onTrafficProgress: (done, total) => scope.postMessage({ type: 'traffic', id, done, total }),
       signal: controller.signal,
     });
     if (!controller.signal.aborted) {

@@ -133,6 +133,16 @@ describe('routingGraph', () => {
     expect(graph.lon[2]).toBe(0.002);
   });
 
+  it('records which road segment each edge comes from, in graph order', () => {
+    const { graph, edgeSegment } = routingGraph(network, 'car', 'shortest');
+    const at = (from: number, to: number) =>
+      edgeSegment[edges(graph).findIndex(([a, b]) => a === from && b === to)];
+    expect(at(0, 1)).toBe(0);
+    expect(at(1, 0)).toBe(0);
+    expect(at(2, 1)).toBe(1);
+    expect(at(1, 3)).toBe(2);
+  });
+
   it('reports the top speed so a time heuristic never overestimates', () => {
     expect(routingGraph(network, 'car', 'fastest').maxSpeed).toBeCloseTo(30 / 3.6, 9);
     expect(routingGraph(network, 'walk', 'fastest').maxSpeed).toBeCloseTo(5 / 3.6, 9);

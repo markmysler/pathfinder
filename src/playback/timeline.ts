@@ -58,6 +58,11 @@ export interface Timeline extends FrontierEntries, Meetings {
   frontierLeave: Float32Array;
 
   route: { positions: Float64Array; cost: number; meters: number } | null;
+
+  /** With live traffic: each entry's road as a share of free flow (NaN if no reading). */
+  entryShare?: Float32Array;
+  /** With live traffic: each entry's road length in metres (0 for where a side starts). */
+  entryMeters?: Float32Array;
 }
 
 /** Each time a bidirectional search's sides met at a node and found a cheaper route. */
@@ -431,4 +436,28 @@ export function roadsExploredBy(timeline: Pick<Timeline, 'roadStep' | 'roadCount
     else high = mid;
   }
   return low;
+}
+
+/** For each frontier entry, in push order: the traffic on the road it came along, and its length. */
+export function entryTraffic(
+  graph: Graph,
+  { events }: Trace,
+  edgeTraffic: Float32Array,
+): { entryShare: Float32Array; entryMeters: Float32Array } {
+  const pushes = events.filter((event) => event.type === 'push');
+  const entryShare = new Float32Array(pushes.length).fill(NaN);
+  const entryMeters = new Float32Array(pushes.length);
+  pushes.forEach(({ edge }, entry) => {
+    if (edge === null) return;
+    const a = graph.edgeSource[edge]!;
+    const b = graph.edgeTarget[edge]!;
+    entryShare[entry] = edgeTraffic[edge]!;
+    entryMeters[entry] = haversineMeters(
+      graph.lat[a]!,
+      graph.lon[a]!,
+      graph.lat[b]!,
+      graph.lon[b]!,
+    );
+  });
+  return { entryShare, entryMeters };
 }

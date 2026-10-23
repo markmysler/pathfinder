@@ -249,6 +249,50 @@ describe('runJob with live traffic', () => {
     expect(withTraffic.traffic.slowed).toBe(withTraffic.traffic.roads);
   });
 
+  it('sends what the map and inspector show about traffic', async () => {
+    const result = await runJob(
+      { ...request, algorithms: ['dijkstra', 'astar'], traffic: tomtom },
+      deps({ fetchTraffic: live(0.5) }).deps,
+    );
+    if (result.traffic.status !== 'live') throw new Error('expected live traffic');
+    const { slowRoads, story } = result.traffic;
+    // Every car road is at half speed: all of them are drawn as slow.
+    expect(slowRoads.share.length).toBeGreaterThan(100);
+    expect(slowRoads.positions).toHaveLength(4 * slowRoads.share.length);
+    // Half speed everywhere doubles every route without moving it.
+    expect(story!.changed).toBe(false);
+    expect(story!.clear.costNow).toBeCloseTo(2 * story!.clear.cost, 3);
+    expect(story!.best).toBeCloseTo(result.runs[0]!.timeline.route!.cost, 6);
+    // Each frontier entry knows the traffic on the road it came along.
+    const { timeline } = result.runs[1]!;
+    expect(timeline.entryShare).toHaveLength(timeline.entryCount);
+    expect(timeline.entryShare![1]).toBeCloseTo(0.5, 6);
+    expect(timeline.entryMeters![1]).toBeGreaterThan(0);
+    const buffers = transferablesOf(result);
+    expect(buffers).toContain(timeline.entryShare!.buffer);
+    expect(buffers).toContain(slowRoads.positions.buffer);
+    expect(buffers).toContain(story!.clear.positions.buffer);
+  });
+
+  it('passes on how many traffic tiles have arrived', async () => {
+    const progress: [number, number][] = [];
+    await runJob(
+      { ...request, traffic: tomtom },
+      deps({
+        fetchTraffic: async (_source, _area, { onProgress }) => {
+          onProgress?.(1, 2);
+          onProgress?.(2, 2);
+          return { readings: everywhere(1), missingTiles: 0, fetchedAt: 0 };
+        },
+        onTrafficProgress: (done, total) => progress.push([done, total]),
+      }).deps,
+    );
+    expect(progress).toEqual([
+      [1, 2],
+      [2, 2],
+    ]);
+  });
+
   it('falls back to usual speeds, and says why, when the provider refuses', async () => {
     const fetchTraffic = vi.fn(async () => {
       throw new TrafficError('tomtom', 'key', 'TomTom refused the key (HTTP 403)');

@@ -45,6 +45,13 @@ const OPEN_IF_TAGGED: Record<TravelMode, ReadonlySet<string>> = {
   walk: new Set(['cycleway', 'bridleway']),
 };
 
+/** Every `highway` value at least one mode can use, which is what to download. */
+export const ROAD_TYPES: readonly string[] = [
+  ...new Set(
+    [...Object.values(OPEN_TO), ...Object.values(OPEN_IF_TAGGED)].flatMap((types) => [...types]),
+  ),
+].sort();
+
 /** Access tags that apply to each mode, most specific first. */
 const ACCESS_KEYS: Record<TravelMode, readonly string[]> = {
   car: ['motorcar', 'motor_vehicle', 'vehicle', 'access'],

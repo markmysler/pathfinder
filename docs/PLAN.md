@@ -89,4 +89,5 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 0 — Setup (repo, Vite + React + TS, Vitest, Playwright desktop+mobile, ESLint, Prettier, CI + Pages deploy)
 - [x] Phase 1 — Graph core + base algorithms (CSR graph, event protocol, BFS, DFS, Greedy, Dijkstra, A*; property-tested against a brute-force reference)
 - [x] Phase 2 — Design: overall UI (approved; canvas: https://claude.ai/artifact/1yywQJ9p4xK44XNhqaNgRG)
-- [ ] Phase 3 — OSM pipeline
+- [x] Phase 3 — OSM pipeline (search area + size cap, OSM tag rules per mode, road network, routing graphs, largest SCC + snapping, Overpass client with fallback, IndexedDB cache; tested on recorded Plaza de Mayo data)
+- [ ] Phase 4 — Single-algorithm visualization

@@ -35,7 +35,8 @@ import { activeSource } from '../traffic/settings';
 import type { TrafficOutcome } from '../worker/job';
 import { TrafficDialog } from './TrafficDialog';
 import { PROVIDER_NAME } from './trafficText';
-import { fetchedTime, TrafficKey, TrafficNotice, trafficSummary } from './TrafficViews';
+import { fetchedTime, trafficSummary } from './trafficText';
+import { TrafficKey, TrafficNotice } from './TrafficViews';
 
 const MODE_LABEL = { car: 'Car', bike: 'Bike', walk: 'Walk' };
 const OBJECTIVE_LABEL = { fastest: 'Fastest', shortest: 'Shortest' };
@@ -157,7 +158,12 @@ export function ExplorePage() {
     };
   }, [result, state.start, state.target]);
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
-  const exploration = single && look ? { step, ...look, highlight } : null;
+  const live = result?.traffic.status === 'live' ? result.traffic : null;
+  const mapTraffic = useMemo(
+    () => (live ? { live, bands: state.trafficLayer } : null),
+    [live, state.trafficLayer],
+  );
+  const exploration = single && look ? { step, ...look, highlight, traffic: mapTraffic } : null;
 
   const map = (
     <MapCanvas

@@ -79,4 +79,3 @@ export function fakeTraffic(settings: TrafficSettings = { provider: null, keys: 
     check: vi.fn<TrafficService['check']>(async () => ({ ok: true })),
   } satisfies TrafficService;
 }
-

@@ -3,16 +3,12 @@ import type { Objective } from '../osm/network';
 import { formatCost, formatCount } from '../ui/format';
 import { InfoIcon, WarningIcon } from '../ui/icons';
 import type { TrafficOutcome } from '../worker/job';
-import { failureNotice, PROVIDER_NAME } from './trafficText';
+import { failureNotice, fetchedTime, PROVIDER_NAME } from './trafficText';
 import styles from './TrafficViews.module.css';
 
 type Live = Extract<TrafficOutcome, { status: 'live' }>;
 
 const percent = (share: number) => `${Math.round(share * 100)}%`;
-
-/** The time of day traffic was fetched, like 14:32. */
-export const fetchedTime = (ms: number) =>
-  new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
 function storyText({ story }: Live, objective: Objective): { title: string; text: string } | null {
   if (!story) return null;
@@ -76,19 +72,6 @@ export function TrafficStoryCard({ outcome, objective }: { outcome: Live; object
       <p>{told.text}</p>
     </section>
   );
-}
-
-/** The story in one line, for the phone's sheet. */
-export function trafficSummary({ story }: Live, objective: Objective): string | null {
-  if (!story) return null;
-  const cost = (value: number) => formatCost(value, objective);
-  if (objective === 'shortest' || !story.changed) return null;
-  const { jammed, via, best, clear } = story;
-  const why = jammed
-    ? `${jammed.name} is ${jammed.share === 0 ? 'closed' : 'jammed'}, so the best route`
-    : 'With today’s traffic the best route';
-  const where = via ? `takes ${via}` : 'takes other roads';
-  return `${why} ${where}: ${cost(best - clear.cost)} slower than clear roads, fastest today.`;
 }
 
 /** How much of the map the traffic covered, and when it was fetched. */

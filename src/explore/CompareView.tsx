@@ -5,6 +5,7 @@ import type { Place } from '../geo/nominatim';
 import type { CameraSync } from '../map/cameraSync';
 import { explorationColors, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas } from '../map/MapCanvas';
+import type { LiveTraffic } from '../map/trafficLayers';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount } from '../ui/format';
 import { CheckIcon, EditIcon, LinkIcon } from '../ui/icons';
@@ -21,7 +22,8 @@ import { searchStatus } from './narration';
 import { PlaybackBar, type PlaybackChange } from './PlaybackBar';
 import { ResultsTable } from './ResultsTable';
 import { PROVIDER_NAME } from './trafficText';
-import { fetchedTime, TrafficKey, TrafficNotice } from './TrafficViews';
+import { fetchedTime } from './trafficText';
+import { TrafficKey, TrafficNotice } from './TrafficViews';
 import type { TrafficOutcome } from '../worker/job';
 
 type Ready = Extract<RunState, { status: 'ready' }>;
@@ -46,7 +48,10 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
   const snaps = useSnapLinks(state.start, state.target, result.snapped);
   const total = totalSteps(runs);
   const onPlayback = (apply: PlaybackChange) => dispatch({ type: 'playback', apply });
-  const traffic = (
+  const live = result.traffic.status === 'live' ? result.traffic : null;
+  const layer = state.trafficLayer;
+  const traffic = useMemo(() => (live ? { live, bands: layer } : null), [live, layer]);
+  const trafficParts = (
     <TrafficParts traffic={result.traffic} layer={state.trafficLayer} dispatch={dispatch} />
   );
 
@@ -61,6 +66,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
       sync={sync}
       phone={phone}
       objective={objective}
+      traffic={traffic}
     />
   );
 
@@ -132,7 +138,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
         </section>
 
         <section className={styles.panel} aria-label="Results">
-          {traffic}
+          {trafficParts}
           <ResultsTable
             runs={runs}
             objective={objective}
@@ -171,7 +177,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           <h2 id="results-title">Results</h2>
           <p>Fills in as each search reaches B.</p>
         </div>
-        {traffic}
+        {trafficParts}
         <ResultsTable runs={runs} objective={objective} step={step} />
         <WithoutTraffic traffic={result.traffic} objective={objective} />
       </section>
@@ -269,13 +275,24 @@ interface MapProps {
   snaps: readonly SnapLink[];
   sync: CameraSync;
   phone: boolean;
+  traffic: { live: LiveTraffic; bands: boolean } | null;
 }
 
 // Room for the A and B markers (about 30 px across) and, on phones, the label over the map.
 const CARD_PADDING = { top: 40, bottom: 40, left: 40, right: 40 };
 const STACKED_PADDING = { top: 52, bottom: 24, left: 32, right: 32 };
 
-function ComparisonMap({ run, step, start, target, snaps, sync, phone, objective }: MapProps) {
+function ComparisonMap({
+  run,
+  step,
+  start,
+  target,
+  snaps,
+  sync,
+  phone,
+  objective,
+  traffic,
+}: MapProps) {
   const { algorithm, timeline } = run;
   const { short } = ALGORITHM_STYLE[algorithm];
   const name = algorithmName(algorithm, run.weight);
@@ -289,8 +306,9 @@ function ComparisonMap({ run, step, start, target, snaps, sync, phone, objective
       colors,
       snaps,
       meetLabel: (m: number) => `Met · best ${formatCost(timeline.meetCost[m]!, objective)}`,
+      traffic,
     }),
-    [timeline, at, colors, snaps, objective],
+    [timeline, at, colors, snaps, objective, traffic],
   );
   const status = searchStatus(timeline, step);
 

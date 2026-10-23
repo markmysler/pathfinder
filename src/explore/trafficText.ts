@@ -1,5 +1,8 @@
+import type { Objective } from '../osm/network';
 import type { KeyCheck } from '../traffic/settings';
 import type { TrafficFailure, TrafficProvider } from '../traffic/types';
+import { formatCost } from '../ui/format';
+import type { TrafficOutcome } from '../worker/job';
 
 export const PROVIDER_NAME: Record<TrafficProvider, string> = { tomtom: 'TomTom', here: 'HERE' };
 
@@ -55,4 +58,24 @@ export function checkMessage(provider: TrafficProvider, check: KeyCheck): string
         ? 'HERE didn’t answer. That usually means a wrong key (HERE gives the browser no reason), or a network problem.'
         : 'TomTom didn’t answer. Check your connection and try again.';
   }
+}
+
+/** The time of day traffic was fetched, like 14:32. */
+export const fetchedTime = (ms: number) =>
+  new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** The story in one line, for the phone's sheet. */
+export function trafficSummary(
+  { story }: Extract<TrafficOutcome, { status: 'live' }>,
+  objective: Objective,
+): string | null {
+  if (!story) return null;
+  const cost = (value: number) => formatCost(value, objective);
+  if (objective === 'shortest' || !story.changed) return null;
+  const { jammed, via, best, clear } = story;
+  const why = jammed
+    ? `${jammed.name} is ${jammed.share === 0 ? 'closed' : 'jammed'}, so the best route`
+    : 'With today’s traffic the best route';
+  const where = via ? `takes ${via}` : 'takes other roads';
+  return `${why} ${where}: ${cost(best - clear.cost)} slower than clear roads, fastest today.`;
 }

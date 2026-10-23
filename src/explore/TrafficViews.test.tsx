@@ -1,13 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { liveTraffic } from '../test/traffic';
-import {
-  TrafficCoverage,
-  TrafficKey,
-  TrafficNotice,
-  TrafficStoryCard,
-  trafficSummary,
-} from './TrafficViews';
+import { TrafficCoverage, TrafficKey, TrafficNotice, TrafficStoryCard } from './TrafficViews';
+import { trafficSummary } from './trafficText';
 
 describe('TrafficStoryCard', () => {
   it('tells how traffic moved the route, with the clear and jammed costs', () => {

@@ -8,6 +8,7 @@ import type { BBox, LatLon } from '../osm/area';
 import type { Timeline } from '../playback/timeline';
 import type { Camera, CameraSync, SyncedMap } from './cameraSync';
 import { explorationLayers, type Rgb, type SnapLink } from './explorationLayers';
+import { trafficLayers, type LiveTraffic } from './trafficLayers';
 import styles from './MapCanvas.module.css';
 
 /** OpenFreeMap's dark style: free OpenStreetMap vector tiles with no API key. */
@@ -35,6 +36,8 @@ interface Props {
     meetLabel?: (meeting: number) => string;
     /** A node to ring, picked from the inspector's frontier list. */
     highlight?: readonly [number, number] | null;
+    /** Live traffic the search ran with, and whether to draw its slow roads. */
+    traffic?: { live: LiveTraffic; bands: boolean } | null;
   } | null;
   /** Space covered by panels, kept clear when fitting A and B into view. */
   padding: Padding;
@@ -226,14 +229,23 @@ export function MapCanvas(props: Props) {
   useEffect(() => {
     overlay.current?.setProps({
       layers: exploration
-        ? explorationLayers(
-            exploration.timeline,
-            exploration.step,
-            exploration.colors,
-            exploration.snaps,
-            exploration.highlight,
-            exploration.meetLabel,
-          )
+        ? [
+            // Traffic goes underneath, so the search stays readable on top of it.
+            ...(exploration.traffic
+              ? trafficLayers(exploration.traffic.live, {
+                  bands: exploration.traffic.bands,
+                  finished: exploration.step >= exploration.timeline.steps,
+                })
+              : []),
+            ...explorationLayers(
+              exploration.timeline,
+              exploration.step,
+              exploration.colors,
+              exploration.snaps,
+              exploration.highlight,
+              exploration.meetLabel,
+            ),
+          ]
         : [],
     });
   }, [exploration]);

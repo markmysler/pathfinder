@@ -97,4 +97,3 @@ export function browserTraffic(): TrafficService {
     check: (source) => checkKey(source),
   };
 }
-

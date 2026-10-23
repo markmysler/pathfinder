@@ -13,7 +13,7 @@ export interface BBox {
 }
 
 /** Routes longer than this are beyond what a browser can download and animate comfortably. */
-export const MAX_ROUTE_METERS = 30_000;
+export const MAX_ROUTE_METERS = 15_000;
 const MIN_MARGIN_METERS = 500;
 const MARGIN_FRACTION = 0.25;
 const GRID_DEGREES = 0.005;

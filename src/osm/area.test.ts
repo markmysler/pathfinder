@@ -42,11 +42,17 @@ describe('searchArea', () => {
     expect(searchArea(nearby, plaza)).toEqual(searchArea(plaza, nearby));
   });
 
-  it('refuses routes longer than the city-scale limit', () => {
-    const tooFar = { lat: plaza.lat, lon: plaza.lon + 0.4 }; // ≈ 37 km
-    expect(() => searchArea(plaza, tooFar)).toThrow(RouteTooLongError);
+  it('accepts trips up to 15 km', () => {
+    expect(MAX_ROUTE_METERS).toBe(15_000);
+    const fourteenKm = { lat: plaza.lat, lon: plaza.lon + 0.152 };
+    expect(() => searchArea(plaza, fourteenKm)).not.toThrow();
+  });
+
+  it('refuses longer trips, reporting the distance', () => {
+    const sixteenKm = { lat: plaza.lat, lon: plaza.lon + 0.175 };
+    expect(() => searchArea(plaza, sixteenKm)).toThrow(RouteTooLongError);
     try {
-      searchArea(plaza, tooFar);
+      searchArea(plaza, sixteenKm);
     } catch (error) {
       expect((error as RouteTooLongError).meters).toBeGreaterThan(MAX_ROUTE_METERS);
     }

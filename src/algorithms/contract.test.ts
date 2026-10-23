@@ -74,6 +74,24 @@ describe.each(Object.values(algorithms))('$name', (algorithm) => {
     );
   });
 
+  it('takes each frontier entry out exactly once, naming the push it came from', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), (problem) => {
+        const pushes: number[] = [];
+        const taken = new Set<number>();
+        for (const event of solve(problem).events) {
+          if (event.type === 'push') {
+            pushes.push(event.node);
+            continue;
+          }
+          expect(pushes[event.entry]).toBe(event.node);
+          expect(taken.has(event.entry)).toBe(false);
+          taken.add(event.entry);
+        }
+      }),
+    );
+  });
+
   it('is deterministic', () => {
     fc.assert(
       fc.property(randomGeoProblem(), (problem) => {

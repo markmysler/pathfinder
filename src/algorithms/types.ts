@@ -16,10 +16,10 @@ export interface SearchProblem {
 export type SearchEvent =
   /** `node` enters the frontier, reached through `edge` (null for the source) at `cost`. */
   | { type: 'push'; node: number; edge: number | null; cost: number; priority?: number }
-  /** `node` leaves the frontier and is expanded. */
-  | { type: 'pop'; node: number; cost: number }
-  /** An outdated frontier entry for an already expanded `node` is discarded. */
-  | { type: 'skip'; node: number };
+  /** `node` leaves the frontier and is expanded. `entry` is the push it came from (0 = first). */
+  | { type: 'pop'; node: number; cost: number; entry: number }
+  /** An outdated frontier entry for `node`, made by push number `entry`, is discarded. */
+  | { type: 'skip'; node: number; entry: number };
 
 export type SearchResult =
   { found: true; path: number[]; edges: number[]; cost: number } | { found: false };

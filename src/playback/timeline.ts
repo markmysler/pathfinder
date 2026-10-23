@@ -1,5 +1,7 @@
 import { zeroHeuristic, type Heuristic } from '../algorithms/heuristics';
+import type { FrontierRule } from '../algorithms';
 import type { Trace } from '../algorithms/trace';
+import type { SearchEvent } from '../algorithms/types';
 import { edgeRange, type Graph } from '../graph/graph';
 import { haversineMeters } from '../graph/geo';
 
@@ -13,7 +15,7 @@ export const NEVER = 2 ** 30;
  * Everything the map draws is stamped with the step it appears at, so the renderer can upload it
  * once and show any moment by filtering on the step alone. Positions are [lon, lat] pairs.
  */
-export interface Timeline {
+export interface Timeline extends FrontierEntries {
   steps: number;
 
   /** Per step (index 0 is the start): the node expanded and what the search knew about it. */
@@ -45,10 +47,140 @@ export interface Timeline {
   route: { positions: Float64Array; cost: number; meters: number } | null;
 }
 
+/**
+ * Every frontier entry, one per push and numbered in push order, so the frontier can be listed
+ * at any step. An entry is waiting at step t if it entered by t, has not left, and is not stale.
+ */
+export interface FrontierEntries {
+  frontierRule: FrontierRule;
+  entryCount: number;
+  entryNode: Uint32Array;
+  /** The step that pushed it (0 for the source). */
+  entryEnter: Uint32Array;
+  /** The step that took it out: by expanding it, or by skipping it as outdated. NEVER if neither. */
+  entryLeave: Uint32Array;
+  /** From this step on it is outdated: a newer entry for its node, or its node expanded. */
+  entryStale: Uint32Array;
+  entryCost: Float64Array;
+  entryEstimate: Float64Array;
+  /** What the frontier orders it by; the push number for queues and stacks. */
+  entryPriority: Float64Array;
+  /** The cheapest cost known for its node before this push; Infinity if it is the first. */
+  entryPrevious: Float64Array;
+  /** The entry each step expanded. */
+  expandedEntry: Uint32Array;
+  /** Entries in the order they leave, then those that never do, in the order they would. */
+  leaveOrder: Uint32Array;
+  /** How many entries have left by each step: where leaveOrder's waiting entries begin. */
+  leftBy: Uint32Array;
+  /** Outdated entries still in the frontier after each step. */
+  outdatedAt: Uint32Array;
+}
+
+function buildEntries(
+  events: readonly SearchEvent[],
+  heuristic: Heuristic,
+  frontierRule: FrontierRule,
+  steps: number,
+  nodeCount: number,
+): FrontierEntries {
+  let entryCount = 0;
+  for (const event of events) if (event.type === 'push') entryCount++;
+  const entryNode = new Uint32Array(entryCount);
+  const entryEnter = new Uint32Array(entryCount);
+  const entryLeave = new Uint32Array(entryCount).fill(NEVER);
+  const entryStale = new Uint32Array(entryCount).fill(NEVER);
+  const entryCost = new Float64Array(entryCount);
+  const entryEstimate = new Float64Array(entryCount);
+  const entryPriority = new Float64Array(entryCount);
+  const entryPrevious = new Float64Array(entryCount);
+  const expandedEntry = new Uint32Array(steps + 1);
+  const leaveOrder = new Uint32Array(entryCount);
+  // Per node: the newest entry still waiting and not stale (-1 if none), and its last cost.
+  const open = new Int32Array(nodeCount).fill(-1);
+  const lastCost = new Float64Array(nodeCount).fill(Infinity);
+
+  let step = 0;
+  let entry = 0;
+  let left = 0;
+  for (const event of events) {
+    const { node } = event;
+    if (event.type === 'push') {
+      const older = open[node]!;
+      if (older >= 0) entryStale[older] = step;
+      open[node] = entry;
+      entryNode[entry] = node;
+      entryEnter[entry] = step;
+      entryCost[entry] = event.cost;
+      entryEstimate[entry] = heuristic(node);
+      entryPriority[entry] = event.priority ?? entry;
+      entryPrevious[entry] = lastCost[node]!;
+      lastCost[node] = Math.min(lastCost[node]!, event.cost);
+      entry++;
+    } else if (event.type === 'pop') {
+      step++;
+      entryLeave[event.entry] = step;
+      entryStale[event.entry] = NEVER;
+      expandedEntry[step] = event.entry;
+      if (open[node] === event.entry) open[node] = -1;
+      leaveOrder[left++] = event.entry;
+    } else {
+      // Skips happen while the next step looks for a node to expand.
+      entryLeave[event.entry] = step + 1;
+      if (entryStale[event.entry] === NEVER) entryStale[event.entry] = step;
+      if (open[node] === event.entry) open[node] = -1;
+      leaveOrder[left++] = event.entry;
+    }
+  }
+
+  // Entries that never left, in the order the frontier would have handed them out.
+  const waiting: number[] = [];
+  for (let e = 0; e < entryCount; e++) if (entryLeave[e] === NEVER) waiting.push(e);
+  if (frontierRule === 'stack') waiting.reverse();
+  else if (frontierRule === 'priority') {
+    waiting.sort((a, b) => entryPriority[a]! - entryPriority[b]! || a - b);
+  }
+  leaveOrder.set(waiting, left);
+
+  const leftBy = new Uint32Array(steps + 1);
+  for (let t = 0, i = 0; t <= steps; t++) {
+    while (i < left && entryLeave[leaveOrder[i]!]! <= t) i++;
+    leftBy[t] = i;
+  }
+
+  const change = new Int32Array(steps + 2);
+  for (let e = 0; e < entryCount; e++) {
+    const stale = entryStale[e]!;
+    if (stale === NEVER || stale > steps) continue;
+    change[stale]!++;
+    change[Math.min(entryLeave[e]!, steps + 1)]!--;
+  }
+  const outdatedAt = new Uint32Array(steps + 1);
+  for (let t = 0, count = 0; t <= steps; t++) outdatedAt[t] = count += change[t]!;
+
+  return {
+    frontierRule,
+    entryCount,
+    entryNode,
+    entryEnter,
+    entryLeave,
+    entryStale,
+    entryCost,
+    entryEstimate,
+    entryPriority,
+    entryPrevious,
+    expandedEntry,
+    leaveOrder,
+    leftBy,
+    outdatedAt,
+  };
+}
+
 export function buildTimeline(
   graph: Graph,
   { events, result }: Trace,
   heuristic: Heuristic = zeroHeuristic,
+  frontierRule: FrontierRule = 'priority',
 ): Timeline {
   let steps = 0;
   let roadCount = 0;
@@ -142,6 +274,7 @@ export function buildTimeline(
     frontierEnter,
     frontierLeave,
     route: result.found ? describeRoute(graph, result.path, result.cost) : null,
+    ...buildEntries(events, heuristic, frontierRule, steps, graph.nodeCount),
   };
 }
 

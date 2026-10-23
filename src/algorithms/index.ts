@@ -15,7 +15,11 @@ export interface AlgorithmInfo {
   weighted: boolean;
   /** Uses a heuristic to steer towards the target. */
   informed: boolean;
+  /** How the frontier picks what to take next: oldest first, newest first, or lowest priority. */
+  frontier: FrontierRule;
 }
+
+export type FrontierRule = 'queue' | 'stack' | 'priority';
 
 export const algorithms = {
   bfs: {
@@ -25,6 +29,7 @@ export const algorithms = {
     optimal: false,
     weighted: false,
     informed: false,
+    frontier: 'queue',
   },
   dfs: {
     id: 'dfs',
@@ -33,6 +38,7 @@ export const algorithms = {
     optimal: false,
     weighted: false,
     informed: false,
+    frontier: 'stack',
   },
   greedy: {
     id: 'greedy',
@@ -41,6 +47,7 @@ export const algorithms = {
     optimal: false,
     weighted: false,
     informed: true,
+    frontier: 'priority',
   },
   dijkstra: {
     id: 'dijkstra',
@@ -49,6 +56,7 @@ export const algorithms = {
     optimal: true,
     weighted: true,
     informed: false,
+    frontier: 'priority',
   },
   astar: {
     id: 'astar',
@@ -57,6 +65,7 @@ export const algorithms = {
     optimal: true,
     weighted: true,
     informed: true,
+    frontier: 'priority',
   },
 } as const satisfies Record<string, AlgorithmInfo>;
 

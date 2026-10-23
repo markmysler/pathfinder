@@ -42,7 +42,7 @@ export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
     return {
       algorithm,
       weight: 1,
-      timeline: buildTimeline(graph, trace, heuristic),
+      timeline: buildTimeline(graph, trace, heuristic, algorithms[algorithm].frontier),
       stats: summarize(trace.events),
     };
   });

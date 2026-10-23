@@ -11,20 +11,21 @@ export function* dfs(problem: SearchProblem): Generator<SearchEvent, SearchResul
   const { graph, source, target } = problem;
   const parentEdge = noParents(graph);
   const expanded = new Uint8Array(graph.nodeCount);
-  const stack: { node: number; edge: number | null; cost: number }[] = [
-    { node: source, edge: null, cost: 0 },
+  const stack: { node: number; edge: number | null; cost: number; entry: number }[] = [
+    { node: source, edge: null, cost: 0, entry: 0 },
   ];
+  let pushes = 1;
   yield { type: 'push', node: source, edge: null, cost: 0 };
 
   while (stack.length > 0) {
-    const { node, edge, cost } = stack.pop()!;
+    const { node, edge, cost, entry } = stack.pop()!;
     if (expanded[node]) {
-      yield { type: 'skip', node };
+      yield { type: 'skip', node, entry };
       continue;
     }
     expanded[node] = 1;
     if (edge !== null) parentEdge[node] = edge;
-    yield { type: 'pop', node, cost };
+    yield { type: 'pop', node, cost, entry };
     if (node === target) return foundResult(graph, parentEdge, source, target);
 
     // Push in reverse so the first edge ends up on top of the stack and is explored first.
@@ -32,9 +33,9 @@ export function* dfs(problem: SearchProblem): Generator<SearchEvent, SearchResul
     for (let nextEdge = end - 1; nextEdge >= start; nextEdge--) {
       const next = graph.edgeTarget[nextEdge]!;
       if (expanded[next]) continue;
-      const entry = { node: next, edge: nextEdge, cost: cost + graph.edgeWeight[nextEdge]! };
-      stack.push(entry);
-      yield { type: 'push', ...entry };
+      const pushed = { node: next, edge: nextEdge, cost: cost + graph.edgeWeight[nextEdge]! };
+      stack.push({ ...pushed, entry: pushes++ });
+      yield { type: 'push', ...pushed };
     }
   }
   return { found: false };

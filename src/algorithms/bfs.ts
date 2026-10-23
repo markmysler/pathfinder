@@ -16,8 +16,9 @@ export function* bfs(problem: SearchProblem): Generator<SearchEvent, SearchResul
   yield { type: 'push', node: source, edge: null, cost: 0 };
 
   for (let head = 0; head < queue.length; head++) {
+    // The queue holds every push in order, so an entry's place in it is its push number.
     const { node, cost } = queue[head]!;
-    yield { type: 'pop', node, cost };
+    yield { type: 'pop', node, cost, entry: head };
     if (node === target) return foundResult(graph, parentEdge, source, target);
 
     const [start, end] = edgeRange(graph, node);

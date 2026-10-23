@@ -14,16 +14,17 @@ export function* greedy(problem: SearchProblem): Generator<SearchEvent, SearchRe
   const { graph, source, target, heuristic = zeroHeuristic } = problem;
   const parentEdge = noParents(graph);
   const seen = new Uint8Array(graph.nodeCount);
-  const frontier = new MinHeap<{ node: number; cost: number }>();
+  const frontier = new MinHeap<{ node: number; cost: number; entry: number }>();
+  let pushes = 0;
 
   seen[source] = 1;
   const sourcePriority = heuristic(source);
-  frontier.push({ node: source, cost: 0 }, sourcePriority);
+  frontier.push({ node: source, cost: 0, entry: pushes++ }, sourcePriority);
   yield { type: 'push', node: source, edge: null, cost: 0, priority: sourcePriority };
 
   for (let entry = frontier.pop(); entry; entry = frontier.pop()) {
     const { node, cost } = entry.value;
-    yield { type: 'pop', node, cost };
+    yield { type: 'pop', node, cost, entry: entry.value.entry };
     if (node === target) return foundResult(graph, parentEdge, source, target);
 
     const [start, end] = edgeRange(graph, node);
@@ -34,7 +35,7 @@ export function* greedy(problem: SearchProblem): Generator<SearchEvent, SearchRe
       parentEdge[next] = edge;
       const nextCost = cost + graph.edgeWeight[edge]!;
       const priority = heuristic(next);
-      frontier.push({ node: next, cost: nextCost }, priority);
+      frontier.push({ node: next, cost: nextCost, entry: pushes++ }, priority);
       yield { type: 'push', node: next, edge, cost: nextCost, priority };
     }
   }

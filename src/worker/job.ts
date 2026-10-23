@@ -92,7 +92,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
       algorithm,
       weight,
       // The timeline keeps the plain estimate, which is what the inspector explains.
-      timeline: buildTimeline(graph, trace, heuristic),
+      timeline: buildTimeline(graph, trace, heuristic, algorithms[algorithm].frontier),
       stats: summarize(trace.events),
     };
   });

@@ -1,5 +1,7 @@
 import type { AlgorithmId } from '../algorithms';
 import type { Objective } from '../osm/network';
+import { labelOf, type NodeLabels } from '../osm/places';
+import type { StepPart } from '../playback/frontier';
 import type { Timeline } from '../playback/timeline';
 import { formatCost } from '../ui/format';
 
@@ -93,4 +95,89 @@ export function describeStep(
 
   const roads = describeRoads(algorithm, timeline.pushesAt[step]!, timeline.expandedDegree[step]!);
   return `${choice} ${roads}`;
+}
+
+export interface PartContext {
+  timeline: Pick<
+    Timeline,
+    'entryNode' | 'entryCost' | 'entryEstimate' | 'entryPrevious' | 'expandedEntry' | 'pushesAt'
+  >;
+  step: number;
+  algorithm: AlgorithmId;
+  objective: Objective;
+  weight: number;
+  names: NodeLabels;
+}
+
+const BEST_FIRST: readonly AlgorithmId[] = ['dijkstra', 'astar'];
+
+/** One part of a step, in words: what the highlighted pseudocode lines just did. */
+export function describePart(part: StepPart, context: PartContext): string {
+  const { timeline: t, step, algorithm, objective, weight, names } = context;
+  const cost = (value: number) => formatCost(value, objective);
+  const name = (entry: number) => labelOf(names, t.entryNode[entry]!);
+  const w = Math.round(weight * 10) / 10;
+  // g + h written out with its total, weighting h for weighted A*.
+  const sum = (g: number, h: number) =>
+    weight === 1
+      ? `${cost(g)} + ${cost(h)} = ${cost(g + h)}`
+      : `${cost(g)} + ${w} × ${cost(h)} = ${cost(g + weight * h)}`;
+
+  switch (part.kind) {
+    case 'take': {
+      const g = t.entryCost[part.entry]!;
+      const h = t.entryEstimate[part.entry]!;
+      const why = {
+        bfs: 'the oldest node in the queue.',
+        dfs: 'the newest node on the stack.',
+        greedy: `the frontier node that looks closest to B (estimate ${cost(h)}).`,
+        dijkstra: `the frontier node with the lowest cost so far, ${cost(g)}.`,
+        astar:
+          weight === 1
+            ? `the frontier node with the lowest f = g + h: ${sum(g, h)}.`
+            : `the frontier node with the lowest f = g + ${w} × h: ${sum(g, h)}.`,
+      }[algorithm];
+      return `Took ${name(part.entry)}, ${why}`;
+    }
+    case 'skip':
+      return algorithm === 'dfs'
+        ? `Took an entry for ${name(part.entry)}, but it was already expanded. Skipped it.`
+        : `Took an entry for ${name(part.entry)}, but it is outdated: a cheaper way there was found later. Skipped it.`;
+    case 'goal':
+      return `${name(t.expandedEntry[step]!)} is B. The search stops and follows the roads it came by back to A.`;
+    case 'road': {
+      const to = name(part.entry);
+      if (algorithm === 'bfs') return `Road to ${to}: not seen before, so it joins the queue.`;
+      if (algorithm === 'dfs') return `Road to ${to}: not expanded yet, so it goes on the stack.`;
+      const g = t.entryCost[part.entry]!;
+      const h = t.entryEstimate[part.entry]!;
+      if (algorithm === 'greedy') {
+        return `Road to ${to}: not seen before, so it joins the frontier with h = ${cost(h)}.`;
+      }
+      const from = t.entryCost[t.expandedEntry[step]!]!;
+      const length =
+        objective === 'fastest' ? `taking ${cost(g - from)}` : `${cost(g - from)} long`;
+      const previous = t.entryPrevious[part.entry]!;
+      const verdict = Number.isFinite(previous)
+        ? `beats the best known way there, ${cost(previous)}`
+        : 'is the first way found there';
+      const joins = algorithm === 'dijkstra' ? `g = ${cost(g)}` : `f = ${sum(g, h)}`;
+      return `Road to ${to}, ${length}: ${cost(from)} + ${cost(g - from)} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.`;
+    }
+    case 'rejected': {
+      const others = t.pushesAt[step]! > 0;
+      const subject =
+        part.count === 1
+          ? others
+            ? 'The other road'
+            : 'Its only road'
+          : `${others ? 'The other' : 'Its'} ${part.count} roads`;
+      const outcome = BEST_FIRST.includes(algorithm)
+        ? 'did not reach anywhere more cheaply'
+        : algorithm === 'dfs'
+          ? 'led somewhere already expanded'
+          : 'led somewhere already seen';
+      return `${subject} ${outcome}.`;
+    }
+  }
 }

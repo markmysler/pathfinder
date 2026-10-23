@@ -25,7 +25,14 @@ interface Props {
   target: LatLon | null;
   /** Outline of the area that will be downloaded, while planning. */
   area: BBox | null;
-  exploration: { timeline: Timeline; step: number; color: Rgb; snaps: readonly SnapLink[] } | null;
+  exploration: {
+    timeline: Timeline;
+    step: number;
+    color: Rgb;
+    snaps: readonly SnapLink[];
+    /** A node to ring, picked from the inspector's frontier list. */
+    highlight?: readonly [number, number] | null;
+  } | null;
   /** Space covered by panels, kept clear when fitting A and B into view. */
   padding: Padding;
   draggable: boolean;
@@ -221,6 +228,7 @@ export function MapCanvas(props: Props) {
             exploration.step,
             exploration.color,
             exploration.snaps,
+            exploration.highlight,
           )
         : [],
     });

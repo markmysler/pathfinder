@@ -4,6 +4,7 @@ import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../ap
 import { useServices } from '../app/services';
 import { TopBar } from '../app/TopBar';
 import type { Place } from '../geo/nominatim';
+import type { NodeLabels } from '../osm/places';
 import { createCameraSync } from '../map/cameraSync';
 import { hexToRgb, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas, type Padding } from '../map/MapCanvas';
@@ -122,7 +123,8 @@ export function ExplorePage() {
       snaps,
     };
   }, [result, state.start, state.target]);
-  const exploration = single && look ? { step, ...look } : null;
+  const [highlight, setHighlight] = useState<[number, number] | null>(null);
+  const exploration = single && look ? { step, ...look, highlight } : null;
 
   const map = (
     <MapCanvas
@@ -207,6 +209,8 @@ export function ExplorePage() {
             {watching && single && phone && (
               <PhoneRun
                 run={single}
+                names={run.result.places}
+                onHighlight={setHighlight}
                 playback={run.playback}
                 step={step}
                 dispatch={dispatch}
@@ -215,9 +219,15 @@ export function ExplorePage() {
             )}
           </main>
 
-          {single && !phone && (
+          {watching && single && !phone && (
             <aside className={styles.inspectorSide} aria-label="Inspector">
-              <Inspector run={single} step={step} />
+              <Inspector
+                run={single}
+                step={step}
+                names={run.result.places}
+                playing={run.playback.playing}
+                onHighlight={setHighlight}
+              />
             </aside>
           )}
         </div>
@@ -299,13 +309,15 @@ function RouteSummary({
 
 interface PhoneRunProps {
   run: RunView;
+  names: NodeLabels;
+  onHighlight(position: [number, number] | null): void;
   playback: PlaybackState;
   step: number;
   dispatch(action: ExploreAction): void;
   onEdit(): void;
 }
 
-function PhoneRun({ run, playback, step, dispatch, onEdit }: PhoneRunProps) {
+function PhoneRun({ run, names, onHighlight, playback, step, dispatch, onEdit }: PhoneRunProps) {
   const [details, setDetails] = useState(false);
   return (
     <>
@@ -334,7 +346,16 @@ function PhoneRun({ run, playback, step, dispatch, onEdit }: PhoneRunProps) {
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}
           </span>
         </button>
-        {details && <Inspector run={run} step={step} />}
+        {details && (
+          <Inspector
+            run={run}
+            step={step}
+            names={names}
+            playing={playback.playing}
+            compact
+            onHighlight={onHighlight}
+          />
+        )}
         <PlaybackBar
           playback={playback}
           total={run.timeline.steps}

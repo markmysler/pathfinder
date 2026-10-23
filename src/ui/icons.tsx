@@ -70,6 +70,8 @@ export const CheckIcon = stroke(<path d="M5 12l5 5 9-10" />);
 export const LinkIcon = stroke(
   <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
 );
+export const ChevronLeftIcon = stroke(<path d="M15 6l-6 6 6 6" />);
+export const ChevronRightIcon = stroke(<path d="M9 6l6 6-6 6" />);
 export const ChevronUpIcon = stroke(<path d="M6 15l6-6 6 6" />);
 export const ChevronDownIcon = stroke(<path d="M6 9l6 6 6-6" />);
 export const MapIcon = stroke(

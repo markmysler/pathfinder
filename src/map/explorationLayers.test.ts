@@ -62,6 +62,13 @@ describe('explorationLayers', () => {
     expect(byId(3)['snap-links']).toBeUndefined();
   });
 
+  it('rings a node picked from the frontier list, so it can be found on the map', () => {
+    const layers = explorationLayers(timeline, 3, color, [], [-58.37, -34.6]);
+    const ring = layers.find((layer) => layer.id === 'highlight')!;
+    expect(propsOf(ring).data).toEqual([{ position: [-58.37, -34.6] }]);
+    expect(byId(3)['highlight']).toBeUndefined();
+  });
+
   it('reuses uploaded buffers between steps', () => {
     expect(byId(2)['explored-roads']!.props.data).toBe(byId(5)['explored-roads']!.props.data);
   });

@@ -1,5 +1,6 @@
 import type { Timeline } from '../playback/timeline';
-import { describeStep, searchStatus } from './narration';
+import type { AlgorithmId } from '../algorithms';
+import { describePart, describeStep, searchStatus } from './narration';
 
 // Only the fields narration reads, with easy numbers: step 1 has g 372, h 303, 2 of 3 roads pushed.
 const timeline = (overrides: Partial<Timeline> = {}) =>
@@ -114,5 +115,60 @@ describe('searchStatus', () => {
     expect(searchStatus(timeline(), 3.5)).toBe('searching');
     expect(searchStatus(timeline(), 4)).toBe('found');
     expect(searchStatus(timeline({ route: null }), 4)).toBe('no-route');
+  });
+});
+
+describe('describePart', () => {
+  // Hand-built entries: 0 is A (the source), 1 and 2 were pushed by step 1, 3 is outdated.
+  const t = {
+    entryNode: Uint32Array.from([0, 1, 2, 1]),
+    entryCost: Float64Array.from([0, 120, 300, 200]),
+    entryEstimate: Float64Array.from([400, 310, 150, 310]),
+    entryPrevious: Float64Array.from([Infinity, 200, Infinity, Infinity]),
+    expandedEntry: Uint32Array.from([0, 0, 2]),
+    pushesAt: Uint32Array.from([0, 2, 0]),
+  } as unknown as Timeline;
+  const names = { labels: ['Perú', 'Bolívar & Perú'], nodeLabel: Int32Array.from([0, 1, -1]) };
+  const say = (part: Parameters<typeof describePart>[0], algorithm: AlgorithmId, step = 1) =>
+    describePart(part, { timeline: t, step, algorithm, objective: 'shortest', weight: 1, names });
+
+  it('names the node taken and why it was chosen', () => {
+    expect(say({ kind: 'take', entry: 0 }, 'astar')).toBe(
+      'Took Perú, the frontier node with the lowest f = g + h: 0 m + 400 m = 400 m.',
+    );
+    expect(say({ kind: 'take', entry: 0 }, 'bfs')).toBe('Took Perú, the oldest node in the queue.');
+  });
+
+  it('works through a road that improved its end, with the arithmetic', () => {
+    expect(say({ kind: 'road', entry: 1 }, 'dijkstra')).toBe(
+      'Road to Bolívar & Perú, 120 m long: 0 m + 120 m = 120 m beats the best known way there, 200 m, so it joins the frontier with g = 120 m.',
+    );
+    expect(say({ kind: 'road', entry: 2 }, 'astar')).toBe(
+      'Road to Unnamed road, 300 m long: 0 m + 300 m = 300 m is the first way found there, so it joins the frontier with f = 300 m + 150 m = 450 m.',
+    );
+    expect(say({ kind: 'road', entry: 2 }, 'bfs')).toBe(
+      'Road to Unnamed road: not seen before, so it joins the queue.',
+    );
+    expect(say({ kind: 'road', entry: 2 }, 'dfs')).toBe(
+      'Road to Unnamed road: not expanded yet, so it goes on the stack.',
+    );
+  });
+
+  it('explains roads that led nowhere better, skips and the goal', () => {
+    expect(say({ kind: 'rejected', count: 2 }, 'astar')).toBe(
+      'The other 2 roads did not reach anywhere more cheaply.',
+    );
+    expect(say({ kind: 'rejected', count: 1 }, 'greedy')).toBe(
+      'The other road led somewhere already seen.',
+    );
+    expect(say({ kind: 'skip', entry: 3 }, 'dijkstra')).toBe(
+      'Took an entry for Bolívar & Perú, but it is outdated: a cheaper way there was found later. Skipped it.',
+    );
+    expect(say({ kind: 'skip', entry: 3 }, 'dfs')).toBe(
+      'Took an entry for Bolívar & Perú, but it was already expanded. Skipped it.',
+    );
+    expect(say({ kind: 'goal' }, 'astar', 2)).toBe(
+      'Unnamed road is B. The search stops and follows the roads it came by back to A.',
+    );
   });
 });

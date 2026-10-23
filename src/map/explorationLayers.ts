@@ -81,6 +81,8 @@ export function explorationLayers(
   step: number,
   color: Rgb,
   snaps?: readonly SnapLink[],
+  /** A node to ring, such as one picked from the frontier list. */
+  highlight?: readonly [number, number] | null,
 ): Layer[] {
   const { roads, frontier, route } = buffersFor(timeline);
   const layers: Layer[] = [
@@ -159,5 +161,22 @@ export function explorationLayers(
       new PathLayer({ ...path, id: 'route', getColor: color, getWidth: 6 }),
     );
   }
+  if (highlight) {
+    layers.push(
+      new ScatterplotLayer<{ position: [number, number] }>({
+        id: 'highlight',
+        data: [{ position: [highlight[0], highlight[1]] }],
+        getPosition: (d) => d.position,
+        getRadius: 11,
+        radiusUnits: 'pixels',
+        stroked: true,
+        filled: false,
+        getLineColor: [255, 255, 255],
+        getLineWidth: 2.5,
+        lineWidthUnits: 'pixels',
+      }),
+    );
+  }
+
   return layers;
 }

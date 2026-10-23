@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Role } from '../explore/exploreState';
 import type { BBox, LatLon } from '../osm/area';
 import type { Timeline } from '../playback/timeline';
+import type { Camera, CameraSync, SyncedMap } from './cameraSync';
 import { explorationLayers, type Rgb, type SnapLink } from './explorationLayers';
 import styles from './MapCanvas.module.css';
 
@@ -30,6 +31,10 @@ interface Props {
   draggable: boolean;
   onMapClick(point: LatLon): void;
   onPinMoved(role: Role, point: LatLon): void;
+  /** Comparison maps share a camera through this; read once, when the map is created. */
+  sync?: CameraSync;
+  /** A small map in a grid or stack: compact attribution, and no zoom buttons if `bare`. */
+  card?: 'framed' | 'bare';
 }
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
@@ -53,6 +58,16 @@ function outline({ south, west, north, east }: BBox) {
   };
 }
 
+function cameraOf(map: maplibregl.Map): Camera {
+  const { lng, lat } = map.getCenter();
+  return {
+    center: [lng, lat],
+    zoom: map.getZoom(),
+    bearing: map.getBearing(),
+    pitch: map.getPitch(),
+  };
+}
+
 function markerElement(role: Role) {
   const element = document.createElement('div');
   element.className = `${styles.marker} ${role === 'start' ? styles.start : styles.target}`;
@@ -69,6 +84,8 @@ export function MapCanvas(props: Props) {
   const overlay = useRef<MapboxOverlay | null>(null);
   const markers = useRef<Partial<Record<Role, maplibregl.Marker>>>({});
   const [loaded, setLoaded] = useState(false);
+  /** Set when the map joined a shared view, which then takes the place of the first framing. */
+  const adopted = useRef(false);
   const latest = useRef(props);
   useEffect(() => {
     latest.current = props;
@@ -82,15 +99,29 @@ export function MapCanvas(props: Props) {
       zoom: 1.5,
       attributionControl: false,
     });
+    const { card, sync } = latest.current;
     // Bottom sheets cover the bottom of the map on phones, so the attribution moves up there.
     const phone = window.matchMedia?.('(max-width: 720px)').matches ?? false;
+    const compact = phone || card !== undefined;
     instance.addControl(
-      new maplibregl.AttributionControl({ compact: phone }),
-      phone ? 'top-right' : 'bottom-right',
+      new maplibregl.AttributionControl({ compact }),
+      phone && !card ? 'top-right' : 'bottom-right',
     );
-    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    if (card !== 'bare') {
+      instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    }
+    // Overlaid, not interleaved: deck.gl's interleaved mode does not support MapLibre 6 yet.
     const deck = new MapboxOverlay({ interleaved: false, layers: [] });
     instance.addControl(deck);
+
+    const member: SyncedMap = { setCamera: (camera) => instance.jumpTo(camera) };
+    if (sync) {
+      adopted.current = sync.join(member);
+      // Only moves made by hand carry the input event; moves applied by the sync do not.
+      instance.on('move', (event: { originalEvent?: unknown }) => {
+        if (event.originalEvent) sync.moved(member, cameraOf(instance));
+      });
+    }
     instance.on('click', (event: maplibregl.MapMouseEvent) =>
       latest.current.onMapClick({ lat: event.lngLat.lat, lon: event.lngLat.lng }),
     );
@@ -107,9 +138,9 @@ export function MapCanvas(props: Props) {
           'line-dasharray': [3, 2],
         },
       });
-      // Compact attribution starts expanded; on phones collapse it to its (i) button so it
-      // does not cover the map. Larger screens keep it visible, as OSM's guidelines expect.
-      if (phone) {
+      // Compact attribution starts expanded; collapse it to its (i) button so it does not cover
+      // the map. Full-size maps on larger screens keep it visible, as OSM's guidelines expect.
+      if (compact) {
         container.current
           ?.querySelector('.maplibregl-ctrl-attrib')
           ?.classList.remove('maplibregl-compact-show');
@@ -120,6 +151,7 @@ export function MapCanvas(props: Props) {
     overlay.current = deck;
     const placed = markers.current;
     return () => {
+      sync?.leave(member);
       Object.values(placed).forEach((marker) => marker.remove());
       instance.remove();
       map.current = null;
@@ -160,6 +192,10 @@ export function MapCanvas(props: Props) {
     const instance = map.current;
     const { start: a, target: b, area: box, padding: space } = latest.current;
     if (!instance || (!a && !b)) return;
+    if (adopted.current) {
+      adopted.current = false;
+      return;
+    }
     if (box || (a && b)) {
       const bounds = box
         ? new maplibregl.LngLatBounds([box.west, box.south], [box.east, box.north])

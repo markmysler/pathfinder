@@ -1,10 +1,21 @@
 import { initialPlayback, play, setSpeed, suggestedSpeed } from '../playback/playback';
+import type { AlgorithmId } from '../algorithms';
 import type { JobResult } from '../worker/job';
 import { exploreReducer, initialExplore, type ExploreState } from './exploreState';
 
 const casaRosada = { name: 'Casa Rosada', detail: 'Buenos Aires', lat: -34.608, lon: -58.3703 };
 const cabildo = { name: 'Cabildo', detail: 'Buenos Aires', lat: -34.6087, lon: -58.3738 };
-const result = { timeline: { steps: 100 } } as unknown as JobResult;
+const resultOf = (steps: Partial<Record<AlgorithmId, number>>) =>
+  ({
+    runs: Object.entries(steps).map(([algorithm, n]) => ({ algorithm, timeline: { steps: n } })),
+  }) as unknown as JobResult;
+const result = resultOf({ astar: 100 });
+
+const ready = (r: JobResult) =>
+  exploreReducer(exploreReducer(withPlaces(), { type: 'runRequested' }), {
+    type: 'runSucceeded',
+    result: r,
+  });
 
 const withPlaces = (): ExploreState => ({
   ...initialExplore,
@@ -13,14 +24,15 @@ const withPlaces = (): ExploreState => ({
 });
 
 describe('exploreReducer', () => {
-  it('starts with no places, by car, fastest, using A*', () => {
+  it('starts with no places, by car, fastest, comparing Greedy, Dijkstra and A*', () => {
     expect(initialExplore).toMatchObject({
       start: null,
       target: null,
       nextPick: 'start',
       mode: 'car',
       objective: 'fastest',
-      algorithm: 'astar',
+      algorithms: ['greedy', 'dijkstra', 'astar'],
+      mapsLinked: true,
       run: { status: 'idle' },
     });
   });
@@ -75,15 +87,24 @@ describe('exploreReducer', () => {
     });
   });
 
-  it('changes travel mode, objective and algorithm', () => {
+  it('changes travel mode and objective', () => {
     let state = exploreReducer(initialExplore, { type: 'modeChosen', mode: 'walk' });
     state = exploreReducer(state, { type: 'objectiveChosen', objective: 'shortest' });
-    state = exploreReducer(state, { type: 'algorithmChosen', algorithm: 'dijkstra' });
-    expect(state).toMatchObject({ mode: 'walk', objective: 'shortest', algorithm: 'dijkstra' });
+    expect(state).toMatchObject({ mode: 'walk', objective: 'shortest' });
   });
 
-  it('only starts a run once both places are set', () => {
+  it('toggles algorithms in and out, keeping them in the order they are listed', () => {
+    let state = exploreReducer(initialExplore, { type: 'algorithmToggled', algorithm: 'dijkstra' });
+    expect(state.algorithms).toEqual(['greedy', 'astar']);
+    state = exploreReducer(state, { type: 'algorithmToggled', algorithm: 'bfs' });
+    state = exploreReducer(state, { type: 'algorithmToggled', algorithm: 'dijkstra' });
+    expect(state.algorithms).toEqual(['bfs', 'greedy', 'dijkstra', 'astar']);
+  });
+
+  it('only starts a run once both places and an algorithm are set', () => {
     expect(exploreReducer(initialExplore, { type: 'runRequested' }).run.status).toBe('idle');
+    const none = { ...withPlaces(), algorithms: [] };
+    expect(exploreReducer(none, { type: 'runRequested' }).run.status).toBe('idle');
     expect(exploreReducer(withPlaces(), { type: 'runRequested' }).run).toEqual({
       status: 'loading',
       stage: null,
@@ -99,7 +120,48 @@ describe('exploreReducer', () => {
       status: 'ready',
       result,
       playback: play(setSpeed(initialPlayback(), suggestedSpeed(100)), 100),
+      shown: ['astar'],
     });
+  });
+
+  it('plays several searches on one clock that lasts as long as the longest', () => {
+    const state = ready(resultOf({ greedy: 30, dijkstra: 400, astar: 120 }));
+    expect(state.run).toMatchObject({ playback: { speed: suggestedSpeed(400) } });
+    const ended = exploreReducer(state, {
+      type: 'playback',
+      apply: (playback, total) => ({ ...playback, position: total }),
+    });
+    expect(ended.run).toMatchObject({ playback: { position: 400 } });
+  });
+
+  describe('maps shown on a phone', () => {
+    const five = resultOf({ bfs: 9, dfs: 9, greedy: 9, dijkstra: 9, astar: 9 });
+    const shown = (state: ExploreState) => (state.run.status === 'ready' ? state.run.shown : []);
+    const toggle = (state: ExploreState, algorithm: AlgorithmId) =>
+      exploreReducer(state, { type: 'mapToggled', algorithm });
+
+    it('starts with the last three searches', () => {
+      expect(shown(ready(five))).toEqual(['greedy', 'dijkstra', 'astar']);
+    });
+
+    it('replaces the map picked longest ago when a fourth is picked', () => {
+      const state = toggle(ready(five), 'bfs');
+      expect(shown(state)).toEqual(['dijkstra', 'astar', 'bfs']);
+      expect(shown(toggle(state, 'greedy'))).toEqual(['astar', 'bfs', 'greedy']);
+    });
+
+    it('hides a shown map, but always keeps one', () => {
+      let state = toggle(toggle(ready(five), 'greedy'), 'dijkstra');
+      expect(shown(state)).toEqual(['astar']);
+      state = toggle(state, 'astar');
+      expect(shown(state)).toEqual(['astar']);
+    });
+  });
+
+  it('links and unlinks the maps', () => {
+    const state = exploreReducer(initialExplore, { type: 'mapsLinkToggled' });
+    expect(state.mapsLinked).toBe(false);
+    expect(exploreReducer(state, { type: 'mapsLinkToggled' }).mapsLinked).toBe(true);
   });
 
   it('remembers which download server is being tried', () => {
@@ -137,11 +199,7 @@ describe('exploreReducer', () => {
   });
 
   it('applies playback changes against the timeline length', () => {
-    let state = exploreReducer(exploreReducer(withPlaces(), { type: 'runRequested' }), {
-      type: 'runSucceeded',
-      result,
-    });
-    state = exploreReducer(state, {
+    const state = exploreReducer(ready(result), {
       type: 'playback',
       apply: (playback, total) => ({ ...playback, position: total, playing: false }),
     });
@@ -149,11 +207,7 @@ describe('exploreReducer', () => {
   });
 
   it('goes back to planning, keeping the places and settings', () => {
-    const ready = exploreReducer(exploreReducer(withPlaces(), { type: 'runRequested' }), {
-      type: 'runSucceeded',
-      result,
-    });
-    const editing = exploreReducer(ready, { type: 'editRequested' });
+    const editing = exploreReducer(ready(result), { type: 'editRequested' });
     expect(editing).toMatchObject({ start: casaRosada, target: cabildo, run: { status: 'idle' } });
   });
 });

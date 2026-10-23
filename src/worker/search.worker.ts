@@ -31,10 +31,7 @@ scope.onmessage = async ({ data }) => {
       signal: controller.signal,
     });
     if (!controller.signal.aborted) {
-      scope.postMessage(
-        { type: 'done', id, result },
-        { transfer: transferablesOf(result.timeline) },
-      );
+      scope.postMessage({ type: 'done', id, result }, { transfer: transferablesOf(result) });
     }
   } catch (error) {
     if (!controller.signal.aborted) {

@@ -7,7 +7,7 @@ const request = {
   target: { lat: 0, lon: 0.01 },
   mode: 'walk',
   objective: 'shortest',
-  algorithm: 'bfs',
+  algorithms: ['bfs'],
 } satisfies JobRequest;
 
 function fakeWorker() {

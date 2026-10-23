@@ -10,7 +10,7 @@ const request: JobRequest = {
   target: { lat: -34.6087, lon: -58.3738 }, // Cabildo
   mode: 'car',
   objective: 'fastest',
-  algorithm: 'astar',
+  algorithms: ['astar'],
 };
 
 function deps(overrides: Partial<Parameters<typeof runJob>[1]> = {}) {
@@ -30,12 +30,35 @@ describe('runJob', () => {
     const { deps: d, stages } = deps();
     const result = await runJob(request, d);
     expect(stages).toEqual(['download', 'graph', 'search']);
-    expect(result.algorithm).toBe('astar');
-    expect(result.timeline.steps).toBeGreaterThan(0);
-    expect(result.timeline.route).not.toBeNull();
-    expect(result.stats.expanded).toBe(result.timeline.steps);
+    expect(result.runs).toHaveLength(1);
+    const [run] = result.runs;
+    expect(run!.algorithm).toBe('astar');
+    expect(run!.timeline.steps).toBeGreaterThan(0);
+    expect(run!.timeline.route).not.toBeNull();
+    expect(run!.stats.expanded).toBe(run!.timeline.steps);
     expect(result.snapped.start.meters).toBeLessThan(100);
     expect(result.area.south).toBeLessThan(request.start.lat);
+  });
+
+  it('runs every chosen algorithm on the same download, in the order asked', async () => {
+    const loadRoadNetwork = vi.fn(async () => ({ network, fromCache: false }));
+    const result = await runJob(
+      { ...request, algorithms: ['bfs', 'dijkstra', 'astar'] },
+      deps({ loadRoadNetwork }).deps,
+    );
+    expect(loadRoadNetwork).toHaveBeenCalledTimes(1);
+    expect(result.runs.map((run) => run.algorithm)).toEqual(['bfs', 'dijkstra', 'astar']);
+    const [bfs, dijkstra, astar] = result.runs.map((run) => run.timeline);
+    // Same start node for all, and the optimal algorithms agree on the cost.
+    expect(bfs!.expandedNode[1]).toBe(astar!.expandedNode[1]);
+    expect(astar!.route!.cost).toBeCloseTo(dijkstra!.route!.cost, 6);
+    expect(bfs!.route!.cost).toBeGreaterThanOrEqual(dijkstra!.route!.cost - 1e-6);
+  });
+
+  it('refuses a request without algorithms', async () => {
+    await expect(runJob({ ...request, algorithms: [] }, deps().deps)).rejects.toThrow(
+      /at least one algorithm/,
+    );
   });
 
   it('reports where A and B were snapped to', async () => {
@@ -80,13 +103,28 @@ describe('runJob', () => {
     expect(stages).not.toContain('search');
   });
 
-  it('lists every typed array of the timeline for zero-copy transfer', async () => {
-    const { timeline } = await runJob(request, deps().deps);
-    const buffers = transferablesOf(timeline);
-    expect(buffers).toContain(timeline.roadFrom.buffer);
-    expect(buffers).toContain(timeline.route!.positions.buffer);
-    const typedArrays = Object.values(timeline).filter(ArrayBuffer.isView);
-    expect(buffers.length).toBe(typedArrays.length + 1);
+  it('stops between searches once cancelled', async () => {
+    const controller = new AbortController();
+    const { deps: d } = deps({
+      onProgress: (stage) => stage === 'search' && controller.abort(),
+      signal: controller.signal,
+    });
+    await expect(
+      runJob({ ...request, algorithms: ['bfs', 'dijkstra', 'astar'] }, d),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('lists every typed array of every timeline for zero-copy transfer', async () => {
+    const result = await runJob({ ...request, algorithms: ['bfs', 'astar'] }, deps().deps);
+    const buffers = transferablesOf(result);
+    for (const { timeline } of result.runs) {
+      expect(buffers).toContain(timeline.roadFrom.buffer);
+      expect(buffers).toContain(timeline.route!.positions.buffer);
+    }
+    const typedArrays = result.runs.flatMap(({ timeline }) =>
+      Object.values(timeline).filter(ArrayBuffer.isView),
+    );
+    expect(buffers.length).toBe(typedArrays.length + 2);
   });
 
   it('says which server it is trying once the first one has failed', async () => {

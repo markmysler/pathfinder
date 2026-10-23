@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { algorithms } from '../algorithms';
 import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
 import { useServices } from '../app/services';
 import { TopBar } from '../app/TopBar';
 import type { Place } from '../geo/nominatim';
+import { createCameraSync } from '../map/cameraSync';
 import { hexToRgb, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas, type Padding } from '../map/MapCanvas';
 import { searchArea, type BBox } from '../osm/area';
-import { tick } from '../playback/playback';
+import { tick, type PlaybackState } from '../playback/playback';
 import { ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { ChevronDownIcon, ChevronUpIcon, EditIcon, PointBadge } from '../ui/icons';
 import type { RunningJob } from '../worker/client';
+import { CompareView, LinkToggle } from './CompareView';
 import styles from './ExplorePage.module.css';
 import {
   exploreReducer,
@@ -19,7 +21,7 @@ import {
   type ExploreState,
   type Role,
 } from './exploreState';
-import { Inspector, RunCard } from './Inspector';
+import { Inspector, RunCard, type RunView } from './Inspector';
 import { describeStep } from './narration';
 import { PlanPanel } from './PlanPanel';
 import { PlaybackBar } from './PlaybackBar';
@@ -38,6 +40,11 @@ function previewArea(start: Place | null, target: Place | null): BBox | null {
 }
 
 /** Map space hidden behind panels, kept clear when framing A, B or the download area. */
+/** What the loading panel says is being run. */
+function runningLabel(chosen: ExploreState['algorithms']) {
+  return chosen.length === 1 ? algorithms[chosen[0]!].name : `${chosen.length} algorithms`;
+}
+
 function mapPadding(phone: boolean, watching: boolean, sheetHeight: number): Padding {
   if (!phone) return { top: 90, bottom: watching ? 150 : 60, left: 60, right: 60 };
   if (watching) return { top: 150, bottom: 250, left: 30, right: 30 };
@@ -54,6 +61,9 @@ export function ExplorePage() {
   const planSheetHeight = useElementHeight(planSheet);
   const run = state.run;
   const watching = run.status === 'ready';
+  const comparing = watching && run.result.runs.length > 1;
+  const [sync] = useState(createCameraSync);
+  useEffect(() => sync.setLinked(state.mapsLinked), [sync, state.mapsLinked]);
 
   function startRun() {
     if (!state.start || !state.target) return;
@@ -64,7 +74,7 @@ export function ExplorePage() {
         target: state.target,
         mode: state.mode,
         objective: state.objective,
-        algorithm: state.algorithm,
+        algorithms: state.algorithms,
       },
       (stage, server) => {
         if (job.current === running) dispatch({ type: 'runProgressed', stage, server });
@@ -93,17 +103,25 @@ export function ExplorePage() {
   );
 
   const step = watching ? Math.floor(run.playback.position) : 0;
+  // The single-search view; comparisons draw their own maps.
+  const single: RunView | null =
+    watching && !comparing ? { ...run.result.runs[0]!, objective: run.result.objective } : null;
   const result = watching ? run.result : null;
   const look = useMemo(() => {
-    if (!result || !state.start || !state.target) return null;
+    const only = result?.runs[0];
+    if (!result || !only || !state.start || !state.target) return null;
     const { start, target } = result.snapped;
     const snaps: SnapLink[] = [
       { from: [state.start.lon, state.start.lat], to: [start.lon, start.lat] },
       { from: [state.target.lon, state.target.lat], to: [target.lon, target.lat] },
     ];
-    return { color: hexToRgb(ALGORITHM_STYLE[result.algorithm].color), snaps };
+    return {
+      timeline: only.timeline,
+      color: hexToRgb(ALGORITHM_STYLE[only.algorithm].color),
+      snaps,
+    };
   }, [result, state.start, state.target]);
-  const exploration = result && look ? { timeline: result.timeline, step, ...look } : null;
+  const exploration = single && look ? { step, ...look } : null;
 
   const map = (
     <MapCanvas
@@ -125,60 +143,84 @@ export function ExplorePage() {
   return (
     <div className={styles.page} data-view={watching ? 'run' : 'plan'}>
       <TopBar route="explore" immersive={watching}>
-        {watching && <RouteSummary state={state} onEdit={edit} />}
+        {watching && !phone && (
+          <RouteSummary state={state} onEdit={edit}>
+            {comparing && <LinkToggle state={state} dispatch={dispatch} />}
+          </RouteSummary>
+        )}
       </TopBar>
 
-      <div className={styles.body}>
-        {!watching && (
-          <aside ref={planSheet} className={styles.side} aria-label="Plan a run">
-            {run.status === 'loading' && (
-              <LoadingPanel
-                stage={run.stage}
-                server={run.server}
-                algorithmName={algorithms[state.algorithm].name}
-                onCancel={cancelRun}
+      {comparing ? (
+        <div className={styles.body}>
+          <CompareView
+            state={state}
+            run={run}
+            phone={phone}
+            sync={sync}
+            step={step}
+            dispatch={dispatch}
+            onEdit={edit}
+          />
+        </div>
+      ) : (
+        <div className={styles.body}>
+          {!watching && (
+            <aside ref={planSheet} className={styles.side} aria-label="Plan a run">
+              {run.status === 'loading' && (
+                <LoadingPanel
+                  stage={run.stage}
+                  server={run.server}
+                  running={runningLabel(state.algorithms)}
+                  onCancel={cancelRun}
+                />
+              )}
+              {run.status === 'failed' && (
+                <ErrorPanel error={run.error} onRetry={startRun} onBack={edit} />
+              )}
+              <PlanPanel state={state} dispatch={planDispatch} geocoder={geocoder} />
+            </aside>
+          )}
+
+          <main className={styles.mapArea} aria-label="Map">
+            {map}
+            {!watching && (
+              <p className={styles.hint}>
+                Click the map to place {state.nextPick === 'start' ? 'A' : 'B'}. Drag A or B to
+                fine-tune.
+              </p>
+            )}
+            {watching && single && !phone && (
+              <>
+                <div className={styles.runCard}>
+                  <RunCard run={single} step={step} />
+                </div>
+                <div className={styles.playback}>
+                  <PlaybackBar
+                    playback={run.playback}
+                    total={single.timeline.steps}
+                    onChange={(apply) => dispatch({ type: 'playback', apply })}
+                  />
+                </div>
+              </>
+            )}
+            {watching && single && phone && (
+              <PhoneRun
+                run={single}
+                playback={run.playback}
+                step={step}
+                dispatch={dispatch}
+                onEdit={edit}
               />
             )}
-            {run.status === 'failed' && (
-              <ErrorPanel error={run.error} onRetry={startRun} onBack={edit} />
-            )}
-            <PlanPanel state={state} dispatch={planDispatch} geocoder={geocoder} />
-          </aside>
-        )}
+          </main>
 
-        <main className={styles.mapArea} aria-label="Map">
-          {map}
-          {!watching && (
-            <p className={styles.hint}>
-              Click the map to place {state.nextPick === 'start' ? 'A' : 'B'}. Drag A or B to
-              fine-tune.
-            </p>
+          {single && !phone && (
+            <aside className={styles.inspectorSide} aria-label="Inspector">
+              <Inspector run={single} step={step} />
+            </aside>
           )}
-          {watching && !phone && (
-            <>
-              <div className={styles.runCard}>
-                <RunCard result={run.result} step={step} />
-              </div>
-              <div className={styles.playback}>
-                <PlaybackBar
-                  playback={run.playback}
-                  total={run.result.timeline.steps}
-                  onChange={(apply) => dispatch({ type: 'playback', apply })}
-                />
-              </div>
-            </>
-          )}
-          {watching && phone && (
-            <PhoneRun state={state} step={step} dispatch={dispatch} onEdit={edit} />
-          )}
-        </main>
-
-        {watching && !phone && (
-          <aside className={styles.inspectorSide} aria-label="Inspector">
-            <Inspector result={run.result} step={step} />
-          </aside>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -220,7 +262,15 @@ function usePinName(
   }, [role, place, dispatch, geocoder]);
 }
 
-function RouteSummary({ state, onEdit }: { state: ExploreState; onEdit(): void }) {
+function RouteSummary({
+  state,
+  onEdit,
+  children,
+}: {
+  state: ExploreState;
+  onEdit(): void;
+  children?: ReactNode;
+}) {
   return (
     <>
       <div className={styles.summary}>
@@ -235,29 +285,31 @@ function RouteSummary({ state, onEdit }: { state: ExploreState; onEdit(): void }
           · {MODE_LABEL[state.mode]} · {OBJECTIVE_LABEL[state.objective]} · Speed limits
         </span>
       </div>
-      <button type="button" className={styles.editButton} onClick={onEdit}>
-        <EditIcon size={15} />
-        Edit setup
-      </button>
+      <div className={styles.actions}>
+        {children}
+        <button type="button" className={styles.editButton} onClick={onEdit}>
+          <EditIcon size={15} />
+          Edit setup
+        </button>
+      </div>
     </>
   );
 }
 
 interface PhoneRunProps {
-  state: ExploreState;
+  run: RunView;
+  playback: PlaybackState;
   step: number;
   dispatch(action: ExploreAction): void;
   onEdit(): void;
 }
 
-function PhoneRun({ state, step, dispatch, onEdit }: PhoneRunProps) {
+function PhoneRun({ run, playback, step, dispatch, onEdit }: PhoneRunProps) {
   const [details, setDetails] = useState(false);
-  if (state.run.status !== 'ready') return null;
-  const { result, playback } = state.run;
   return (
     <>
       <div className={styles.phoneTop}>
-        <RunCard result={result} step={step} compact />
+        <RunCard run={run} step={step} compact />
         <button
           type="button"
           className={styles.iconButton}
@@ -275,16 +327,16 @@ function PhoneRun({ state, step, dispatch, onEdit }: PhoneRunProps) {
           aria-expanded={details}
           onClick={() => setDetails((open) => !open)}
         >
-          <span>{describeStep(result.timeline, step, result.algorithm, result.objective)}</span>
+          <span>{describeStep(run.timeline, step, run.algorithm, run.objective)}</span>
           <span className={styles.details}>
             Details
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}
           </span>
         </button>
-        {details && <Inspector result={result} step={step} />}
+        {details && <Inspector run={run} step={step} />}
         <PlaybackBar
           playback={playback}
-          total={result.timeline.steps}
+          total={run.timeline.steps}
           onChange={(apply) => dispatch({ type: 'playback', apply })}
           variant="compact"
         />

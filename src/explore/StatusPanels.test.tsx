@@ -13,12 +13,12 @@ describe('LoadingPanel', () => {
     ['graph', /Building the road graph/],
     ['search', /Running A\* search/],
   ] as const)('describes the %s stage', (stage, text) => {
-    render(<LoadingPanel stage={stage} algorithmName="A* search" onCancel={() => {}} />);
+    render(<LoadingPanel stage={stage} running="A* search" onCancel={() => {}} />);
     expect(screen.getByRole('status')).toHaveTextContent(text);
   });
 
   it('warns that downloads can be slow', () => {
-    render(<LoadingPanel stage="download" algorithmName="A* search" onCancel={() => {}} />);
+    render(<LoadingPanel stage="download" running="A* search" onCancel={() => {}} />);
     expect(screen.getByRole('status')).toHaveTextContent(/up to a minute/);
   });
 
@@ -27,7 +27,7 @@ describe('LoadingPanel', () => {
       <LoadingPanel
         stage="download"
         server={{ host: 'maps.mail.ru', attempt: 2 }}
-        algorithmName="A* search"
+        running="A* search"
         onCancel={() => {}}
       />,
     );
@@ -38,14 +38,14 @@ describe('LoadingPanel', () => {
 
   it('counts the time spent waiting', () => {
     vi.useFakeTimers();
-    render(<LoadingPanel stage="download" algorithmName="A* search" onCancel={() => {}} />);
+    render(<LoadingPanel stage="download" running="A* search" onCancel={() => {}} />);
     act(() => vi.advanceTimersByTime(42_000));
     expect(screen.getByText('0:42 so far')).toBeInTheDocument();
   });
 
   it('can be cancelled', async () => {
     const onCancel = vi.fn();
-    render(<LoadingPanel stage="download" algorithmName="A* search" onCancel={onCancel} />);
+    render(<LoadingPanel stage="download" running="A* search" onCancel={onCancel} />);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalled();
   });

@@ -2,7 +2,7 @@ import { NEVER } from '../playback/timeline';
 import { fakeJobResult } from '../test/fakes';
 import { explorationLayers, hexToRgb } from './explorationLayers';
 
-const { timeline } = fakeJobResult('astar');
+const { timeline } = fakeJobResult('astar').runs[0]!;
 const color = hexToRgb('#B197FC');
 /** Layer props, including those the DataFilterExtension adds. */
 const propsOf = (layer: { props: unknown }) => layer.props as Record<string, unknown>;

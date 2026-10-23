@@ -85,6 +85,14 @@ describe('buildTimeline', () => {
     }
   });
 
+  it('keeps the largest frontier seen so far at every step', () => {
+    let peak = 0;
+    for (let t = 0; t <= timeline.steps; t++) {
+      peak = Math.max(peak, timeline.frontierSizeAt[t]!);
+      expect(timeline.frontierPeakAt[t]).toBe(peak);
+    }
+  });
+
   it('describes the route found, with its length in meters', () => {
     expect(trace.result.found).toBe(true);
     if (!trace.result.found) return;

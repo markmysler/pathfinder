@@ -85,8 +85,13 @@
   color: var(--muted);
 }
 
-.editButton {
+.actions {
   margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.editButton {
   min-height: 40px;
   display: flex;
   align-items: center;

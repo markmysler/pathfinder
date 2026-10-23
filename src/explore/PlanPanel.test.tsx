@@ -4,7 +4,12 @@ import { cabildo, casaRosada, fakeGeocoder } from '../test/fakes';
 import { initialExplore, type ExploreState } from './exploreState';
 import { PlanPanel } from './PlanPanel';
 
-const ready: ExploreState = { ...initialExplore, start: casaRosada, target: cabildo };
+const ready: ExploreState = {
+  ...initialExplore,
+  start: casaRosada,
+  target: cabildo,
+  algorithms: ['astar'],
+};
 
 function renderPanel(state: ExploreState = ready) {
   const dispatch = vi.fn();
@@ -18,8 +23,19 @@ describe('PlanPanel', () => {
     expect(screen.getByRole('button', { name: 'Run A* search' })).toBeEnabled();
   });
 
+  it('counts the algorithms on the run button when comparing', () => {
+    renderPanel({ ...ready, algorithms: ['greedy', 'dijkstra', 'astar'] });
+    expect(screen.getByRole('button', { name: 'Run 3 algorithms' })).toBeEnabled();
+  });
+
+  it('asks for an algorithm when none is chosen', () => {
+    renderPanel({ ...ready, algorithms: [] });
+    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+    expect(screen.getByText('Choose at least one algorithm.')).toBeInTheDocument();
+  });
+
   it('keeps the run button disabled until A and B are set', () => {
-    renderPanel({ ...initialExplore, start: casaRosada });
+    renderPanel({ ...ready, target: null });
     expect(screen.getByRole('button', { name: 'Run A* search' })).toBeDisabled();
     expect(screen.getByText(/search for B or click the map/i)).toBeInTheDocument();
   });
@@ -45,10 +61,10 @@ describe('PlanPanel', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'swapped' });
   });
 
-  it('picks an algorithm', async () => {
+  it('adds an algorithm to compare', async () => {
     const dispatch = renderPanel();
-    await userEvent.click(screen.getByRole('radio', { name: /Greedy/ }));
-    expect(dispatch).toHaveBeenCalledWith({ type: 'algorithmChosen', algorithm: 'greedy' });
+    await userEvent.click(screen.getByRole('checkbox', { name: /Greedy/ }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'algorithmToggled', algorithm: 'greedy' });
   });
 
   it('warns about trips beyond the 15 km limit and will not run them', () => {

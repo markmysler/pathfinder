@@ -91,9 +91,13 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 2 — Design: overall UI (approved; canvas: https://claude.ai/artifact/1yywQJ9p4xK44XNhqaNgRG)
 - [x] Phase 3 — OSM pipeline (search area + size cap, OSM tag rules per mode, road network, routing graphs, largest SCC + snapping, Overpass client with fallback, IndexedDB cache; tested on recorded Plaza de Mayo data)
 - [x] Phase 4 — Single-algorithm visualization (MapLibre + deck.gl map, address search, worker, playback, inspector, desktop and phone layouts per the approved designs)
-- [ ] Phase 5 — Multi-algorithm comparison
+- [x] Phase 5 — Multi-algorithm comparison
 
 Follow-ups noted during phase 4:
 
 - The JS bundle is about 560 KB gzipped (mostly deck.gl and MapLibre); split it in phase 10.
 - Public Overpass servers are often slow (30–60 s) or down; the client tries three servers with a 70 s limit each.
+
+Follow-ups noted during phase 5:
+
+- Each comparison map uses two WebGL contexts (MapLibre plus deck.gl's overlay canvas); browsers allow about 16. deck.gl's interleaved mode, which would share one, fails on MapLibre 6 (`_nearZ` errors). With the algorithms added in phases 7 and 9, cap the desktop grid or revisit interleaving.

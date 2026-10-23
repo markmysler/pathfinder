@@ -105,3 +105,32 @@
   font-family: var(--font-mono);
   font-size: 14px;
 }
+
+.marks {
+  position: relative;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.marks[data-rows='2'] {
+  min-height: 32px;
+}
+
+.marks li {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.marks li::before {
+  content: '';
+  width: 2px;
+  height: 12px;
+  background: currentColor;
+}

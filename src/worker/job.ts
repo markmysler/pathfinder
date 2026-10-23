@@ -11,7 +11,8 @@ export interface JobRequest {
   target: LatLon;
   mode: TravelMode;
   objective: Objective;
-  algorithm: AlgorithmId;
+  /** Run in this order, all on the same roads between the same snapped points. */
+  algorithms: AlgorithmId[];
 }
 
 export type Stage = 'download' | 'graph' | 'search';
@@ -28,15 +29,20 @@ export interface SnappedPoint extends LatLon {
   meters: number;
 }
 
-export interface JobResult {
+/** One algorithm's search, ready to play back. */
+export interface AlgorithmRun {
   algorithm: AlgorithmId;
+  timeline: Timeline;
+  stats: SearchStats;
+}
+
+export interface JobResult {
   mode: TravelMode;
   objective: Objective;
   area: BBox;
   fromCache: boolean;
   snapped: { start: SnappedPoint; target: SnappedPoint };
-  timeline: Timeline;
-  stats: SearchStats;
+  runs: AlgorithmRun[];
 }
 
 export interface JobDeps {
@@ -48,9 +54,10 @@ export interface JobDeps {
   signal?: AbortSignal;
 }
 
-/** Everything between "Run" and a playable timeline: area, roads, graph, search. */
+/** Everything between "Run" and playable timelines: area, roads, graph, then each search. */
 export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobResult> {
   const { signal } = deps;
+  if (request.algorithms.length === 0) throw new Error('Choose at least one algorithm.');
   const area = searchArea(request.start, request.target);
   deps.onProgress('download');
   const { network, fromCache } = await deps.loadRoadNetwork(area, {
@@ -67,28 +74,36 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   signal?.throwIfAborted();
 
   deps.onProgress('search');
-  const trace = runSearch(algorithms[request.algorithm].search, prepared);
   const { graph, snapped } = prepared;
+  const runs = request.algorithms.map((algorithm): AlgorithmRun => {
+    signal?.throwIfAborted();
+    const trace = runSearch(algorithms[algorithm].search, prepared);
+    return {
+      algorithm,
+      timeline: buildTimeline(graph, trace, prepared.heuristic),
+      stats: summarize(trace.events),
+    };
+  });
   const at = ({ node, meters }: { node: number; meters: number }) => ({
     lat: graph.lat[node]!,
     lon: graph.lon[node]!,
     meters,
   });
   return {
-    algorithm: request.algorithm,
     mode: request.mode,
     objective: request.objective,
     area,
     fromCache,
     snapped: { start: at(snapped.start), target: at(snapped.target) },
-    timeline: buildTimeline(graph, trace, prepared.heuristic),
-    stats: summarize(trace.events),
+    runs,
   };
 }
 
-/** The buffers behind a timeline, so posting it from the worker moves rather than copies them. */
-export function transferablesOf(timeline: Timeline): ArrayBuffer[] {
-  const views: ArrayBufferView[] = Object.values(timeline).filter(ArrayBuffer.isView);
-  if (timeline.route) views.push(timeline.route.positions);
-  return views.map((view) => view.buffer as ArrayBuffer);
+/** The buffers behind every timeline, so posting the result moves rather than copies them. */
+export function transferablesOf(result: JobResult): ArrayBuffer[] {
+  return result.runs.flatMap(({ timeline }) => {
+    const views: ArrayBufferView[] = Object.values(timeline).filter(ArrayBuffer.isView);
+    if (timeline.route) views.push(timeline.route.positions);
+    return views.map((view) => view.buffer as ArrayBuffer);
+  });
 }

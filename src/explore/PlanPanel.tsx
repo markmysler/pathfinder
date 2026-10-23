@@ -40,6 +40,12 @@ function routeProblem(start: Place | null, target: Place | null): string | null 
   }
 }
 
+function runLabel(chosen: ExploreState['algorithms']) {
+  if (chosen.length === 0) return 'Run';
+  if (chosen.length === 1) return `Run ${algorithms[chosen[0]!].name}`;
+  return `Run ${chosen.length} algorithms`;
+}
+
 interface Props {
   state: ExploreState;
   dispatch: Dispatch<ExploreAction>;
@@ -49,7 +55,7 @@ interface Props {
 export function PlanPanel({ state, dispatch, geocoder }: Props) {
   const problem = routeProblem(state.start, state.target);
   const missing = !state.start ? 'A' : !state.target ? 'B' : null;
-  const runLabel = `Run ${algorithms[state.algorithm].name}`;
+  const unchosen = state.algorithms.length === 0;
 
   return (
     <div className={styles.plan}>
@@ -102,8 +108,8 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
         </div>
 
         <AlgorithmPicker
-          value={state.algorithm}
-          onChange={(algorithm) => dispatch({ type: 'algorithmChosen', algorithm })}
+          value={state.algorithms}
+          onToggle={(algorithm) => dispatch({ type: 'algorithmToggled', algorithm })}
         />
 
         <div className={styles.runBar}>
@@ -115,14 +121,15 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
           {missing && (
             <p className={styles.caption}>Search for {missing} or click the map to drop it.</p>
           )}
+          {!missing && unchosen && <p className={styles.caption}>Choose at least one algorithm.</p>}
           <button
             type="button"
             className={styles.run}
-            disabled={missing !== null || problem !== null}
+            disabled={missing !== null || problem !== null || unchosen}
             onClick={() => dispatch({ type: 'runRequested' })}
           >
             <PlayIcon />
-            {runLabel}
+            {runLabel(state.algorithms)}
           </button>
         </div>
       </section>

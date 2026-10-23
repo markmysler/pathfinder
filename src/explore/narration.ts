@@ -10,7 +10,10 @@ type NarratedTimeline = Pick<
 
 export type SearchStatus = 'searching' | 'found' | 'no-route';
 
-export function searchStatus(timeline: Pick<Timeline, 'steps' | 'route'>, position: number) {
+export function searchStatus(
+  timeline: Pick<Timeline, 'steps' | 'route'>,
+  position: number,
+): SearchStatus {
   if (position < timeline.steps) return 'searching';
   return timeline.route ? 'found' : 'no-route';
 }

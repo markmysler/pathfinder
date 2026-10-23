@@ -26,6 +26,8 @@ export interface Timeline {
   pushesAt: Uint32Array;
   /** Distinct nodes waiting in the frontier after the step. */
   frontierSizeAt: Uint32Array;
+  /** The largest frontier at any step up to and including this one. */
+  frontierPeakAt: Uint32Array;
 
   /** Roads drawn as explored: one per push that came along an edge. */
   roadCount: number;
@@ -114,7 +116,11 @@ export function buildTimeline(
     i++;
   }
   const frontierSizeAt = new Uint32Array(steps + 1);
-  for (let t = 0, size = 0; t <= steps; t++) frontierSizeAt[t] = size += change[t]!;
+  const frontierPeakAt = new Uint32Array(steps + 1);
+  for (let t = 0, size = 0, peak = 0; t <= steps; t++) {
+    frontierSizeAt[t] = size += change[t]!;
+    frontierPeakAt[t] = peak = Math.max(peak, size);
+  }
 
   return {
     steps,
@@ -125,6 +131,7 @@ export function buildTimeline(
     expandedDegree,
     pushesAt,
     frontierSizeAt,
+    frontierPeakAt,
     roadCount,
     roadFrom,
     roadTo,

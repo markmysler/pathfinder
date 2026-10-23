@@ -1,4 +1,4 @@
-import type { AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId } from '../algorithms';
 import type { Place } from '../geo/nominatim';
 import type { LatLon } from '../osm/area';
 import type { Objective } from '../osm/network';
@@ -12,6 +12,7 @@ import {
 } from '../playback/playback';
 import type { JobResult, ServerAttempt, Stage } from '../worker/job';
 import type { JobError } from '../worker/protocol';
+import { totalSteps } from './comparison';
 
 export type Role = 'start' | 'target';
 
@@ -19,7 +20,16 @@ export type RunState =
   | { status: 'idle' }
   | { status: 'loading'; stage: Stage | null; server?: ServerAttempt }
   | { status: 'failed'; error: JobError }
-  | { status: 'ready'; result: JobResult; playback: PlaybackState };
+  | {
+      status: 'ready';
+      result: JobResult;
+      playback: PlaybackState;
+      /** Maps shown when only a few fit (phones), the one picked longest ago first. */
+      shown: AlgorithmId[];
+    };
+
+/** How many stacked maps fit on a phone. */
+export const MAX_SHOWN_MAPS = 3;
 
 export interface ExploreState {
   start: Place | null;
@@ -28,7 +38,10 @@ export interface ExploreState {
   nextPick: Role;
   mode: TravelMode;
   objective: Objective;
-  algorithm: AlgorithmId;
+  /** Chosen algorithms, in the order they are listed. */
+  algorithms: AlgorithmId[];
+  /** Whether panning or zooming one comparison map moves the others. */
+  mapsLinked: boolean;
   run: RunState;
 }
 
@@ -40,12 +53,14 @@ export type ExploreAction =
   | { type: 'swapped' }
   | { type: 'modeChosen'; mode: TravelMode }
   | { type: 'objectiveChosen'; objective: Objective }
-  | { type: 'algorithmChosen'; algorithm: AlgorithmId }
+  | { type: 'algorithmToggled'; algorithm: AlgorithmId }
   | { type: 'runRequested' }
   | { type: 'runProgressed'; stage: Stage; server?: ServerAttempt }
   | { type: 'runSucceeded'; result: JobResult }
   | { type: 'runFailed'; error: JobError }
   | { type: 'editRequested' }
+  | { type: 'mapToggled'; algorithm: AlgorithmId }
+  | { type: 'mapsLinkToggled' }
   | { type: 'playback'; apply: (playback: PlaybackState, total: number) => PlaybackState };
 
 export const initialExplore: ExploreState = {
@@ -54,9 +69,26 @@ export const initialExplore: ExploreState = {
   nextPick: 'start',
   mode: 'car',
   objective: 'fastest',
-  algorithm: 'astar',
+  algorithms: ['greedy', 'dijkstra', 'astar'],
+  mapsLinked: true,
   run: { status: 'idle' },
 };
+
+const LISTED = Object.keys(algorithms) as AlgorithmId[];
+
+function toggled(chosen: readonly AlgorithmId[], algorithm: AlgorithmId): AlgorithmId[] {
+  const next = new Set(chosen);
+  if (!next.delete(algorithm)) next.add(algorithm);
+  return LISTED.filter((id) => next.has(id));
+}
+
+/** Shows or hides a map; past the limit, the map picked longest ago makes way. */
+function toggledMap(shown: readonly AlgorithmId[], algorithm: AlgorithmId): AlgorithmId[] {
+  if (shown.includes(algorithm)) {
+    return shown.length > 1 ? shown.filter((id) => id !== algorithm) : [...shown];
+  }
+  return [...shown, algorithm].slice(-MAX_SHOWN_MAPS);
+}
 
 const other = (role: Role): Role => (role === 'start' ? 'target' : 'start');
 
@@ -90,19 +122,23 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return { ...state, mode: action.mode };
     case 'objectiveChosen':
       return { ...state, objective: action.objective };
-    case 'algorithmChosen':
-      return { ...state, algorithm: action.algorithm };
+    case 'algorithmToggled':
+      return { ...state, algorithms: toggled(state.algorithms, action.algorithm) };
+    case 'mapsLinkToggled':
+      return { ...state, mapsLinked: !state.mapsLinked };
     case 'runRequested':
-      if (!state.start || !state.target) return state;
+      if (!state.start || !state.target || state.algorithms.length === 0) return state;
       return { ...state, run: { status: 'loading', stage: null } };
     case 'runProgressed':
       if (state.run.status !== 'loading') return state;
       return { ...state, run: { status: 'loading', stage: action.stage, server: action.server } };
     case 'runSucceeded': {
       if (state.run.status !== 'loading') return state;
-      const { steps } = action.result.timeline;
+      const { runs } = action.result;
+      const steps = totalSteps(runs);
       const playback = play(setSpeed(initialPlayback(), suggestedSpeed(steps)), steps);
-      return { ...state, run: { status: 'ready', result: action.result, playback } };
+      const shown = runs.slice(-MAX_SHOWN_MAPS).map((run) => run.algorithm);
+      return { ...state, run: { status: 'ready', result: action.result, playback, shown } };
     }
     case 'runFailed':
       if (state.run.status !== 'loading') return state;
@@ -115,8 +151,14 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       const { result, playback } = state.run;
       return {
         ...state,
-        run: { ...state.run, playback: action.apply(playback, result.timeline.steps) },
+        run: { ...state.run, playback: action.apply(playback, totalSteps(result.runs)) },
       };
     }
+    case 'mapToggled':
+      if (state.run.status !== 'ready') return state;
+      return {
+        ...state,
+        run: { ...state.run, shown: toggledMap(state.run.shown, action.algorithm) },
+      };
   }
 }

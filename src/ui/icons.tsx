@@ -66,6 +66,10 @@ export const RestartIcon = stroke(<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" 
 export const PlusIcon = stroke(<path d="M12 5v14M5 12h14" />);
 export const MinusIcon = stroke(<path d="M5 12h14" />);
 export const FitIcon = stroke(<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />);
+export const CheckIcon = stroke(<path d="M5 12l5 5 9-10" />);
+export const LinkIcon = stroke(
+  <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+);
 export const ChevronUpIcon = stroke(<path d="M6 15l6-6 6 6" />);
 export const ChevronDownIcon = stroke(<path d="M6 9l6 6 6-6" />);
 export const MapIcon = stroke(

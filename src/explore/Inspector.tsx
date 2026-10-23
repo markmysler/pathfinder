@@ -1,32 +1,32 @@
-import type { CSSProperties } from 'react';
 import { algorithms } from '../algorithms';
 import { roadsExploredBy } from '../playback/timeline';
-import { ALGORITHM_STYLE } from '../ui/algorithmStyle';
+import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
-import type { JobResult } from '../worker/job';
+import type { Objective } from '../osm/network';
+import type { AlgorithmRun } from '../worker/job';
 import styles from './Inspector.module.css';
 import { describeStep, searchStatus } from './narration';
 
+/** One algorithm's search and what its costs measure. */
+export type RunView = AlgorithmRun & { objective: Objective };
+
 interface Props {
-  result: JobResult;
+  run: RunView;
   /** The current whole step of playback. */
   step: number;
 }
 
 const STATUS_LABEL = { searching: 'Searching', found: 'Found route', 'no-route': 'No route' };
 
-const algoColor = (result: JobResult) =>
-  ({ '--algo': ALGORITHM_STYLE[result.algorithm].color }) as CSSProperties;
-
 /** The algorithm's badge, name and status, shown over the map. */
-export function RunCard({ result, step, compact = false }: Props & { compact?: boolean }) {
-  const { timeline, objective } = result;
-  const { name } = algorithms[result.algorithm];
+export function RunCard({ run, step, compact = false }: Props & { compact?: boolean }) {
+  const { timeline, objective } = run;
+  const { name } = algorithms[run.algorithm];
   return (
-    <div className={styles.card} style={algoColor(result)}>
+    <div className={styles.card} style={algoColor(run.algorithm)}>
       <div className={styles.cardHeader}>
         <span className={styles.badge} aria-hidden="true">
-          {ALGORITHM_STYLE[result.algorithm].badge}
+          {ALGORITHM_STYLE[run.algorithm].badge}
         </span>
         <h2>{name}</h2>
         <span className={styles.status}>
@@ -55,14 +55,14 @@ export function RunCard({ result, step, compact = false }: Props & { compact?: b
 }
 
 /** Live numbers and a plain-language account of the current step. */
-export function Inspector({ result, step }: Props) {
-  const { timeline, objective } = result;
-  const { name, informed } = algorithms[result.algorithm];
+export function Inspector({ run, step }: Props) {
+  const { timeline, objective } = run;
+  const { name, informed } = algorithms[run.algorithm];
   const route = timeline.route;
   const found = route && step >= timeline.steps;
 
   return (
-    <div className={styles.inspector} style={algoColor(result)}>
+    <div className={styles.inspector} style={algoColor(run.algorithm)}>
       <header>
         <p className={styles.eyebrow}>Inspector</p>
         <h2 className={styles.title}>What {name} is doing right now</h2>
@@ -96,7 +96,7 @@ export function Inspector({ result, step }: Props) {
 
       <section className={styles.step} aria-labelledby="inspector-step">
         <h3 id="inspector-step">Step {formatCount(step)}</h3>
-        <p>{describeStep(timeline, step, result.algorithm, objective)}</p>
+        <p>{describeStep(timeline, step, run.algorithm, objective)}</p>
       </section>
 
       {found && (

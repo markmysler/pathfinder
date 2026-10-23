@@ -1,0 +1,304 @@
+.desktop {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cardHeader h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cardStatus {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--algo);
+}
+
+.cardMap {
+  position: relative;
+  height: 380px;
+}
+
+.badge {
+  flex: none;
+  width: 40px;
+  padding: 3px 0;
+  text-align: center;
+  border-radius: 5px;
+  background: var(--algo);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.panel {
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.resultsHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 2px 0 10px;
+}
+
+.resultsHeading h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.resultsHeading p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.linkButton {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.linkButton[aria-pressed='true'],
+.iconButton[aria-pressed='true'] {
+  background: var(--raised);
+}
+
+.linkButton[aria-pressed='false'],
+.iconButton[aria-pressed='false'] {
+  color: var(--muted);
+}
+
+/* Phones: everything stacked in one column, maps sharing the space left over. */
+.phone {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.phoneHeader {
+  flex: none;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.iconButton {
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.iconButton[aria-pressed] {
+  border-color: var(--border-strong);
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.title p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chips {
+  flex: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chipCount {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.chipCount .mono {
+  color: var(--text);
+}
+
+.chipRow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.chip {
+  flex: none;
+  height: var(--touch);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--raised);
+  color: #fff;
+  border: 1.5px solid var(--algo);
+  font-weight: 600;
+}
+
+.chipRing {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--algo);
+}
+
+.chipTick {
+  color: var(--algo);
+}
+
+.stack {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stacked {
+  flex: 1;
+  position: relative;
+  min-height: 120px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.label {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 6px;
+  background: var(--panel);
+  border-radius: var(--radius-s);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+.label .badge {
+  width: 34px;
+  padding: 2px 0;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+
+.labelName {
+  font-weight: 600;
+}
+
+.labelStatus {
+  color: var(--text-2);
+}
+
+.phone .panel {
+  flex: none;
+  padding: 8px 12px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

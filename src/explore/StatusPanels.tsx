@@ -9,7 +9,8 @@ import styles from './StatusPanels.module.css';
 interface LoadingProps {
   stage: Stage | null;
   server?: ServerAttempt;
-  algorithmName: string;
+  /** What is being run: an algorithm's name, or "3 algorithms". */
+  running: string;
   onCancel(): void;
 }
 
@@ -28,7 +29,7 @@ function describeServer({ host, attempt }: ServerAttempt) {
   return `${failed} didn't answer, so Pathfinder is trying ${host} (${attempt} of ${DEFAULT_ENDPOINTS.length}).`;
 }
 
-export function LoadingPanel({ stage, server, algorithmName, onCancel }: LoadingProps) {
+export function LoadingPanel({ stage, server, running, onCancel }: LoadingProps) {
   const seconds = useSecondsSinceMount();
   const [message, detail] = {
     none: ['Getting ready…', ''],
@@ -37,7 +38,7 @@ export function LoadingPanel({ stage, server, algorithmName, onCancel }: Loading
       'The public servers can take up to a minute. Next time this area loads instantly.',
     ],
     graph: ['Building the road graph…', ''],
-    search: [`Running ${algorithmName}…`, ''],
+    search: [`Running ${running}…`, ''],
   }[stage ?? 'none']!;
 
   return (

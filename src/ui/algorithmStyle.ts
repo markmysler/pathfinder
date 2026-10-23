@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { AlgorithmId } from '../algorithms';
 
 export interface AlgorithmStyle {
@@ -41,3 +42,7 @@ export const ALGORITHM_STYLE: Record<AlgorithmId, AlgorithmStyle> = {
     blurb: 'Dijkstra steered by a distance estimate. Best route, less work.',
   },
 };
+
+/** Sets `--algo` to the algorithm's colour, for styles that tint by algorithm. */
+export const algoColor = (algorithm: AlgorithmId) =>
+  ({ '--algo': ALGORITHM_STYLE[algorithm].color }) as CSSProperties;

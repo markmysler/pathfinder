@@ -9,6 +9,9 @@
 }
 
 .legend {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
   padding: 0;
   margin-bottom: 8px;
   font-size: 12px;
@@ -16,6 +19,12 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.count {
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
 }
 
 .card {
@@ -40,7 +49,7 @@
   outline-offset: 2px;
 }
 
-.radio {
+.box {
   flex: none;
   margin: 0;
   width: 18px;
@@ -84,7 +93,8 @@
   color: var(--muted);
 }
 
-.short {
+.short,
+.check {
   display: none;
 }
 
@@ -111,8 +121,12 @@
     position: relative;
   }
 
-  /* The radio covers the whole chip, invisibly, so a tap anywhere on it selects it. */
-  .radio {
+  .card:has(input:checked) {
+    border-width: 1.5px;
+  }
+
+  /* The checkbox covers the whole chip, invisibly, so a tap anywhere on it toggles it. */
+  .box {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -132,6 +146,17 @@
 
   .text {
     display: none;
+  }
+
+  /* A ring in the algorithm's colour when off, a tick when on. */
+  .card:has(input:checked) .badge {
+    display: none;
+  }
+
+  .card:has(input:checked) .check {
+    display: block;
+    flex: none;
+    color: var(--algo);
   }
 
   .short {

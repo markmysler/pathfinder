@@ -16,6 +16,26 @@ function renderBar(playback = midway, variant: 'full' | 'compact' = 'full') {
 }
 
 describe('PlaybackBar', () => {
+  it('can note what the clock drives and mark where searches finished', () => {
+    render(
+      <PlaybackBar
+        playback={midway}
+        total={total}
+        onChange={() => {}}
+        note="one clock for every map"
+        marks={[{ label: 'GBF', color: '#F5B83D', step: 1_203 }]}
+      />,
+    );
+    expect(screen.getByText(/Step/).closest('label')).toHaveTextContent(
+      'Step 4,812 of 9,874 · one clock for every map',
+    );
+    const marks = screen.getByRole('list', { name: 'Where each search finished' });
+    expect(marks).toHaveTextContent('GBF');
+    expect(screen.getByText('GBF').closest('li')).toHaveAccessibleName(
+      'GBF finished at step 1,203',
+    );
+  });
+
   it('shows where playback is', () => {
     renderBar();
     expect(screen.getByText(/Step/).closest('label')).toHaveTextContent('Step 4,812 of 9,874');

@@ -24,23 +24,55 @@ import {
 } from '../ui/icons';
 import styles from './PlaybackBar.module.css';
 
-type Change = (playback: PlaybackState, total: number) => PlaybackState;
+export type PlaybackChange = (playback: PlaybackState, total: number) => PlaybackState;
+
+export interface FinishMark {
+  label: string;
+  color: string;
+  step: number;
+}
 
 interface Props {
   playback: PlaybackState;
   total: number;
-  onChange(apply: Change): void;
+  onChange(apply: PlaybackChange): void;
   /** Compact swaps the speed slider for a button that cycles preset speeds (phones). */
   variant?: 'full' | 'compact';
+  /** What the clock drives, e.g. "one clock for every map". */
+  note?: string;
+  /** Searches that end before the clock does, marked under the scrubber. */
+  marks?: readonly FinishMark[];
+}
+
+/** Marks too close to fit side by side alternate between two rows. */
+function placeMarks(marks: readonly FinishMark[], total: number) {
+  let previous = -Infinity;
+  let row = 0;
+  return [...marks]
+    .sort((a, b) => a.step - b.step)
+    .map((mark) => {
+      const left = (100 * mark.step) / total;
+      row = left - previous < 8 ? 1 - row : 0;
+      previous = left;
+      return { ...mark, left, row };
+    });
 }
 
 const nextPreset = (speed: number) =>
   PRESET_SPEEDS.find((s) => s > speed + 1e-9) ?? PRESET_SPEEDS[0]!;
 
-export function PlaybackBar({ playback, total, onChange, variant = 'full' }: Props) {
+export function PlaybackBar({
+  playback,
+  total,
+  onChange,
+  variant = 'full',
+  note,
+  marks = [],
+}: Props) {
   const step = Math.floor(playback.position);
   const speedLabel = formatSpeed(playback.speed);
   const compact = variant === 'compact';
+  const placed = total > 0 ? placeMarks(marks, total) : [];
 
   return (
     <div
@@ -116,8 +148,9 @@ export function PlaybackBar({ playback, total, onChange, variant = 'full' }: Pro
         <span className={styles.labels}>
           <span>
             Step <span className={styles.value}>{formatCount(step)}</span> of {formatCount(total)}
+            {note && !compact && ` · ${note}`}
           </span>
-          {!compact && <span>Drag to scrub</span>}
+          {compact ? note && <span>{note}</span> : <span>Drag to scrub</span>}
         </span>
         <input
           className={styles.range}
@@ -132,6 +165,23 @@ export function PlaybackBar({ playback, total, onChange, variant = 'full' }: Pro
             onChange((p, t) => seek(p, position, t));
           }}
         />
+        {placed.length > 0 && (
+          <ul
+            className={styles.marks}
+            aria-label="Where each search finished"
+            data-rows={placed.some((mark) => mark.row) ? 2 : 1}
+          >
+            {placed.map((mark) => (
+              <li
+                key={mark.label}
+                aria-label={`${mark.label} finished at step ${formatCount(mark.step)}`}
+                style={{ left: `${mark.left}%`, top: mark.row * 16, color: mark.color }}
+              >
+                {mark.label}
+              </li>
+            ))}
+          </ul>
+        )}
       </label>
 
       {!compact && (

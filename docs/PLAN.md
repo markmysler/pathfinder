@@ -113,6 +113,6 @@ Follow-ups noted during phase 7:
 
 Follow-ups noted during phase 8:
 
-- Not yet checked with a real key: whether TomTom's zoom-14 flow tiles carry small local streets, and that a line's point order is its direction of travel (TomTom does not document it). Tests use generated tiles and HERE answers.
+- Checked with a real TomTom key on 2026-10-23, around Plaza de Mayo: zoom-14 tiles carry local streets (96% of residential and 93% of living-street directions got a reading, every main road did, service roads 15%), and a line's point order is its direction of travel (on one-way streets 1,973 of 2,119 directions matched as drawn, 110 when reversed). Responses carry CORS for the site. HERE is still unchecked with a real key.
 - HERE sends its 401s without CORS headers, so a wrong HERE key reads as "HERE didn't answer"; the messages say so.
 - Matching ignores road type: a service road within 15 m of a jammed avenue, and running the same way, would take the avenue's speed.

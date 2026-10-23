@@ -1,0 +1,83 @@
+.plan {
+  display: contents;
+}
+
+.route {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.places {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iconButton {
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.travel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caption {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.alert {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--algo-greedy);
+  border-radius: var(--radius-m);
+  font-size: 13.5px;
+}
+
+.run {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  border: 0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.run:disabled {
+  opacity: 0.45;
+}

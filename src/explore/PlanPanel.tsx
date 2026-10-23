@@ -1,0 +1,129 @@
+import type { Dispatch, ReactNode } from 'react';
+import { algorithms } from '../algorithms';
+import type { Geocoder, Place } from '../geo/nominatim';
+import { MAX_ROUTE_METERS, RouteTooLongError, searchArea } from '../osm/area';
+import type { Objective } from '../osm/network';
+import type { TravelMode } from '../osm/roads';
+import { BikeIcon, CarIcon, PlayIcon, SwapIcon, WalkIcon } from '../ui/icons';
+import { Segmented } from '../ui/Segmented';
+import { AlgorithmPicker } from './AlgorithmPicker';
+import type { ExploreAction, ExploreState } from './exploreState';
+import { PlaceInput } from './PlaceInput';
+import styles from './PlanPanel.module.css';
+
+const MODES = [
+  { value: 'car', label: 'Car', icon: <CarIcon /> },
+  { value: 'bike', label: 'Bike', icon: <BikeIcon /> },
+  { value: 'walk', label: 'Walk', icon: <WalkIcon /> },
+] as const satisfies readonly { value: TravelMode; label: string; icon: ReactNode }[];
+
+const OBJECTIVES = [
+  { value: 'fastest', label: 'Fastest' },
+  { value: 'shortest', label: 'Shortest' },
+] as const satisfies readonly { value: Objective; label: string }[];
+
+const SPEED_SOURCE: Record<TravelMode, string> = {
+  car: 'its speed limit',
+  bike: 'a cycling pace of about 15 km/h',
+  walk: 'a walking pace of about 5 km/h',
+};
+
+/** Why A and B can't be searched between yet, if they can't. */
+function routeProblem(start: Place | null, target: Place | null): string | null {
+  if (!start || !target) return null;
+  try {
+    searchArea(start, target);
+    return null;
+  } catch (error) {
+    if (!(error instanceof RouteTooLongError)) throw error;
+    return `A and B are ${(error.meters / 1000).toFixed(1)} km apart. Pathfinder handles trips up to ${MAX_ROUTE_METERS / 1000} km, so move them closer.`;
+  }
+}
+
+interface Props {
+  state: ExploreState;
+  dispatch: Dispatch<ExploreAction>;
+  geocoder: Geocoder;
+}
+
+export function PlanPanel({ state, dispatch, geocoder }: Props) {
+  const problem = routeProblem(state.start, state.target);
+  const missing = !state.start ? 'A' : !state.target ? 'B' : null;
+  const runLabel = `Run ${algorithms[state.algorithm].name}`;
+
+  return (
+    <div className={styles.plan}>
+      <section aria-label="Route" className={styles.route} data-part="route">
+        <div className={styles.places}>
+          <PlaceInput
+            role="start"
+            place={state.start}
+            geocoder={geocoder}
+            near={state.target ?? undefined}
+            onChoose={(place) => dispatch({ type: 'placeChosen', role: 'start', place })}
+          />
+          <PlaceInput
+            role="target"
+            place={state.target}
+            geocoder={geocoder}
+            near={state.start ?? undefined}
+            onChoose={(place) => dispatch({ type: 'placeChosen', role: 'target', place })}
+          />
+        </div>
+        <button
+          type="button"
+          className={styles.iconButton}
+          aria-label="Swap start and destination"
+          onClick={() => dispatch({ type: 'swapped' })}
+        >
+          <SwapIcon size={20} />
+        </button>
+      </section>
+
+      <section aria-label="Run settings" className={styles.settings} data-part="settings">
+        <div className={styles.travel}>
+          <h2 className={styles.sectionTitle}>How you travel</h2>
+          <Segmented
+            legend="Travel mode"
+            options={MODES}
+            value={state.mode}
+            onChange={(mode) => dispatch({ type: 'modeChosen', mode })}
+          />
+          <Segmented
+            legend="Optimise for"
+            options={OBJECTIVES}
+            value={state.objective}
+            onChange={(objective) => dispatch({ type: 'objectiveChosen', objective })}
+          />
+          <p className={styles.caption}>
+            Fastest weighs each road by travel time at {SPEED_SOURCE[state.mode]}. Shortest weighs
+            it by length.
+          </p>
+        </div>
+
+        <AlgorithmPicker
+          value={state.algorithm}
+          onChange={(algorithm) => dispatch({ type: 'algorithmChosen', algorithm })}
+        />
+
+        {problem && (
+          <p className={styles.alert} role="alert">
+            {problem}
+          </p>
+        )}
+        {missing && (
+          <p className={styles.caption}>Search for {missing} or click the map to drop it.</p>
+        )}
+        <button
+          type="button"
+          className={styles.run}
+          disabled={missing !== null || problem !== null}
+          onClick={() => dispatch({ type: 'runRequested' })}
+        >
+          <PlayIcon />
+          {runLabel}
+        </button>
+      </section>
+    </div>
+  );
+}

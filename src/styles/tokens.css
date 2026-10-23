@@ -1,0 +1,32 @@
+/* Night Chart: the approved Pathfinder look. Dark only; colour belongs to the algorithms. */
+:root {
+  color-scheme: dark;
+
+  --bg: #0e1116;
+  --panel: #151a21;
+  --raised: #1c232c;
+  --border: #2a333e;
+  --border-strong: #3a4552;
+  --text: #e8ecf1;
+  --text-2: #c9d1da;
+  --muted: #a3aeba;
+  --faint: #7f8b97;
+  --primary-bg: #e8ecf1;
+  --primary-fg: #0e1116;
+  --map-land: #12161c;
+
+  --algo-bfs: #4ea8f5;
+  --algo-dfs: #f06ca8;
+  --algo-greedy: #f5b83d;
+  --algo-dijkstra: #2fc59a;
+  --algo-astar: #b197fc;
+
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-s: 8px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --touch: 44px;
+  --topbar: 56px;
+}

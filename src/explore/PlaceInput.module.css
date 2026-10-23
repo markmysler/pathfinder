@@ -1,0 +1,77 @@
+.form {
+  position: relative;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+}
+
+.field:focus-within {
+  border-color: var(--text-2);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+}
+
+.results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+.result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  min-height: var(--touch);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-s);
+  text-align: left;
+}
+
+.result:hover,
+.result:focus-visible {
+  background: var(--raised);
+}
+
+.resultName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.resultDetail {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.status {
+  margin: 6px 2px 0;
+  font-size: 13px;
+  color: var(--muted);
+}

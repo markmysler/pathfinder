@@ -20,7 +20,8 @@ describe('trafficLayers', () => {
     ]);
     const color = (layers['traffic-bands']!.props as unknown as { getColor(d: unknown): number[] })
       .getColor;
-    expect(color({ share: 0.18 })[3]).toBeGreaterThan(color({ share: 0.6 })[3]!);
+    // Jammed roads are drawn stronger than slow ones.
+    expect(color({ share: 0.18 })[0]).toBeGreaterThan(color({ share: 0.6 })[0]!);
   });
 
   it('hides the bands when the layer is switched off', () => {

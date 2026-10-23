@@ -95,6 +95,8 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 6 — Learning features + Learn section (frontier and line-by-line pseudocode in the inspector, weighted A*, Learn home and 11 articles with trace-driven diagrams; design boards on the canvas under "Phase 6")
 - [x] Phase 7 — Bidirectional variants (BFS, Dijkstra and A* from both ends, one engine with the stop rule "next from A + next from B ≥ best"; A* shares one estimate, half the difference of the two, so the same rule holds; each side in its own colour, the best meeting point on the map, a "can it stop yet?" meter, both frontiers in the inspector, and a Learn article; design boards on the canvas under "Phase 7")
 
+- [x] Phase 8 — Traffic (the user's own TomTom or HERE key, kept in their browser and sent only to that provider, straight from the browser; TomTom flow tiles and HERE flow read into one model, the current speed as a share of free flow; matched to OSM edges by distance and direction; car edges scaled by that share and closed roads dropped, so A* stays exact; any failure falls back to speed limits and says why; slow, jammed and closed roads and the route without traffic on the map; the traffic story in the inspector; a Live traffic section with a rush hour in Learn; design boards on the canvas under "Phase 8")
+
 Follow-ups noted during phase 4:
 
 - The JS bundle is about 560 KB gzipped (mostly deck.gl and MapLibre); split it in phase 10.
@@ -108,3 +110,9 @@ Follow-ups noted during phase 7:
 
 - Bidirectional A* uses the shared ("average") estimate, which needs consistent estimates; straight-line distance is. The A* weight applies to one-way A* only.
 - On the recorded streets bidirectional Dijkstra expands 57% fewer nodes than Dijkstra, but bidirectional A* only 6% fewer than A*. Better estimates (ALT, phase 9) are where A* gains.
+
+Follow-ups noted during phase 8:
+
+- Not yet checked with a real key: whether TomTom's zoom-14 flow tiles carry small local streets, and that a line's point order is its direction of travel (TomTom does not document it). Tests use generated tiles and HERE answers.
+- HERE sends its 401s without CORS headers, so a wrong HERE key reads as "HERE didn't answer"; the messages say so.
+- Matching ignores road type: a service road within 15 m of a jammed avenue, and running the same way, would take the avenue's speed.

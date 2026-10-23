@@ -99,7 +99,8 @@ export function RushHourFigure() {
             <polyline
               points={before.path.map((id) => position(id).join(',')).join(' ')}
               className={styles.before}
-              transform={layout === 'wide' ? 'translate(0 -14)' : 'translate(14 0)'}
+              // Beside the roads, on the side away from their cost labels.
+              transform={layout === 'wide' ? 'translate(0 14)' : 'translate(-14 0)'}
             />
           )}
           {network.nodes.map(({ id }) => {

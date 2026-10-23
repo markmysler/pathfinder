@@ -186,3 +186,64 @@ test('runs a search from both ends, marking where the sides met', async ({
     await expect(page.getByRole('region', { name: /^From B/ })).toBeVisible();
   }
 });
+
+async function addTomTomKey(page: Page) {
+  await page.getByRole('button', { name: 'Add key' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Live traffic' });
+  await dialog.getByLabel('Your TomTom API key').fill('my-own-key');
+  await dialog.getByRole('button', { name: 'Test key' }).click();
+  await expect(dialog.getByText('Works: TomTom sent traffic for a test area.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save and turn on' }).click();
+  await expect(dialog).toBeHidden();
+}
+
+test('routes a car with live traffic from the user’s own key, asked from the browser', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  const { trafficRequests } = await fakeTheInternet(context);
+  await page.goto('/');
+  await addTomTomKey(page);
+  await expect(page.getByRole('switch', { name: 'Live traffic' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await expect(page.getByRole('button', { name: 'Traffic' })).toBeVisible();
+  // The browser asks TomTom itself, with the user's key.
+  expect(trafficRequests.length).toBeGreaterThan(0);
+  expect(
+    trafficRequests.every((url) => new URL(url).searchParams.get('key') === 'my-own-key'),
+  ).toBe(true);
+  if (!isMobile) await expect(page.getByRole('banner')).toContainText('Live traffic, TomTom');
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  if (isMobile) await page.getByRole('button', { name: /Details/ }).click();
+  await expect(page.getByText(/Live speeds on [\d,]+ of [\d,]+ car roads/)).toBeVisible();
+
+  // The key stays in this browser for next time.
+  await page.reload();
+  await expect(page.getByText('TomTom · your key')).toBeVisible();
+});
+
+test('falls back to speed limits when TomTom refuses the key, and says so', async ({
+  page,
+  context,
+}) => {
+  await fakeTheInternet(context, { traffic: 'refused' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add key' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Live traffic' });
+  await dialog.getByLabel('Your TomTom API key').fill('wrong-key');
+  await dialog.getByRole('button', { name: 'Test key' }).click();
+  await expect(dialog.getByText(/TomTom refused this key/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save and turn on' }).click();
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await expect(page.getByText('No live traffic: TomTom refused your key.')).toBeVisible();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByText('Found route')).toBeVisible();
+});

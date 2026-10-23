@@ -9,6 +9,10 @@ type Live = LiveTraffic;
 type Road = { path: [number, number][]; share: number };
 
 const TRAFFIC: [number, number, number] = [255, 107, 107];
+// The band colours already blended over the map's land: drawn see-through, the many short
+// segments of a street would overlap at their ends and show as beads.
+const SLOW: [number, number, number, number] = [94, 49, 53, 255];
+const JAMMED: [number, number, number, number] = [184, 81, 83, 255];
 const dashed = new PathStyleExtension({ dash: true });
 
 const roadsCache = new WeakMap<Live, { bands: Road[]; closed: Road[] }>();
@@ -45,7 +49,7 @@ export function trafficLayers(
         id: 'traffic-bands',
         data: slow,
         getPath: (d) => d.path,
-        getColor: (d) => [...TRAFFIC, d.share < JAMMED_BELOW ? 179 : 82],
+        getColor: (d) => (d.share < JAMMED_BELOW ? JAMMED : SLOW),
         getWidth: 12,
         widthUnits: 'pixels',
         capRounded: true,

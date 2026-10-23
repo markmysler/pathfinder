@@ -56,7 +56,7 @@ test('goes from an article to the map with its algorithms ticked', async ({ page
 });
 
 test('does not scroll sideways on any article', async ({ page }) => {
-  for (const slug of ['', '/graphs', '/astar', '/bidirectional', '/which', '/glossary']) {
+  for (const slug of ['', '/graphs', '/roads', '/astar', '/bidirectional', '/which', '/glossary']) {
     await page.goto(`/#/learn${slug}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(
@@ -64,4 +64,12 @@ test('does not scroll sideways on any article', async ({ page }) => {
     );
     expect(overflow, slug).toBe(0);
   }
+});
+
+test('switches on rush hour and watches Dijkstra take the other way', async ({ page }) => {
+  await page.goto('/#/learn/roads');
+  await page.getByRole('heading', { name: 'Live traffic', level: 2 }).scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: 'Rush hour' }).click();
+  await expect(page.getByText(/At rush hour A–B moves at a quarter of its speed/)).toBeVisible();
+  await expect(page.getByText('Its route on clear roads · 6')).toBeVisible();
 });

@@ -92,7 +92,10 @@ export default function RoadsArticle() {
             </>
           }
           parts={[
-            ['share of free flow', 'from 1 on a clear road down towards 0 in a jam; 0 is closed'],
+            [
+              'share',
+              'the road’s current speed as a share of free flow: 1 when clear, towards 0 in a jam, 0 when closed',
+            ],
             ['speed limit', 'the same speed the fastest route uses without traffic'],
           ]}
         />
@@ -185,7 +188,7 @@ function MatchingFigure() {
           strokeWidth="1.5"
           strokeDasharray="5 5"
         />
-        <text x="300" y="38" fill="var(--muted)" fontSize="13" textAnchor="middle">
+        <text x="232" y="52" fill="var(--muted)" fontSize="13" textAnchor="end">
           15 m around the middle
         </text>
         <path

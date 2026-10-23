@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import astar from './astar';
 import bfs from './bfs';
+import bidirectional from './bidirectional';
 import dfs from './dfs';
 import dijkstra from './dijkstra';
 import frontier from './frontier';
@@ -22,6 +23,7 @@ export const ARTICLES: Record<string, ComponentType> = {
   greedy,
   dijkstra,
   astar,
+  bidirectional,
   which,
   glossary,
 };

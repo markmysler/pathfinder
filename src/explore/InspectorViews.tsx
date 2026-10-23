@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { pseudocode, type PartLines } from '../algorithms/pseudocode';
 import { labelOf, type NodeLabels } from '../osm/places';
+import { algorithms } from '../algorithms';
 import { frontierAt, partsOfStep, type StepPart } from '../playback/frontier';
+import { stopCheck } from '../playback/sides';
 import type { Timeline } from '../playback/timeline';
 import { formatCost, formatCount } from '../ui/format';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
@@ -77,8 +79,9 @@ export function FrontierView({
   return (
     <div className={styles.frontier}>
       <p className={styles.intro}>
-        <span className={styles.mono}>{formatCount(waiting)}</span> waiting. {RULE[algorithm]}{' '}
-        {compact ? 'Tap' : 'Hover over'} one to find it on the map.
+        <span className={styles.mono}>{formatCount(waiting)}</span> waiting.{' '}
+        {RULE[algorithm as keyof typeof RULE]} {compact ? 'Tap' : 'Hover over'} one to find it on
+        the map.
       </p>
       <ol className={styles.rows}>
         {entries.map((entry, i) => {
@@ -124,7 +127,11 @@ export function FrontierView({
   );
 }
 
-const START: PartLines = { lines: [2, 3, 4], focus: 4 };
+/** The lines that set up the search, before its main loop. */
+function startLines(lines: readonly string[]): PartLines {
+  const loop = lines.findIndex((line) => /^\s*while /.test(line)) + 1;
+  return { lines: Array.from({ length: loop - 2 }, (_, i) => i + 2), focus: loop - 1 };
+}
 
 export function CodeView({ run, step, names, playing }: ViewProps & { playing: boolean }) {
   const { timeline: t, algorithm, objective, weight } = run;
@@ -137,24 +144,40 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
   const [chosen, setChosen] = useState(taken);
   const at = playing ? taken : chosen;
   const part: StepPart | undefined = parts[at];
-  const lines = part ? code.parts[part.kind]! : START;
+  const lines = part ? code.parts[part.kind]! : startLines(code.lines);
   const cost = (value: number) => formatCost(value, objective);
+  const { bidirectional, weighted } = algorithms[algorithm];
+  // A bidirectional BFS measures routes in roads.
+  const length = (value: number) => (weighted ? cost(value) : String(value));
 
   const note = (() => {
     if (!part) return '';
-    if (part.kind === 'road') {
-      const previous = t.entryPrevious[part.entry]!;
-      if (algorithm === 'dijkstra' || algorithm === 'astar') {
+    switch (part.kind) {
+      case 'road': {
+        const previous = t.entryPrevious[part.entry]!;
+        if (!weighted) return '✓';
         return `${cost(t.entryCost[part.entry]!)} < ${Number.isFinite(previous) ? cost(previous) : '∞'} ✓`;
       }
-      return '✓';
+      case 'meet': {
+        const before = part.meeting > 0 ? length(t.meetLength[part.meeting - 1]!) : '∞';
+        return `${length(t.meetLength[part.meeting]!)} < ${before} ✓`;
+      }
+      case 'stop': {
+        const { sum, best } = stopCheck(t, step);
+        return Number.isFinite(best) ? `${length(sum)} ≥ ${length(best)} ✓` : '✓';
+      }
+      case 'rejected':
+        return '✗';
+      default:
+        return '';
     }
-    return part.kind === 'rejected' ? '✗' : '';
   })();
 
   const account = part
     ? describePart(part, { timeline: t, step, algorithm, objective, weight, names })
-    : 'Start: A is the only node in the frontier.';
+    : bidirectional
+      ? 'Start: A is in the frontier from A, and B in the frontier from B.'
+      : 'Start: A is the only node in the frontier.';
 
   return (
     <div className={styles.codeView}>

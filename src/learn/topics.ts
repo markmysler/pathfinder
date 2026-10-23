@@ -1,4 +1,4 @@
-import type { AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId } from '../algorithms';
 
 export type TopicGroup = 'foundations' | 'algorithms' | 'guides';
 
@@ -77,6 +77,14 @@ const LIST: TopicInfo[] = [
     summary: 'Dijkstra with a sense of direction',
   },
   {
+    slug: 'bidirectional',
+    title: 'Bidirectional search',
+    group: 'algorithms',
+    // Coloured like bidirectional Dijkstra, the version the article steps through.
+    algorithm: 'bidijkstra',
+    summary: 'From both ends, meeting in the middle',
+  },
+  {
     slug: 'which',
     title: 'Which algorithm when?',
     group: 'guides',
@@ -96,12 +104,7 @@ export const TOPICS: Topic[] = LIST.map((topic) => {
 });
 
 /** Topics still to be written, shown as "Soon". */
-export const COMING_LATER = [
-  'Bidirectional search',
-  'Bellman-Ford',
-  'ALT (landmarks)',
-  'Contraction hierarchies',
-];
+export const COMING_LATER = ['Bellman-Ford', 'ALT (landmarks)', 'Contraction hierarchies'];
 
 export const GROUP_TITLE: Record<TopicGroup, string> = {
   foundations: 'Foundations',
@@ -110,6 +113,12 @@ export const GROUP_TITLE: Record<TopicGroup, string> = {
 };
 
 export const topicBySlug = (slug: string) => TOPICS.find((t) => t.slug === slug);
+
+/** The article about an algorithm. Every search from both ends shares one. */
+export const topicFor = (algorithm: AlgorithmId) =>
+  algorithms[algorithm].bidirectional
+    ? topicBySlug('bidirectional')
+    : TOPICS.find((t) => t.algorithm === algorithm);
 
 export function neighbours(slug: string) {
   const i = TOPICS.findIndex((t) => t.slug === slug);

@@ -43,4 +43,11 @@ export const WHICH: readonly {
     finds: 'The cheapest, if h never overestimates',
     goodFor: 'Cheapest routes towards a known destination',
   },
+  {
+    id: 'bidijkstra',
+    name: 'Bidirectional',
+    takes: 'Two frontiers: whichever side is nearer its end',
+    finds: 'The same as the one-way search',
+    goodFor: 'Routes with a known destination, about half of Dijkstra’s work',
+  },
 ];

@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
+import type { Objective } from '../osm/network';
+import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import type { Place } from '../geo/nominatim';
 import type { CameraSync } from '../map/cameraSync';
-import { hexToRgb, type SnapLink } from '../map/explorationLayers';
+import { explorationColors, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas } from '../map/MapCanvas';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
-import { formatCount } from '../ui/format';
+import { formatCost, formatCount } from '../ui/format';
 import { CheckIcon, EditIcon, LinkIcon } from '../ui/icons';
 import type { AlgorithmRun } from '../worker/job';
 import { finishMarks, totalSteps } from './comparison';
@@ -52,6 +54,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
       snaps={snaps}
       sync={sync}
       phone={phone}
+      objective={objective}
     />
   );
 
@@ -206,6 +209,7 @@ export function LinkToggle({
 
 interface MapProps {
   run: AlgorithmRun;
+  objective: Objective;
   step: number;
   start: Place | null;
   target: Place | null;
@@ -218,16 +222,22 @@ interface MapProps {
 const CARD_PADDING = { top: 40, bottom: 40, left: 40, right: 40 };
 const STACKED_PADDING = { top: 52, bottom: 24, left: 32, right: 32 };
 
-function ComparisonMap({ run, step, start, target, snaps, sync, phone }: MapProps) {
+function ComparisonMap({ run, step, start, target, snaps, sync, phone, objective }: MapProps) {
   const { algorithm, timeline } = run;
-  const { badge, short, color } = ALGORITHM_STYLE[algorithm];
+  const { short } = ALGORITHM_STYLE[algorithm];
   const name = algorithmName(algorithm, run.weight);
   // A finished search stops changing, so its map is left alone while the others play on.
   const at = Math.min(step, timeline.steps);
-  const rgb = useMemo(() => hexToRgb(color), [color]);
+  const colors = useMemo(() => explorationColors(algorithm), [algorithm]);
   const exploration = useMemo(
-    () => ({ timeline, step: at, color: rgb, snaps }),
-    [timeline, at, rgb, snaps],
+    () => ({
+      timeline,
+      step: at,
+      colors,
+      snaps,
+      meetLabel: (m: number) => `Met · best ${formatCost(timeline.meetCost[m]!, objective)}`,
+    }),
+    [timeline, at, colors, snaps, objective],
   );
   const status = searchStatus(timeline, step);
 
@@ -251,7 +261,7 @@ function ComparisonMap({ run, step, start, target, snaps, sync, phone }: MapProp
       <article aria-label={name} className={styles.stacked} style={algoColor(algorithm)}>
         {map}
         <div className={styles.label}>
-          <span className={styles.badge}>{badge}</span>
+          <AlgorithmBadge algorithm={algorithm} className={styles.badge} />
           <span className={styles.labelName}>{short}</span>
           <span className={styles.labelStatus}>
             · {status === 'searching' ? 'Searching' : status === 'found' ? 'Done' : 'No route'}
@@ -264,7 +274,7 @@ function ComparisonMap({ run, step, start, target, snaps, sync, phone }: MapProp
   return (
     <article aria-label={name} className={styles.card} style={algoColor(algorithm)}>
       <header className={styles.cardHeader}>
-        <span className={styles.badge}>{badge}</span>
+        <AlgorithmBadge algorithm={algorithm} className={styles.badge} />
         <h2>{name}</h2>
         <span className={styles.cardStatus}>
           {status === 'searching' ? (

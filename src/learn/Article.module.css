@@ -39,7 +39,10 @@
   flex: none;
   padding: 5px 10px;
   border-radius: 6px;
-  background: var(--algo, var(--text));
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--algo-fill, var(--algo, var(--text)));
   color: var(--bg);
   font-family: var(--font-mono);
   font-size: 14px;
@@ -315,10 +318,15 @@
 }
 
 .explored {
-  stroke: var(--algo);
+  stroke: var(--algo-a, var(--algo));
   stroke-opacity: 0.7;
   stroke-width: 2;
   stroke-linecap: round;
+}
+
+/* A search from both ends draws its side from B in its lighter tint. */
+.explored[data-side='B'] {
+  stroke: var(--algo);
 }
 
 .routeCasing,
@@ -334,7 +342,7 @@
 }
 
 .routeLine {
-  stroke: var(--algo);
+  stroke: var(--algo-a, var(--algo));
   stroke-width: 4.5;
 }
 
@@ -360,7 +368,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
 }
 
 .mapCount {
@@ -552,4 +560,73 @@
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 700;
+}
+
+/* Bidirectional search: one circle from A, against two half-size circles from both ends. */
+.circles {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.circle svg {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+}
+
+.circles figcaption {
+  grid-column: 1 / -1;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.sideA {
+  --algo: var(--algo-a);
+}
+
+.versions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.version {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.version h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.version p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-2);
 }

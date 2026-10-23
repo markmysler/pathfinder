@@ -149,3 +149,109 @@ describe('Inspector views', () => {
     expect(panel.querySelector('[aria-current="step"]')).toHaveTextContent('popLowest');
   });
 });
+
+describe('Inspector for a search from both ends', () => {
+  const run = resultFor('bidijkstra');
+  const t = run.timeline;
+  const met = t.meetStep[0]!;
+  const sideCount = (step: number, side: number) =>
+    [...t.expandedSide.subarray(1, step + 1)].filter((s) => s === side).length;
+
+  it('splits its numbers between the two sides', () => {
+    render(<Inspector {...base} run={run} step={met} />);
+    expect(tile('Expanded')).toBeTruthy();
+    expect(screen.getByText('Expanded').closest('div')).toHaveTextContent(
+      `${met}${sideCount(met, 0)} from A · ${sideCount(met, 1)} from B`,
+    );
+    const side = t.expandedSide[met] ? 'B' : 'A';
+    expect(screen.getByText(`This step · from ${side}`)).toBeInTheDocument();
+    expect(screen.getByText('Best route so far').closest('div')).toHaveTextContent(
+      `${Math.round(t.meetCost[0]!)} m`,
+    );
+  });
+
+  it('has no best route before the sides meet', () => {
+    render(<Inspector {...base} run={run} step={1} />);
+    expect(screen.getByText('Best route so far').closest('div')).toHaveTextContent('—');
+  });
+
+  it('says which side took the step, whether it can stop, and where the sides met', () => {
+    render(<Inspector {...base} run={run} step={met} />);
+    const side = t.expandedSide[met] ? 'B' : 'A';
+    const step = screen.getByRole('region', { name: `Step ${met} · from ${side}` });
+    expect(step).toHaveTextContent(/so [AB] took this step|goes first on a tie/);
+    const stop = screen.getByRole('region', { name: 'Can it stop yet?' });
+    expect(stop).toHaveTextContent(met === t.steps ? /Yes\./ : /Not quite\./);
+    expect(screen.getByRole('region', { name: 'Best meeting so far' })).toHaveTextContent(
+      `found at step ${met}`,
+    );
+  });
+
+  it('lists both frontiers, marking the side that goes next', async () => {
+    render(<Inspector {...base} run={run} step={2} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Frontier' }));
+    const fromA = screen.getByRole('region', { name: /^From A/ });
+    const fromB = screen.getByRole('region', { name: /^From B/ });
+    expect(fromA).toHaveTextContent(`${frontierAt(t, 2, 8, 0).waiting} waiting`);
+    expect(fromB).toHaveTextContent(`${frontierAt(t, 2, 8, 1).waiting} waiting`);
+    const nextSide = t.expandedSide[3] ? fromB : fromA;
+    expect(within(nextSide).getAllByRole('button')[0]).toHaveTextContent('next');
+    expect(screen.getAllByText('next')).toHaveLength(1);
+  });
+
+  it('shows one frontier at a time on phones', async () => {
+    render(<Inspector {...base} run={run} step={2} compact />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Frontier' }));
+    const fromB = screen.getByRole('radio', { name: /From B/ });
+    expect(screen.getByRole('radio', { name: /From A/ })).toBeChecked();
+    await userEvent.click(fromB);
+    expect(fromB).toBeChecked();
+    expect(screen.getByRole('tabpanel')).toHaveTextContent(/Cost to B, lowest first/);
+  });
+
+  it('shows the short name and the best route so far in the compact card', () => {
+    render(<RunCard run={run} step={met} compact />);
+    expect(screen.getByRole('heading', { name: 'Bi-Dijkstra' })).toBeInTheDocument();
+    expect(screen.getByText('Best route').nextSibling).toHaveTextContent(
+      `${Math.round(t.meetCost[0]!)} m`,
+    );
+  });
+
+  it('starts the pseudocode on both frontiers, and ticks off the meeting and the stop', async () => {
+    const { unmount } = render(<Inspector {...base} run={run} step={0} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Pseudocode' }));
+    expect(screen.getByRole('tabpanel')).toHaveTextContent(
+      'Start: A is in the frontier from A, and B in the frontier from B.',
+    );
+    expect(screen.getByRole('tabpanel').querySelector('[aria-current="step"]')).toHaveTextContent(
+      'frontier B ← priority queue',
+    );
+    unmount();
+    const meetPart = partsOfStep(t, met).findIndex((p) => p.kind === 'meet');
+    render(<Inspector {...base} run={run} step={met} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Pseudocode' }));
+    const panel = screen.getByRole('tabpanel');
+    for (let i = 0; i < meetPart; i++) {
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next line' }));
+    }
+    expect(panel.querySelector('[aria-current="step"]')).toHaveTextContent(
+      `if gA[next] + gB[next] < best ${Math.round(t.meetLength[0]!)} m < ∞ ✓`,
+    );
+  });
+
+  it('walks through the meeting and the stop in the pseudocode', async () => {
+    const last = t.steps;
+    const parts = partsOfStep(t, last);
+    render(<Inspector {...base} run={run} step={last} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Pseudocode' }));
+    const panel = screen.getByRole('tabpanel', { name: 'Pseudocode' });
+    expect(panel).toHaveTextContent('function biDijkstra(start, goal)');
+    for (let i = 1; i < parts.length; i++) {
+      await userEvent.click(within(panel).getByRole('button', { name: 'Next line' }));
+    }
+    expect(panel.querySelector('[aria-current="step"]')).toHaveTextContent(
+      'while lowest(A) + lowest(B) < best',
+    );
+    expect(panel).toHaveTextContent(/Nothing left can beat it, so the search stops\./);
+  });
+});

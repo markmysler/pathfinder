@@ -28,8 +28,11 @@ interface Props {
   exploration: {
     timeline: Timeline;
     step: number;
-    color: Rgb;
+    /** One colour, or one per side of a search from both ends. */
+    colors: Rgb | readonly [Rgb, Rgb];
     snaps: readonly SnapLink[];
+    /** Labels a bidirectional search's best meeting point, given its index. */
+    meetLabel?: (meeting: number) => string;
     /** A node to ring, picked from the inspector's frontier list. */
     highlight?: readonly [number, number] | null;
   } | null;
@@ -226,9 +229,10 @@ export function MapCanvas(props: Props) {
         ? explorationLayers(
             exploration.timeline,
             exploration.step,
-            exploration.color,
+            exploration.colors,
             exploration.snaps,
             exploration.highlight,
+            exploration.meetLabel,
           )
         : [],
     });

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import { algorithms } from '../algorithms';
 import { learnHref } from '../app/routes';
 import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
@@ -101,9 +102,7 @@ export function LearnHome() {
                     style={algoColor(t.algorithm!)}
                   >
                     <span className={styles.cardTitle}>
-                      <span className={styles.badge} aria-hidden="true">
-                        {style.badge}
-                      </span>
+                      <AlgorithmBadge algorithm={t.algorithm!} className={styles.badge} />
                       {t.title}
                     </span>
                     <span className={styles.cardText}>{style.blurb}</span>

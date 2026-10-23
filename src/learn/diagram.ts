@@ -21,8 +21,8 @@ export interface DiagramState {
   route: { path: string[]; cost: number } | null;
 }
 
-/** Runs a real algorithm on a diagram network and records the state before each expansion. */
-export function diagramStates(network: DiagramNetwork, algorithm: AlgorithmId): DiagramState[] {
+/** A diagram network as a graph, with its node ids in graph order. */
+function graphOf(network: DiagramNetwork) {
   const ids = network.nodes.map((n) => n.id);
   const index = (id: string) => ids.indexOf(id);
   const graph = buildGraph({
@@ -32,6 +32,12 @@ export function diagramStates(network: DiagramNetwork, algorithm: AlgorithmId): 
       { from: index(b), to: index(a), weight },
     ]),
   });
+  return { ids, index, graph };
+}
+
+/** Runs a real algorithm on a diagram network and records the state before each expansion. */
+export function diagramStates(network: DiagramNetwork, algorithm: AlgorithmId): DiagramState[] {
+  const { ids, index, graph } = graphOf(network);
   const h = network.nodes.map((n) => n.h);
   const { events, result } = runSearch(algorithms[algorithm].search, {
     graph,
@@ -68,7 +74,7 @@ export function diagramStates(network: DiagramNetwork, algorithm: AlgorithmId): 
       }
     } else if (event.type === 'skip') {
       waiting.delete(event.entry);
-    } else {
+    } else if (event.type === 'pop') {
       const sorted = [...waiting.values()].sort((a, b) =>
         rule === 'queue'
           ? a.order - b.order
@@ -104,6 +110,9 @@ const SPOKEN: Record<AlgorithmId, string> = {
   greedy: 'Greedy best-first',
   dijkstra: 'Dijkstra',
   astar: 'A*',
+  bibfs: 'Bidirectional BFS',
+  bidijkstra: 'Bidirectional Dijkstra',
+  biastar: 'Bidirectional A*',
 };
 
 /** "S", "S and A", "S, A and C". */
@@ -174,4 +183,155 @@ export function caption(state: DiagramState, algorithm: AlgorithmId, bestCost?: 
     }
   }
   return `${done} ${holds} ${name} takes ${next} next: ${why}${contrast}.`;
+}
+
+type Side = 'A' | 'B';
+
+/** A step of a search from both ends, just after it: what each side has done and holds. */
+export interface BothWaysState {
+  side: Side;
+  took: string;
+  /** Nodes this step reached more cheaply, in the order it reached them. */
+  reachedNow: string[];
+  explored: Record<Side, string[]>;
+  /** Each side's waiting nodes, in the order it will take them. */
+  frontier: Record<Side, FrontierItem[]>;
+  /** Each side's best cost to every node it reached, and the node it came from. */
+  reached: Record<Side, Map<string, { g: number; from: string | null }>>;
+  /** The best meeting so far, and whether this step found it. */
+  meeting: { id: string; fromA: number; toB: number; isNew: boolean } | null;
+  /** Each side's next priority: what the stop rule adds up. Infinity once a side is empty. */
+  next: Record<Side, number>;
+  /** Set on the last step, once the search is sure. */
+  route: { path: string[]; cost: number } | null;
+}
+
+/** Runs a search from both ends on a diagram network, recording the state after each step. */
+export function bothWaysStates(network: DiagramNetwork, algorithm: AlgorithmId): BothWaysState[] {
+  const { ids, index, graph } = graphOf(network);
+  const h = network.nodes.map((n) => n.h);
+  const { events, result } = runSearch(algorithms[algorithm].search, {
+    graph,
+    source: index(network.source),
+    target: index(network.target),
+    heuristic: (node) => h[node]!,
+  });
+  const queue = algorithms[algorithm].frontier === 'queue';
+  type Entry = { node: number; g: number; priority: number; order: number };
+  const waiting = { A: new Map<number, Entry>(), B: new Map<number, Entry>() };
+  const reached = { A: new Map<string, { g: number; from: string | null }>(), B: new Map() };
+  const explored: Record<Side, string[]> = { A: [], B: [] };
+  const states: BothWaysState[] = [];
+  let meeting: BothWaysState['meeting'] = null;
+  let pushes = 0;
+
+  const ordered = (side: Side) =>
+    [...waiting[side].values()].sort((a, b) =>
+      queue ? a.order - b.order : a.priority - b.priority || a.order - b.order,
+    );
+  const finish = () => {
+    const state = states.at(-1);
+    if (!state) return;
+    for (const side of ['A', 'B'] as const) {
+      const items = ordered(side);
+      state.frontier[side] = items.map((e) => ({ id: ids[e.node]!, g: e.g, h: h[e.node]! }));
+      state.next[side] = items[0]?.priority ?? Infinity;
+      state.reached[side] = new Map(reached[side]);
+      state.explored[side] = [...explored[side]];
+    }
+    state.meeting = meeting;
+  };
+
+  for (const event of events) {
+    if (event.type === 'meet') {
+      const last = states.at(-1);
+      const ofA = reached.A.get(ids[event.node]!)!.g;
+      meeting = { id: ids[event.node]!, fromA: ofA, toB: event.cost - ofA, isNew: !!last };
+      continue;
+    }
+    const side: Side = event.side === 'backward' ? 'B' : 'A';
+    if (event.type === 'push') {
+      const edge = event.edge;
+      const from =
+        edge === null ? null : side === 'A' ? graph.edgeSource[edge]! : graph.edgeTarget[edge]!;
+      const order = pushes++;
+      for (const [key, entry] of waiting[side])
+        if (entry.node === event.node) waiting[side].delete(key);
+      waiting[side].set(order, {
+        node: event.node,
+        g: event.cost,
+        priority: event.priority ?? order,
+        order,
+      });
+      reached[side].set(ids[event.node]!, {
+        g: event.cost,
+        from: from === null ? null : ids[from]!,
+      });
+      states.at(-1)?.reachedNow.push(ids[event.node]!);
+    } else if (event.type === 'skip') {
+      waiting[side].delete(event.entry);
+    } else {
+      finish();
+      if (meeting) meeting = { ...meeting, isNew: false };
+      waiting[side].delete(event.entry);
+      explored[side].push(ids[event.node]!);
+      states.push({
+        side,
+        took: ids[event.node]!,
+        reachedNow: [],
+        explored: { A: [], B: [] },
+        frontier: { A: [], B: [] },
+        reached: { A: new Map(), B: new Map() },
+        meeting: null,
+        next: { A: Infinity, B: Infinity },
+        route: null,
+      });
+    }
+  }
+  finish();
+  if (result.found && states.length) {
+    states.at(-1)!.route = { path: result.path.map((n) => ids[n]!), cost: result.cost };
+  }
+  return states;
+}
+
+/** The route through a meeting point, from what each side reached. */
+function pathThrough(state: BothWaysState, meeting: string) {
+  const back: string[] = [];
+  for (let id: string | null = meeting; id; id = state.reached.A.get(id)?.from ?? null) {
+    back.unshift(id);
+  }
+  for (let id = state.reached.B.get(meeting)?.from ?? null; id;) {
+    back.push(id);
+    id = state.reached.B.get(id)?.from ?? null;
+  }
+  return back;
+}
+
+/** What a step of a search from both ends shows, in words, up to whether it can stop. */
+export function bothWaysCaption(state: BothWaysState): string {
+  const { side, took, reachedNow, meeting, next, route } = state;
+  const reachedText = reachedNow.length
+    ? `reached ${listOf([...reachedNow].sort())}`
+    : 'reached nothing new';
+  let text = `${side} explored ${took} and ${reachedText}.`;
+  if (!meeting) return `${text} The sides have not met yet.`;
+
+  const best = meeting.fromA + meeting.toB;
+  if (meeting.isNew) {
+    const other = side === 'A' ? 'B' : 'A';
+    const path = pathThrough(state, meeting.id).join(' → ');
+    text += ` ${other} had already reached ${meeting.id}, so the sides meet there: ${path} costs ${meeting.fromA} + ${meeting.toB} = ${best}.`;
+  } else {
+    text += ` Best route so far: ${best}.`;
+  }
+  const sum = next.A + next.B;
+  const nexts = `The next nodes are ${next.A} from A and ${next.B} from B, together ${sum}`;
+  if (route) {
+    return `${text} ${nexts}: no less than ${best}, so nothing left can beat it. The search stops.`;
+  }
+  if (meeting.isNew) {
+    return `${text} That is not the answer yet. ${nexts}, so a route through unexplored roads could still cost less than ${best}.`;
+  }
+  return `${text} ${nexts}, still less than ${best}, so the search goes on.`;
 }

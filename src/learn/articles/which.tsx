@@ -70,6 +70,11 @@ export default function WhichArticle() {
             same answer as Dijkstra, usually far less work.
           </li>
           <li>
+            <b>Do you know both ends, and want less exploring without a guess?</b> Search from both:{' '}
+            <a href={learnHref('bidirectional')}>bidirectional</a> Dijkstra finds the same route as
+            Dijkstra, often after about half the work.
+          </li>
+          <li>
             <b>Does every road cost the same?</b> Then{' '}
             <a href={learnHref('bfs')}>breadth-first search</a> finds the cheapest route and is the
             fastest search of all.

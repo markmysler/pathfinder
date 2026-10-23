@@ -16,6 +16,26 @@ function renderBar(playback = midway, variant: 'full' | 'compact' = 'full') {
 }
 
 describe('PlaybackBar', () => {
+  it('marks the step where the two sides of a bidirectional search first met', () => {
+    const { unmount } = render(
+      <PlaybackBar playback={midway} total={total} onChange={() => {}} meetAt={4_388} />,
+    );
+    expect(screen.getByText(/Step/).closest('label')).toHaveTextContent('Sides met at 4,388');
+    const tick = screen.getByTitle('Sides met at step 4,388');
+    expect(tick.style.left).toBe(`${(100 * 4_388) / total}%`);
+    unmount();
+    render(
+      <PlaybackBar
+        playback={midway}
+        total={total}
+        onChange={() => {}}
+        variant="compact"
+        meetAt={4_388}
+      />,
+    );
+    expect(screen.getByText(/Step/).closest('label')).toHaveTextContent('met at 4,388');
+  });
+
   it('can note what the clock drives and mark where searches finished', () => {
     render(
       <PlaybackBar

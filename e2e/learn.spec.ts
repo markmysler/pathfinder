@@ -28,6 +28,26 @@ test('reads an article and steps through its diagram', async ({ page, isMobile }
   await expect(page.getByRole('img', { name: /explored \d+ roads/ })).toHaveCount(2);
 });
 
+test('steps through a search from both ends, and replays it one way', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/#/learn/bidirectional');
+  await expect(page.getByRole('heading', { level: 1, name: 'Bidirectional search' })).toBeVisible();
+  const figure = page
+    .getByRole('figure')
+    .filter({ has: page.getByRole('button', { name: 'Next step' }) });
+  await figure.getByRole('button', { name: 'Next step' }).click();
+  await expect(figure).toContainText('Step 2 of 4 · from B');
+  await expect(figure.locator('figcaption')).toContainText('the sides meet there');
+  if (isMobile) await figure.getByRole('button', { name: 'As Dijkstra' }).click();
+  else await figure.getByRole('button', { name: 'Show as Dijkstra' }).click();
+  await expect(figure.locator('figcaption')).toContainText('Dijkstra takes');
+  await expect(page.getByRole('table', { name: 'On the same streets' })).toContainText(
+    'Bidirectional A*',
+  );
+});
+
 test('goes from an article to the map with its algorithms ticked', async ({ page }) => {
   await page.goto('/#/learn/greedy');
   await page.getByRole('link', { name: 'Race it against A*' }).click();
@@ -36,7 +56,7 @@ test('goes from an article to the map with its algorithms ticked', async ({ page
 });
 
 test('does not scroll sideways on any article', async ({ page }) => {
-  for (const slug of ['', '/graphs', '/astar', '/which', '/glossary']) {
+  for (const slug of ['', '/graphs', '/astar', '/bidirectional', '/which', '/glossary']) {
     await page.goto(`/#/learn${slug}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(

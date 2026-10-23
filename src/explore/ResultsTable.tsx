@@ -1,4 +1,5 @@
 import type { AlgorithmId } from '../algorithms';
+import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import type { Objective } from '../osm/network';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
@@ -104,7 +105,7 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
             <tr key={row.algorithm} style={algoColor(row.algorithm)}>
               <th scope="row">
                 <span className={styles.name}>
-                  <span className={styles.badge}>{ALGORITHM_STYLE[row.algorithm].badge}</span>
+                  <AlgorithmBadge algorithm={row.algorithm} className={styles.badge} />
                   {algorithmName(row.algorithm, weightOf(row.algorithm))}
                 </span>
               </th>

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { algorithms, type AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId, type AlgorithmInfo } from '../algorithms';
 
 export interface AlgorithmStyle {
   /** Night Chart colour; each also differs in lightness, and always comes with the badge. */
@@ -41,11 +41,49 @@ export const ALGORITHM_STYLE: Record<AlgorithmId, AlgorithmStyle> = {
     badge: 'A*',
     blurb: 'Dijkstra steered by a distance estimate. Best route, less work.',
   },
+  // Searches from both ends take a lighter tint of their one-way colour, which is also what
+  // their side from B is drawn in; their side from A keeps the one-way colour.
+  bibfs: {
+    short: 'Bi-BFS',
+    color: '#9ECFF9',
+    badge: 'BFS',
+    blurb: 'Breadth-first from both ends. Same fewest-roads route.',
+  },
+  bidijkstra: {
+    short: 'Bi-Dijkstra',
+    color: '#8DDFC7',
+    badge: 'DIJ',
+    blurb: 'Dijkstra from both ends. Same best route, about half the work.',
+  },
+  biastar: {
+    short: 'Bi-A*',
+    color: '#D4C6FD',
+    badge: 'A*',
+    blurb: 'A* from both ends, sharing one estimate. Same best route.',
+  },
 };
 
-/** Sets `--algo` to the algorithm's colour, for styles that tint by algorithm. */
-export const algoColor = (algorithm: AlgorithmId) =>
-  ({ '--algo': ALGORITHM_STYLE[algorithm].color }) as CSSProperties;
+/** The colours of a search's two sides: from A, and from B. One-way searches only have one. */
+export function sideColors(algorithm: AlgorithmId): [string, string] {
+  const info: AlgorithmInfo = algorithms[algorithm];
+  const own = ALGORITHM_STYLE[algorithm].color;
+  const oneWay = info.oneWay as AlgorithmId | undefined;
+  return [oneWay ? ALGORITHM_STYLE[oneWay].color : own, own];
+}
+
+/**
+ * Sets `--algo` to the algorithm's colour, for styles that tint by algorithm; `--algo-a` to the
+ * colour of its side from A; and `--algo-fill` to fill badges and dots, in two halves for a
+ * search from both ends.
+ */
+export function algoColor(algorithm: AlgorithmId): CSSProperties {
+  const [a, b] = sideColors(algorithm);
+  return {
+    '--algo': b,
+    '--algo-a': a,
+    '--algo-fill': a === b ? a : `linear-gradient(90deg, ${a} 50%, ${b} 50%)`,
+  } as CSSProperties;
+}
 
 /** A weight on the estimate, like "1.5×". */
 export const formatWeight = (weight: number) => `${Math.round(weight * 10) / 10}×`;

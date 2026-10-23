@@ -52,11 +52,15 @@
 }
 
 .badge {
-  width: 36px;
-  padding: 2px 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 36px;
+  box-sizing: border-box;
+  padding: 2px 3px;
   border-radius: 4px;
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
   color: var(--bg);
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -137,7 +141,7 @@
   height: 8px;
   box-sizing: border-box;
   border-radius: 50%;
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
 }
 
 .compact tr[data-hidden='true'] th {

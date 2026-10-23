@@ -13,8 +13,8 @@ export const STREETS_TO = { lat: -34.606, lon: -58.3755 };
 export interface StreetSearch {
   /** Every street in the area, for the backdrop. */
   streets: [Point, Point][];
-  /** The roads the search explored. */
-  roads: [Point, Point][];
+  /** The roads the search explored, from the node it explored them from, and its side. */
+  roads: [Point, Point, number][];
   route: { points: Point[]; cost: number } | null;
   expanded: number;
   start: Point;
@@ -59,12 +59,15 @@ export function streetSearch(algorithm: AlgorithmId): StreetSearch {
   const { prepared, at, size, streets } = cached;
   const { graph } = prepared;
   const { events, result } = runSearch(algorithms[algorithm].search, prepared);
-  const roads: [Point, Point][] = [];
+  const roads: [Point, Point, number][] = [];
   let expanded = 0;
   for (const event of events) {
     if (event.type === 'pop') expanded++;
     if (event.type === 'push' && event.edge !== null) {
-      roads.push([at(graph.edgeSource[event.edge]!), at(event.node)]);
+      // Going backward the road leads out of the new node, so it was explored from its far end.
+      const backward = event.side === 'backward';
+      const from = backward ? graph.edgeTarget[event.edge]! : graph.edgeSource[event.edge]!;
+      roads.push([at(from), at(event.node), backward ? 1 : 0]);
     }
   }
   return {

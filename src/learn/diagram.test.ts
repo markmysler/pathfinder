@@ -1,5 +1,11 @@
-import { caption, diagramStates, type DiagramState } from './diagram';
-import { DETOUR, HOPS, SIX } from './networks';
+import {
+  bothWaysCaption,
+  bothWaysStates,
+  caption,
+  diagramStates,
+  type DiagramState,
+} from './diagram';
+import { DETOUR, HOPS, SIX, TRAP } from './networks';
 
 const summary = (s: DiagramState) => ({
   explored: s.explored,
@@ -99,6 +105,74 @@ describe('caption', () => {
     );
     expect(caption(diagramStates(SIX, 'astar').at(-1)!, 'astar', 6)).toBe(
       'A* takes T, the destination, and stops. Its route S → A → B → T costs 6, the cheapest there is.',
+    );
+  });
+});
+
+describe('bothWaysStates', () => {
+  const states = bothWaysStates(TRAP, 'bidijkstra');
+
+  it('records each step from both ends: who took it and what each side has', () => {
+    expect(states.map((s) => [s.side, s.took])).toEqual([
+      ['A', 'S'],
+      ['B', 'T'],
+      ['A', 'P'],
+      ['A', 'Q'],
+    ]);
+    const second = states[1]!;
+    expect(second.explored).toEqual({ A: ['S'], B: ['T'] });
+    expect(second.reachedNow).toEqual(['P', 'R']);
+    expect(second.frontier.A.map((f) => [f.id, f.g])).toEqual([
+      ['P', 1],
+      ['Q', 2],
+    ]);
+    expect(second.frontier.B.map((f) => [f.id, f.g])).toEqual([
+      ['R', 2],
+      ['P', 10],
+    ]);
+    expect(second.reached.B.get('P')).toEqual({ g: 10, from: 'T' });
+  });
+
+  it('meets first at P, then finds the cheaper meeting at R and stops', () => {
+    expect(states.map((s) => s.meeting?.id ?? null)).toEqual([null, 'P', 'P', 'R']);
+    expect(states[1]!.meeting).toEqual({ id: 'P', fromA: 1, toB: 10, isNew: true });
+    expect(states[2]!.meeting!.isNew).toBe(false);
+    expect(states.at(-1)!.route).toEqual({ path: ['S', 'Q', 'R', 'T'], cost: 6 });
+    expect(states.map((s) => s.next)).toEqual([
+      { A: 1, B: 0 },
+      { A: 1, B: 2 },
+      { A: 2, B: 2 },
+      { A: 4, B: 2 },
+    ]);
+  });
+});
+
+describe('bothWaysCaption', () => {
+  const states = bothWaysStates(TRAP, 'bidijkstra');
+
+  it('explains the first meeting, and why it is not the answer yet', () => {
+    expect(bothWaysCaption(states[1]!)).toBe(
+      'B explored T and reached P and R. A had already reached P, so the sides meet there: ' +
+        'S → P → T costs 1 + 10 = 11. That is not the answer yet. The next nodes are 1 from A ' +
+        'and 2 from B, together 3, so a route through unexplored roads could still cost less than 11.',
+    );
+  });
+
+  it('says when the sides have not met, and when the best route is still being checked', () => {
+    expect(bothWaysCaption(states[0]!)).toBe(
+      'A explored S and reached P and Q. The sides have not met yet.',
+    );
+    expect(bothWaysCaption(states[2]!)).toBe(
+      'A explored P and reached T. Best route so far: 11. The next nodes are 2 from A and 2 ' +
+        'from B, together 4, still less than 11, so the search goes on.',
+    );
+  });
+
+  it('ends once nothing left can beat the best route', () => {
+    expect(bothWaysCaption(states[3]!)).toBe(
+      'A explored Q and reached R. B had already reached R, so the sides meet there: ' +
+        'S → Q → R → T costs 4 + 2 = 6. The next nodes are 4 from A and 2 from B, together 6: ' +
+        'no less than 6, so nothing left can beat it. The search stops.',
     );
   });
 });

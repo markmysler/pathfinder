@@ -1,6 +1,16 @@
-import type { Timeline } from '../playback/timeline';
-import type { AlgorithmId } from '../algorithms';
-import { describePart, describeStep, searchStatus } from './narration';
+import { algorithms, type AlgorithmId } from '../algorithms';
+import { runSearch } from '../algorithms/trace';
+import { partsOfStep } from '../playback/frontier';
+import { stopCheck } from '../playback/sides';
+import { buildTimeline, type Timeline } from '../playback/timeline';
+import { undirectedGraphFrom } from '../test/fixtures';
+import {
+  describePart,
+  describeStep,
+  describeStopCheck,
+  describeTurn,
+  searchStatus,
+} from './narration';
 
 // Only the fields narration reads, with easy numbers: step 1 has g 372, h 303, 2 of 3 roads pushed.
 const timeline = (overrides: Partial<Timeline> = {}) =>
@@ -185,5 +195,126 @@ describe('describePart', () => {
     expect(say({ kind: 'goal' }, 'astar', 2)).toBe(
       'Unnamed road is B. The search stops and follows the roads it came by back to A.',
     );
+  });
+});
+
+describe('searches from both ends', () => {
+  // S – P costs 100 and P – T 1,000; the long way round, S – Q – R – T, costs 200 a road.
+  const graph = undirectedGraphFrom([
+    [0, 1, 100],
+    [1, 4, 1000],
+    [0, 2, 200],
+    [2, 3, 200],
+    [3, 4, 200],
+  ]);
+  const names = {
+    labels: ['S', 'P', 'Q', 'R', 'T'],
+    nodeLabel: Int32Array.from([0, 1, 2, 3, 4]),
+  };
+  const solve = (algorithm: AlgorithmId) =>
+    buildTimeline(
+      graph,
+      runSearch(algorithms[algorithm].search, { graph, source: 0, target: 4 }),
+      undefined,
+      algorithms[algorithm].frontier,
+    );
+  const t = solve('bidijkstra');
+  const context = (step: number) => ({
+    timeline: t,
+    step,
+    algorithm: 'bidijkstra' as const,
+    objective: 'shortest' as const,
+    weight: 1,
+    names,
+  });
+  const part = (step: number, kind: string) => partsOfStep(t, step).find((p) => p.kind === kind)!;
+
+  it('says which side took each step, and how the meeting stands', () => {
+    expect(describeStep(t, 0, 'bidijkstra', 'shortest')).toBe(
+      'Start: A is in the frontier from A, and B in the frontier from B.',
+    );
+    expect(describeStep(t, 2, 'bidijkstra', 'shortest')).toBe(
+      'From B: took the node nearest B (0 m). 2 of 2 roads reached a neighbour more cheaply. ' +
+        'They joined the frontier. The sides meet: a route of 1.1 km, the best so far.',
+    );
+    expect(describeStep(t, 3, 'bidijkstra', 'shortest')).toBe(
+      'From A: took the node nearest A (100 m). 1 of 2 roads reached a neighbour more cheaply. ' +
+        'It joined the frontier. Best route so far: 1.1 km. Still checking for a cheaper one.',
+    );
+    expect(describeStep(t, t.steps, 'bidijkstra', 'shortest')).toBe(
+      'The sides met and nothing cheaper is left. The route is 600 m long.',
+    );
+  });
+
+  it('explains why a side took the step', () => {
+    expect(describeTurn(t, 2, 'bidijkstra', 'shortest', names)).toBe(
+      "B's next node, T, was nearer to B (0 m) than A's next was to A (100 m), so B took this step.",
+    );
+    expect(describeTurn(t, 4, 'bidijkstra', 'shortest', names)).toBe(
+      "Both sides' next nodes were 200 m from their ends. A goes first on a tie, so it took Q.",
+    );
+    const bfs = solve('bibfs');
+    expect(describeTurn(bfs, 2, 'bibfs', 'shortest', names)).toBe(
+      "B's next node, T, was fewer roads from B (0) than A's next was from A (1), so B took this step.",
+    );
+  });
+
+  it('tells apart costs that would read the same', () => {
+    // S – M – N – T: A's side reaches M at 10.2 s, B's reaches N at 10.4 s.
+    const close = undirectedGraphFrom([
+      [0, 1, 10.2],
+      [1, 2, 50],
+      [2, 3, 10.4],
+    ]);
+    const timeline = buildTimeline(
+      close,
+      runSearch(algorithms.bidijkstra.search, { graph: close, source: 0, target: 3 }),
+    );
+    const labels = { labels: ['S', 'M', 'N', 'T'], nodeLabel: Int32Array.from([0, 1, 2, 3]) };
+    expect(describeTurn(timeline, 3, 'bidijkstra', 'fastest', labels)).toBe(
+      "A's next node, M, was nearer to A (0:10.2) than B's next was to B (0:10.4), so A took this step.",
+    );
+  });
+
+  it('describes roads going backward, meetings and the stop', () => {
+    const backward = partsOfStep(t, 2).find((p) => p.kind === 'road')!;
+    expect(describePart(backward, context(2))).toBe(
+      'Road from P, 1.0 km long: 0 m + 1.0 km = 1.0 km to B is the first way found there, ' +
+        "so it joins B's frontier with g = 1.0 km.",
+    );
+    expect(describePart(part(4, 'road'), context(4))).toBe(
+      'Road to R, 200 m long: 200 m + 200 m = 400 m from A is the first way found there, ' +
+        "so it joins A's frontier with g = 400 m.",
+    );
+    expect(describePart(part(4, 'meet'), context(4))).toBe(
+      'B had already reached R, 200 m to B, so the sides meet: 400 m + 200 m = 600 m, ' +
+        'the best route so far.',
+    );
+    expect(describePart(part(4, 'stop'), context(4))).toBe(
+      'Next from A + next from B: 400 m + 200 m = 600 m, no less than the best route, 600 m. ' +
+        'Nothing left can beat it, so the search stops.',
+    );
+  });
+
+  it('says whether the search can stop yet', () => {
+    const say = (step: number, algorithm: AlgorithmId = 'bidijkstra') =>
+      describeStopCheck(stopCheck(t, step), algorithm, 'shortest');
+    expect(say(1)).toBe('Not yet: the sides have not met, so there is no route to beat.');
+    expect(say(3)).toBe(
+      'Not quite. A route through roads neither side has explored yet would cost at least ' +
+        '400 m, which could still beat 1.1 km.',
+    );
+    expect(say(3, 'biastar')).toBe(
+      'Not quite. The next priorities add up to 400 m, under the best route, 1.1 km, so ' +
+        'something cheaper could still turn up.',
+    );
+    expect(say(4)).toBe('Yes. Nothing left can beat 600 m: the route is final.');
+    expect(
+      describeStopCheck(
+        { next: [Infinity, 3], sum: Infinity, best: Infinity, canStop: true },
+        'bidijkstra',
+        'shortest',
+      ),
+    ).toBe('Yes: a side ran out of roads without meeting the other, so there is no route.');
   });
 });

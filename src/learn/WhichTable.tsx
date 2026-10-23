@@ -1,4 +1,5 @@
 import { learnHref } from '../app/routes';
+import { topicFor } from './topics';
 import { WHICH } from './which';
 import { algoColor } from '../ui/algorithmStyle';
 import styles from './Article.module.css';
@@ -19,7 +20,7 @@ export function WhichTable() {
           {WHICH.map((row) => (
             <tr key={row.id} style={algoColor(row.id)}>
               <th scope="row">
-                <a href={learnHref(row.id)} className={styles.algoName}>
+                <a href={learnHref(topicFor(row.id)!.slug)} className={styles.algoName}>
                   <span className={styles.dot} aria-hidden="true" />
                   {row.name}
                 </a>

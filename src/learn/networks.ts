@@ -75,3 +75,26 @@ export const DETOUR: DiagramNetwork = {
   source: 'S',
   target: 'T',
 };
+
+/**
+ * Two ways from S to T: up through P costs 11, round the bottom through Q and R costs 6. A search
+ * from both ends meets at P first, and must not stop there.
+ */
+export const TRAP: DiagramNetwork = {
+  nodes: [
+    { id: 'S', h: 6, wide: [110, 150], tall: [163, 40] },
+    { id: 'P', h: 5, wide: [360, 60], tall: [262, 200] },
+    { id: 'Q', h: 4, wide: [260, 250], tall: [64, 150] },
+    { id: 'R', h: 2, wide: [460, 250], tall: [64, 262] },
+    { id: 'T', h: 0, wide: [610, 150], tall: [163, 370] },
+  ],
+  edges: [
+    ['S', 'P', 1],
+    ['P', 'T', 10],
+    ['S', 'Q', 2],
+    ['Q', 'R', 2],
+    ['R', 'T', 2],
+  ],
+  source: 'S',
+  target: 'T',
+};

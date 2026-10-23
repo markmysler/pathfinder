@@ -151,3 +151,38 @@ test('shows the frontier and the pseudocode line by line', async ({ page, contex
   await code.getByRole('button', { name: 'Next line' }).click();
   await expect(code).toContainText('2 of');
 });
+
+test('runs a search from both ends, marking where the sides met', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  await fakeTheInternet(context);
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'bidijkstra');
+  await page.getByRole('button', { name: 'Run Bidirectional Dijkstra' }).click();
+  await expect(
+    page.getByRole('heading', {
+      name: isMobile ? 'Bi-Dijkstra' : 'Bidirectional Dijkstra',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByText('Found route')).toBeVisible();
+  await expect(page.getByText(/[Mm]et at/)).toBeVisible();
+  if (isMobile) await page.getByRole('button', { name: /Details/ }).click();
+  await expect(page.getByRole('region', { name: 'Can it stop yet?' })).toContainText(
+    'Yes. Nothing left can beat',
+  );
+  await expect(page.getByRole('region', { name: 'Best meeting so far' })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Frontier' }).click();
+  if (isMobile) {
+    await page.getByRole('radio', { name: /From B/ }).click();
+    await expect(page.getByRole('tabpanel')).toContainText('Cost to B, lowest first');
+  } else {
+    await expect(page.getByRole('region', { name: /^From A/ })).toBeVisible();
+    await expect(page.getByRole('region', { name: /^From B/ })).toBeVisible();
+  }
+});

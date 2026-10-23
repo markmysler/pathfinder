@@ -52,7 +52,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
 }
 
 .cardMap {
@@ -62,11 +62,15 @@
 
 .badge {
   flex: none;
-  width: 40px;
-  padding: 3px 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 40px;
+  box-sizing: border-box;
+  padding: 3px 4px;
   border-radius: 5px;
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
   color: var(--bg);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -276,7 +280,7 @@
 }
 
 .label .badge {
-  width: 34px;
+  min-width: 34px;
   padding: 2px 0;
   border-radius: 4px;
   font-size: 10.5px;

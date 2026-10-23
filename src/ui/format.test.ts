@@ -1,4 +1,10 @@
-import { formatCost, formatCount, formatDistance, formatDuration } from './format';
+import {
+  formatCost,
+  formatCostsApart,
+  formatCount,
+  formatDistance,
+  formatDuration,
+} from './format';
 
 describe('formatDuration', () => {
   it('shows minutes and seconds under an hour', () => {
@@ -24,6 +30,27 @@ describe('formatCost', () => {
   it('formats cost in the units of the objective', () => {
     expect(formatCost(872, 'fastest')).toBe('14:32');
     expect(formatCost(5_912, 'shortest')).toBe('5.9 km');
+  });
+});
+
+describe('formatCostsApart', () => {
+  it('formats costs as usual when they read differently', () => {
+    expect(formatCostsApart([12.2, 15], 'fastest')).toEqual(['0:12', '0:15']);
+    expect(formatCostsApart([12.2, 12.2], 'fastest')).toEqual(['0:12', '0:12']);
+  });
+
+  it('adds a decimal when different costs would read the same', () => {
+    expect(formatCostsApart([12.2, 12.4], 'fastest')).toEqual(['0:12.2', '0:12.4']);
+    expect(formatCostsApart([612.1, 612.4, 700], 'fastest')).toEqual([
+      '10:12.1',
+      '10:12.4',
+      '11:40.0',
+    ]);
+    expect(formatCostsApart([320.2, 320.4], 'shortest')).toEqual(['320.2 m', '320.4 m']);
+    expect(formatCostsApart([1_512, 1_534], 'shortest')).toEqual(['1.51 km', '1.53 km']);
+    // Two decimals when one is not enough.
+    expect(formatCostsApart([37.31, 37.34], 'fastest')).toEqual(['0:37.31', '0:37.34']);
+    expect(formatCostsApart([320.21, 320.24], 'shortest')).toEqual(['320.21 m', '320.24 m']);
   });
 });
 

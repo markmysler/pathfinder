@@ -103,7 +103,8 @@
 }
 
 .dot[data-on='true'] {
-  background: var(--algo);
+  border: 0;
+  background: var(--algo-fill, var(--algo));
 }
 
 .canvas {
@@ -241,6 +242,108 @@
 
 .caption b {
   color: var(--text);
+}
+
+/* Searches from both ends: the side from A in its one-way colour, the side from B in the tint. */
+.sideDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+.sideDot[data-side='A'] {
+  background: var(--algo-a);
+}
+
+.sideDot[data-side='B'] {
+  border: 2px solid var(--algo);
+}
+
+.road[data-side='A'],
+.road[data-route='A'] {
+  stroke: var(--algo-a);
+}
+
+.road[data-side='B'],
+.road[data-route='B'] {
+  stroke: var(--algo);
+}
+
+.road[data-route] {
+  stroke-width: 6;
+}
+
+.node[data-state='explored'][data-side='A'] rect {
+  fill: color-mix(in srgb, var(--algo-a) 20%, var(--panel));
+  stroke: var(--algo-a);
+}
+
+.node[data-state='explored'][data-side='B'] rect {
+  fill: color-mix(in srgb, var(--algo) 14%, var(--panel));
+  stroke: var(--algo);
+}
+
+.node[data-state='frontier'] rect {
+  stroke: var(--text-2);
+  stroke-dasharray: 5 4;
+}
+
+.node[data-state='frontier'][data-side='A'] rect {
+  stroke: var(--algo-a);
+}
+
+.node[data-state='frontier'][data-side='B'] rect {
+  stroke: var(--algo);
+}
+
+.node[data-meeting] rect {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+.node[data-state='unreached'] .name {
+  fill: var(--muted);
+}
+
+.values[data-side='A'] {
+  fill: var(--algo-a);
+}
+
+.values[data-side='B'] {
+  fill: var(--algo);
+}
+
+.node[data-state='explored'] .values {
+  fill: var(--text-2);
+}
+
+.meetMark {
+  fill: #fff;
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.swatch[data-side='A'] {
+  background: color-mix(in srgb, var(--algo-a) 20%, var(--panel));
+  border-color: var(--algo-a);
+}
+
+.swatch[data-side='B'] {
+  background: color-mix(in srgb, var(--algo) 14%, var(--panel));
+  border-color: var(--algo);
+}
+
+.diamond {
+  width: 9px;
+  height: 9px;
+  margin: 0 4px;
+  background: #fff;
+  transform: rotate(45deg);
 }
 
 @media (max-width: 720px) {

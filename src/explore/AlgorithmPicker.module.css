@@ -71,9 +71,13 @@
 
 .badge {
   flex: none;
-  width: 40px;
-  padding: 3px 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 40px;
+  box-sizing: border-box;
+  padding: 3px 4px;
   border-radius: 5px;
   border: 1.5px solid var(--algo);
   color: var(--algo);
@@ -83,7 +87,7 @@
 }
 
 .card:has(input:checked) .badge {
-  background: var(--algo);
+  background: var(--algo-fill, var(--algo));
   color: var(--bg);
 }
 
@@ -108,6 +112,40 @@
 .short,
 .check {
   display: none;
+}
+
+/* The searches from both ends, set apart below the one-way ones. */
+.both {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.bothHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.bothTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bothIntro {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* Phones: compact chips, as in the approved phone design. */
@@ -222,12 +260,23 @@
   }
 
   .badge {
+    min-width: 0;
     width: 10px;
     height: 10px;
     padding: 0;
     border-width: 2px;
     border-radius: 50%;
     font-size: 0;
+  }
+
+  .badge svg {
+    display: none;
+  }
+
+  /* A search from both ends shows both of its colours. */
+  .badge[data-two-way] {
+    border: 0;
+    background: var(--algo-fill);
   }
 
   .text {
@@ -258,8 +307,22 @@
   }
 
   /* The chips stay in one row; A*'s settings drop below all of them. */
-  .item {
+  .item,
+  .both {
     display: contents;
+  }
+
+  .bothHeader {
+    width: 100%;
+    margin: 4px 0 0;
+  }
+
+  .bothTitle {
+    color: var(--text-2);
+  }
+
+  .bothIntro {
+    display: none;
   }
 
   .settings {

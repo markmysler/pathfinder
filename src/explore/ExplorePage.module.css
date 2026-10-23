@@ -59,6 +59,9 @@
   z-index: 2;
   top: 16px;
   left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .playback {
@@ -171,6 +174,8 @@
 
 .narration > span:first-child {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .details {

@@ -1,12 +1,14 @@
 import { useId, useState } from 'react';
+import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import { algorithms } from '../algorithms';
 import type { NodeLabels } from '../osm/places';
-import { roadsExploredBy } from '../playback/timeline';
+import { meetingAt, roadsExploredBy } from '../playback/timeline';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
 import type { Objective } from '../osm/network';
 import type { AlgorithmRun } from '../worker/job';
 import styles from './Inspector.module.css';
+import { BothFrontiersView, BothWaysNow, BothWaysTiles } from './BothWaysViews';
 import { CodeView, FrontierView } from './InspectorViews';
 import { describeStep, searchStatus } from './narration';
 
@@ -37,13 +39,15 @@ const STATUS_LABEL = { searching: 'Searching', found: 'Found route', 'no-route':
 /** The algorithm's badge, name and status, shown over the map. */
 export function RunCard({ run, step, compact = false }: Props & { compact?: boolean }) {
   const { timeline, objective } = run;
-  const name = algorithmName(run.algorithm, run.weight);
+  // Phones have no room for "Bidirectional"; its badge's arrows say it.
+  const name =
+    compact && algorithms[run.algorithm].bidirectional
+      ? ALGORITHM_STYLE[run.algorithm].short
+      : algorithmName(run.algorithm, run.weight);
   return (
     <div className={styles.card} style={algoColor(run.algorithm)}>
       <div className={styles.cardHeader}>
-        <span className={styles.badge} aria-hidden="true">
-          {ALGORITHM_STYLE[run.algorithm].badge}
-        </span>
+        <AlgorithmBadge algorithm={run.algorithm} className={styles.badge} />
         <h2>{name}</h2>
         <span className={styles.status}>
           <span className={styles.dot} aria-hidden="true" />
@@ -60,14 +64,27 @@ export function RunCard({ run, step, compact = false }: Props & { compact?: bool
             <dt>Frontier</dt>
             <dd>{formatCount(timeline.frontierSizeAt[step]!)}</dd>
           </div>
-          <div>
-            <dt>Cost so far</dt>
-            <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
-          </div>
+          {algorithms[run.algorithm].bidirectional ? (
+            <div>
+              <dt>Best route</dt>
+              <dd>{bestRoute(run, step)}</dd>
+            </div>
+          ) : (
+            <div>
+              <dt>Cost so far</dt>
+              <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
+            </div>
+          )}
         </dl>
       )}
     </div>
   );
+}
+
+/** The best route a bidirectional search has found by a step, or a dash before its sides meet. */
+function bestRoute({ timeline, objective }: RunView, step: number) {
+  const meeting = meetingAt(timeline, step);
+  return meeting < 0 ? '—' : formatCost(timeline.meetCost[meeting]!, objective);
 }
 
 /** Live numbers, and three ways to look at the current step: in words, the frontier, the code. */
@@ -80,7 +97,7 @@ export function Inspector({
   onHighlight,
 }: Props & InspectorProps) {
   const { timeline, objective } = run;
-  const { name, informed } = algorithms[run.algorithm];
+  const { name, informed, bidirectional } = algorithms[run.algorithm];
   const [view, setView] = useState<View>('now');
   const views: { id: View; label: string }[] = [
     { id: 'now', label: 'Now' },
@@ -98,31 +115,35 @@ export function Inspector({
             <p className={styles.eyebrow}>Inspector</p>
             <h2 className={styles.title}>What {name} is doing right now</h2>
           </header>
-          <dl className={styles.tiles}>
-            <div className={styles.tile}>
-              <dt>Expanded</dt>
-              <dd>{formatCount(step)}</dd>
-            </div>
-            <div className={styles.tile}>
-              <dt>In frontier</dt>
-              <dd>{formatCount(timeline.frontierSizeAt[step]!)}</dd>
-            </div>
-            <div className={styles.tile}>
-              <dt>Cost so far · g</dt>
-              <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
-            </div>
-            {informed ? (
+          {bidirectional ? (
+            <BothWaysTiles run={run} step={step} />
+          ) : (
+            <dl className={styles.tiles}>
               <div className={styles.tile}>
-                <dt>Estimate left · h</dt>
-                <dd>{formatCost(timeline.expandedEstimate[step]!, objective)}</dd>
+                <dt>Expanded</dt>
+                <dd>{formatCount(step)}</dd>
               </div>
-            ) : (
               <div className={styles.tile}>
-                <dt>Roads explored</dt>
-                <dd>{formatCount(roadsExploredBy(timeline, step))}</dd>
+                <dt>In frontier</dt>
+                <dd>{formatCount(timeline.frontierSizeAt[step]!)}</dd>
               </div>
-            )}
-          </dl>
+              <div className={styles.tile}>
+                <dt>Cost so far · g</dt>
+                <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
+              </div>
+              {informed ? (
+                <div className={styles.tile}>
+                  <dt>Estimate left · h</dt>
+                  <dd>{formatCost(timeline.expandedEstimate[step]!, objective)}</dd>
+                </div>
+              ) : (
+                <div className={styles.tile}>
+                  <dt>Roads explored</dt>
+                  <dd>{formatCount(roadsExploredBy(timeline, step))}</dd>
+                </div>
+              )}
+            </dl>
+          )}
         </>
       )}
 
@@ -144,7 +165,16 @@ export function Inspector({
       </div>
 
       <div role="tabpanel" id={`${id}-panel`} aria-label={label} className={styles.panel}>
-        {view === 'frontier' && (
+        {view === 'frontier' && bidirectional && (
+          <BothFrontiersView
+            run={run}
+            step={step}
+            names={names}
+            compact={compact}
+            onHighlight={onHighlight}
+          />
+        )}
+        {view === 'frontier' && !bidirectional && (
           <FrontierView
             run={run}
             step={step}
@@ -156,7 +186,12 @@ export function Inspector({
         {view === 'code' && (
           <CodeView key={step} run={run} step={step} names={names} playing={playing} />
         )}
-        {view === 'now' && <NowView run={run} step={step} />}
+        {view === 'now' &&
+          (bidirectional ? (
+            <BothWaysNow run={run} step={step} names={names} />
+          ) : (
+            <NowView run={run} step={step} />
+          ))}
       </div>
     </div>
   );

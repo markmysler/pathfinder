@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import type { Timeline } from '../playback/timeline';
+import { formatCost } from '../ui/format';
 import { algorithms } from '../algorithms';
 import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
 import { parseHash } from '../app/routes';
@@ -7,11 +9,10 @@ import { TopBar } from '../app/TopBar';
 import type { Place } from '../geo/nominatim';
 import type { NodeLabels } from '../osm/places';
 import { createCameraSync } from '../map/cameraSync';
-import { hexToRgb, type SnapLink } from '../map/explorationLayers';
+import { explorationColors, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas, type Padding } from '../map/MapCanvas';
 import { searchArea, type BBox } from '../osm/area';
 import { tick, type PlaybackState } from '../playback/playback';
-import { ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { ChevronDownIcon, ChevronUpIcon, EditIcon, PointBadge } from '../ui/icons';
 import type { RunningJob } from '../worker/client';
 import { CompareView, LinkToggle } from './CompareView';
@@ -25,6 +26,7 @@ import {
   type Role,
 } from './exploreState';
 import { Inspector, RunCard, type RunView } from './Inspector';
+import { MapKey, StopMeterLine } from './BothWaysViews';
 import { describeStep } from './narration';
 import { PlanPanel } from './PlanPanel';
 import { PlaybackBar } from './PlaybackBar';
@@ -127,10 +129,12 @@ export function ExplorePage() {
       { from: [state.start.lon, state.start.lat], to: [start.lon, start.lat] },
       { from: [state.target.lon, state.target.lat], to: [target.lon, target.lat] },
     ];
+    const { timeline } = only;
     return {
-      timeline: only.timeline,
-      color: hexToRgb(ALGORITHM_STYLE[only.algorithm].color),
+      timeline,
+      colors: explorationColors(only.algorithm),
       snaps,
+      meetLabel: (m: number) => `Met · best ${formatCost(timeline.meetCost[m]!, result.objective)}`,
     };
   }, [result, state.start, state.target]);
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
@@ -206,11 +210,13 @@ export function ExplorePage() {
               <>
                 <div className={styles.runCard}>
                   <RunCard run={single} step={step} />
+                  {single.timeline.bidirectional && <MapKey run={single} />}
                 </div>
                 <div className={styles.playback}>
                   <PlaybackBar
                     playback={run.playback}
                     total={single.timeline.steps}
+                    meetAt={firstMeeting(single.timeline)}
                     onChange={(apply) => dispatch({ type: 'playback', apply })}
                   />
                 </div>
@@ -350,7 +356,10 @@ function PhoneRun({ run, names, onHighlight, playback, step, dispatch, onEdit }:
           aria-expanded={details}
           onClick={() => setDetails((open) => !open)}
         >
-          <span>{describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}</span>
+          <span>
+            {describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}
+            {!details && <StopMeterLine run={run} step={step} />}
+          </span>
           <span className={styles.details}>
             Details
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}
@@ -371,8 +380,13 @@ function PhoneRun({ run, names, onHighlight, playback, step, dispatch, onEdit }:
           total={run.timeline.steps}
           onChange={(apply) => dispatch({ type: 'playback', apply })}
           variant="compact"
+          meetAt={firstMeeting(run.timeline)}
         />
       </section>
     </>
   );
 }
+
+/** Where a bidirectional search's sides first met, if they did. */
+const firstMeeting = (timeline: Timeline) =>
+  timeline.meetCount > 0 ? timeline.meetStep[0] : undefined;

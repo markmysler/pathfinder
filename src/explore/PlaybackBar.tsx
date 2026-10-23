@@ -42,6 +42,8 @@ interface Props {
   note?: string;
   /** Searches that end before the clock does, marked under the scrubber. */
   marks?: readonly FinishMark[];
+  /** The step where a bidirectional search's sides first met, marked on the scrubber. */
+  meetAt?: number;
 }
 
 /** Marks too close to fit side by side alternate between two rows. */
@@ -68,6 +70,7 @@ export function PlaybackBar({
   variant = 'full',
   note,
   marks = [],
+  meetAt,
 }: Props) {
   const step = Math.floor(playback.position);
   const speedLabel = formatSpeed(playback.speed);
@@ -150,21 +153,41 @@ export function PlaybackBar({
             Step <span className={styles.value}>{formatCount(step)}</span> of {formatCount(total)}
             {note && !compact && ` · ${note}`}
           </span>
-          {compact ? note && <span>{note}</span> : <span>Drag to scrub</span>}
+          {meetAt !== undefined ? (
+            <span className={styles.met}>
+              <span className={styles.diamond} aria-hidden="true" />
+              {compact ? 'met at' : 'Sides met at'}{' '}
+              <span className={styles.value}>{formatCount(meetAt)}</span>
+            </span>
+          ) : compact ? (
+            note && <span>{note}</span>
+          ) : (
+            <span>Drag to scrub</span>
+          )}
         </span>
-        <input
-          className={styles.range}
-          type="range"
-          aria-label="Step"
-          min={0}
-          max={total}
-          step={1}
-          value={step}
-          onChange={(event) => {
-            const position = Number(event.target.value);
-            onChange((p, t) => seek(p, position, t));
-          }}
-        />
+        <span className={styles.track}>
+          {meetAt !== undefined && total > 0 && (
+            <span
+              className={styles.meetTick}
+              title={`Sides met at step ${formatCount(meetAt)}`}
+              aria-hidden="true"
+              style={{ left: `${(100 * meetAt) / total}%` }}
+            />
+          )}
+          <input
+            className={styles.range}
+            type="range"
+            aria-label="Step"
+            min={0}
+            max={total}
+            step={1}
+            value={step}
+            onChange={(event) => {
+              const position = Number(event.target.value);
+              onChange((p, t) => seek(p, position, t));
+            }}
+          />
+        </span>
         {placed.length > 0 && (
           <ul
             className={styles.marks}

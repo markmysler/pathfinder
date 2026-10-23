@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SIX } from './networks';
+import { SIX, TRAP } from './networks';
 import { StepDiagram } from './StepDiagram';
 
 const caption = () => screen.getByRole('figure').querySelector('figcaption')!;
@@ -38,5 +38,26 @@ describe('StepDiagram', () => {
   it('describes the picture for screen readers', () => {
     render(<StepDiagram network={SIX} algorithm="astar" />);
     expect(screen.getByRole('img')).toHaveAccessibleName(/S: start, next/);
+  });
+
+  it('steps through a search from both ends, saying which side took each step', async () => {
+    render(<StepDiagram network={TRAP} algorithm="bidijkstra" compareWith="dijkstra" />);
+    expect(screen.getByText(/of/).closest('p')).toHaveTextContent('Step 1 of 4 · from A');
+    await userEvent.click(screen.getByRole('button', { name: 'Next step' }));
+    expect(screen.getByText(/of/).closest('p')).toHaveTextContent('Step 2 of 4 · from B');
+    expect(caption()).toHaveTextContent(
+      /^Step 2\. B explored T and reached P and R\. A had already reached P, so the sides meet there/,
+    );
+    expect(screen.getByRole('img')).toHaveAccessibleName(
+      /P: reached from A, 1, and to B, 10; best meeting so far/,
+    );
+    expect(screen.getByRole('list', { name: 'Key' })).toHaveTextContent('Best meeting so far');
+  });
+
+  it('replays a search from both ends as the one-way search', async () => {
+    render(<StepDiagram network={TRAP} algorithm="bidijkstra" compareWith="dijkstra" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Show as Dijkstra' }));
+    expect(caption()).toHaveTextContent(/Dijkstra takes it first/);
+    expect(screen.getByText(/of/).closest('p')).not.toHaveTextContent('from A');
   });
 });

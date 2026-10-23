@@ -28,8 +28,12 @@ describe('LearnPage', () => {
     ).toEqual(['#/learn/graphs', '#/learn/roads', '#/learn/frontier', '#/learn/heuristics']);
     expect(
       within(screen.getByRole('region', { name: 'Algorithms' })).getAllByRole('link'),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
     expect(screen.getByRole('table')).toHaveTextContent('Lowest g + h');
+    expect(screen.getByRole('link', { name: 'Bidirectional' })).toHaveAttribute(
+      'href',
+      '#/learn/bidirectional',
+    );
   });
 
   it('lists every topic in the sidebar and marks the one open', () => {
@@ -40,7 +44,7 @@ describe('LearnPage', () => {
       'aria-current',
       'page',
     );
-    expect(within(nav).getAllByText('Soon')).toHaveLength(4);
+    expect(within(nav).getAllByText('Soon')).toHaveLength(3);
   });
 
   it('filters the sidebar as you search', async () => {
@@ -72,6 +76,22 @@ describe('LearnPage', () => {
     expect(screen.getByRole('link', { name: 'Race it against Dijkstra' })).toHaveAttribute(
       'href',
       '#/?algorithms=dijkstra,astar',
+    );
+  });
+
+  it('links the bidirectional article to the map, racing it against Dijkstra', () => {
+    goTo('#/learn/bidirectional');
+    render(<LearnPage />);
+    expect(screen.getByRole('link', { name: 'Watch it on the map' })).toHaveAttribute(
+      'href',
+      '#/?algorithms=bidijkstra',
+    );
+    expect(screen.getByRole('link', { name: 'Race it against Dijkstra' })).toHaveAttribute(
+      'href',
+      '#/?algorithms=dijkstra,bidijkstra',
+    );
+    expect(screen.getByRole('table', { name: 'On the same streets' })).toHaveTextContent(
+      'Bidirectional Dijkstra',
     );
   });
 

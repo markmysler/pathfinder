@@ -1,10 +1,11 @@
 import { useMemo, type ReactNode } from 'react';
+import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import type { AlgorithmId } from '../algorithms';
 import { pseudocode } from '../algorithms/pseudocode';
 import { exploreHref, learnHref } from '../app/routes';
 import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCount } from '../ui/format';
-import { PlayIcon, SparkIcon } from '../ui/icons';
+import { BothWaysIcon, PlayIcon, SparkIcon } from '../ui/icons';
 import { PseudocodeListing } from '../ui/Pseudocode';
 import styles from './Article.module.css';
 import { streetSearch, type StreetSearch } from './streets';
@@ -28,18 +29,23 @@ export function ArticleHeader({
   race?: AlgorithmId;
 }) {
   const style = topic.algorithm ? ALGORITHM_STYLE[topic.algorithm] : null;
-  const short = topic.algorithm === 'astar' ? 'A*' : topic.title;
+  // The bidirectional article covers three searches, so its links say "it".
+  const short =
+    topic.algorithm === 'astar' ? 'A*' : topic.slug === 'bidirectional' ? 'it' : topic.title;
   return (
     <header className={styles.header}>
       <p className={styles.breadcrumb}>
         <a href={learnHref()}>Learn</a> › {GROUP_TITLE[topic.group]} › {topic.title}
       </p>
       <div className={styles.titleRow}>
-        {style && (
-          <span className={styles.badge} aria-hidden="true">
-            {style.badge}
-          </span>
-        )}
+        {style &&
+          (topic.slug === 'bidirectional' ? (
+            <span className={styles.badge} aria-hidden="true">
+              <BothWaysIcon size={16} strokeWidth={2.6} />
+            </span>
+          ) : (
+            <AlgorithmBadge algorithm={topic.algorithm!} className={styles.badge} />
+          ))}
         <h1 className={styles.title}>{topic.title}</h1>
       </div>
       <p className={styles.lede}>{lede}</p>
@@ -136,17 +142,19 @@ export function Callout({ title, children }: { title: string; children: ReactNod
 export function FrontierStrip({
   items,
   note,
+  label = 'Takes from here',
 }: {
   items: readonly { id: string; value?: string }[];
   note: string;
+  label?: string;
 }) {
   return (
     <div
       className={styles.strip}
       role="figure"
-      aria-label={`Frontier: ${items.map((i) => i.id).join(', ')}. ${note}`}
+      aria-label={`${label === 'Takes from here' ? 'Frontier' : label}: ${items.map((i) => i.id).join(', ')}. ${note}`}
     >
-      <span className={styles.stripLabel}>Takes from here</span>
+      <span className={styles.stripLabel}>{label}</span>
       <span className={styles.stripArrow} aria-hidden="true">
         →
       </span>
@@ -195,8 +203,16 @@ function StreetMap({ run, algorithm }: { run: StreetSearch; algorithm: Algorithm
         {run.streets.map(([a, b], i) => (
           <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} className={styles.street} />
         ))}
-        {run.roads.map(([a, b], i) => (
-          <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} className={styles.explored} />
+        {run.roads.map(([a, b, side], i) => (
+          <line
+            key={i}
+            x1={a[0]}
+            y1={a[1]}
+            x2={b[0]}
+            y2={b[1]}
+            className={styles.explored}
+            data-side={side ? 'B' : 'A'}
+          />
         ))}
         {route && <polyline points={route} className={styles.routeCasing} />}
         {route && <polyline points={route} className={styles.routeLine} />}

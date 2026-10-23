@@ -80,6 +80,8 @@ export const SearchIcon = stroke(
   </>,
 );
 export const ArrowRightIcon = stroke(<path d="M5 12h14M13 6l6 6-6 6" />);
+/** Two arrows, one each way: a search from both ends. */
+export const BothWaysIcon = stroke(<path d="M4 8h15l-4-4M20 16H5l4 4" />);
 export const ChevronLeftIcon = stroke(<path d="M15 6l-6 6 6 6" />);
 export const ChevronRightIcon = stroke(<path d="M9 6l6 6-6 6" />);
 export const ChevronUpIcon = stroke(<path d="M6 15l6-6 6 6" />);

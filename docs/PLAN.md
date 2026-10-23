@@ -93,6 +93,7 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 4 — Single-algorithm visualization (MapLibre + deck.gl map, address search, worker, playback, inspector, desktop and phone layouts per the approved designs)
 - [x] Phase 5 — Multi-algorithm comparison
 - [x] Phase 6 — Learning features + Learn section (frontier and line-by-line pseudocode in the inspector, weighted A*, Learn home and 11 articles with trace-driven diagrams; design boards on the canvas under "Phase 6")
+- [x] Phase 7 — Bidirectional variants (BFS, Dijkstra and A* from both ends, one engine with the stop rule "next from A + next from B ≥ best"; A* shares one estimate, half the difference of the two, so the same rule holds; each side in its own colour, the best meeting point on the map, a "can it stop yet?" meter, both frontiers in the inspector, and a Learn article; design boards on the canvas under "Phase 7")
 
 Follow-ups noted during phase 4:
 
@@ -102,3 +103,8 @@ Follow-ups noted during phase 4:
 Follow-ups noted during phase 5:
 
 - Each comparison map uses two WebGL contexts (MapLibre plus deck.gl's overlay canvas), and browsers allow about 16. deck.gl's interleaved mode, which would share one, fails on MapLibre 6 (`_nearZ` errors). A run is therefore capped at 6 algorithms (`MAX_ALGORITHMS`).
+
+Follow-ups noted during phase 7:
+
+- Bidirectional A* uses the shared ("average") estimate, which needs consistent estimates; straight-line distance is. The A* weight applies to one-way A* only.
+- On the recorded streets bidirectional Dijkstra expands 57% fewer nodes than Dijkstra, but bidirectional A* only 6% fewer than A*. Better estimates (ALT, phase 9) are where A* gains.

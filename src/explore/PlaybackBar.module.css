@@ -51,6 +51,41 @@
   gap: 6px;
 }
 
+.track {
+  position: relative;
+  display: block;
+}
+
+.track .range {
+  width: 100%;
+}
+
+/* Where a bidirectional search's sides first met: a diamond on the track. */
+.meetTick {
+  position: absolute;
+  top: -9px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background: #fff;
+  border: 1.5px solid var(--bg);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.met {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diamond {
+  width: 7px;
+  height: 7px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
 .compact .scrubber {
   flex-basis: 100%;
   order: -1;

@@ -138,4 +138,77 @@ describe('routingGraph', () => {
     expect(routingGraph(network, 'walk', 'fastest').maxSpeed).toBeCloseTo(5 / 3.6, 9);
     expect(routingGraph(network, 'car', 'shortest').maxSpeed).toBe(1);
   });
+
+  describe('with live traffic', () => {
+    // Segments: 0 is node 0–1, 1 is node 1–2, 2 is the one-way 1→3.
+    const traffic = (forward: number[], backward: number[]) => ({
+      forward: Float32Array.from(forward),
+      backward: Float32Array.from(backward),
+      matched: 0,
+    });
+
+    it('slows each direction of a car road by its own traffic, for the fastest route', () => {
+      const { graph } = routingGraph(
+        network,
+        'car',
+        'fastest',
+        traffic([0.5, NaN, 0.25], [1, NaN, NaN]),
+      );
+      const weight = (from: number, to: number) =>
+        edges(graph).find(([a, b]) => a === from && b === to)![2];
+      const usual = (segment: number, kmh: number) => length(segment) / (kmh / 3.6);
+      expect(weight(0, 1)).toBeCloseTo(usual(0, 30) / 0.5, 9);
+      expect(weight(1, 0)).toBeCloseTo(usual(0, 30), 9);
+      // No reading: the usual speed.
+      expect(weight(1, 2)).toBeCloseTo(usual(1, 30), 9);
+      expect(weight(1, 3)).toBeCloseTo(usual(2, 20) / 0.25, 9);
+    });
+
+    it('records the traffic on each edge, in graph order, for explaining it later', () => {
+      const { graph, edgeTraffic } = routingGraph(
+        network,
+        'car',
+        'fastest',
+        traffic([0.5, NaN, 0.25], [1, NaN, NaN]),
+      );
+      const at = (from: number, to: number) =>
+        edgeTraffic![edges(graph).findIndex(([a, b]) => a === from && b === to)];
+      expect(at(0, 1)).toBe(0.5);
+      expect(at(1, 0)).toBe(1);
+      expect(at(1, 2)).toBeNaN();
+      expect(at(1, 3)).toBe(0.25);
+    });
+
+    it('drops closed directions, whatever the objective', () => {
+      for (const objective of ['fastest', 'shortest'] as const) {
+        const { graph } = routingGraph(
+          network,
+          'car',
+          objective,
+          traffic([0, NaN, NaN], [1, 0, NaN]),
+        );
+        const pairs = edges(graph).map(([a, b]) => `${a}-${b}`);
+        expect(pairs).not.toContain('0-1');
+        expect(pairs).not.toContain('2-1');
+        expect(pairs).toContain('1-0');
+        expect(pairs).toContain('1-2');
+      }
+    });
+
+    it("leaves the shortest route's lengths alone, and other modes alone", () => {
+      const slow = traffic([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]);
+      expect(edges(routingGraph(network, 'car', 'shortest', slow).graph)).toEqual(
+        edges(routingGraph(network, 'car', 'shortest').graph),
+      );
+      expect(edges(routingGraph(network, 'walk', 'fastest', slow).graph)).toEqual(
+        edges(routingGraph(network, 'walk', 'fastest').graph),
+      );
+      expect(routingGraph(network, 'walk', 'fastest', slow).edgeTraffic).toBeUndefined();
+    });
+
+    it('keeps the top speed an upper bound, so A* stays exact', () => {
+      const slow = traffic([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]);
+      expect(routingGraph(network, 'car', 'fastest', slow).maxSpeed).toBeCloseTo(15 / 3.6, 9);
+    });
+  });
 });

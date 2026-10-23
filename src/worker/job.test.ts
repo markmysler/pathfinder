@@ -2,6 +2,7 @@ import plazaDeMayo from '../osm/fixtures/plaza-de-mayo.overpass.json';
 import { RouteTooLongError } from '../osm/area';
 import { buildRoadNetwork, type OverpassResponse } from '../osm/network';
 import { NoRoadNearbyError } from '../osm/prepare';
+import { TrafficError, type TrafficReading } from '../traffic/types';
 import { runJob, transferablesOf, type JobRequest, type Stage } from './job';
 
 const network = buildRoadNetwork(plazaDeMayo as unknown as OverpassResponse);
@@ -196,5 +197,116 @@ describe('runJob', () => {
       ['download'],
       ['download', { host: 'maps.mail.ru', attempt: 2 }],
     ]);
+  });
+});
+
+describe('runJob with live traffic', () => {
+  const tomtom = { provider: 'tomtom' as const, key: 'k' };
+  /** Every road drawn both ways at the same share of free flow, as a provider might report. */
+  const everywhere = (ratio: number): TrafficReading[] =>
+    Array.from({ length: network.segmentCount }, (_, s) => {
+      const from = network.segmentFrom[s]!;
+      const to = network.segmentTo[s]!;
+      const a = [network.lon[from]!, network.lat[from]!] as const;
+      const b = [network.lon[to]!, network.lat[to]!] as const;
+      return [
+        { line: [a, b], ratio, closed: false },
+        { line: [b, a], ratio, closed: false },
+      ];
+    }).flat();
+  const live = (ratio: number) =>
+    vi.fn(async () => ({ readings: everywhere(ratio), missingTiles: 0, fetchedAt: 1234 }));
+
+  it('asks for traffic while the roads download, then routes with it', async () => {
+    const order: string[] = [];
+    const fetchTraffic = vi.fn(async () => {
+      order.push('traffic');
+      return { readings: everywhere(0.5), missingTiles: 0, fetchedAt: 1234 };
+    });
+    const { deps: d, stages } = deps({
+      fetchTraffic,
+      loadRoadNetwork: async () => {
+        order.push('roads');
+        return { network, fromCache: false };
+      },
+    });
+    const withTraffic = await runJob({ ...request, traffic: tomtom }, d);
+    expect(order).toEqual(['traffic', 'roads']);
+    expect(fetchTraffic).toHaveBeenCalledWith(tomtom, withTraffic.area, expect.anything());
+    expect(stages).toEqual(['download', 'traffic', 'graph', 'search']);
+
+    const usual = await runJob(request, deps().deps);
+    const cost = (result: typeof usual) => result.runs[0]!.timeline.route!.cost;
+    expect(cost(withTraffic)).toBeCloseTo(2 * cost(usual), 6);
+    expect(withTraffic.traffic).toMatchObject({
+      status: 'live',
+      provider: 'tomtom',
+      fetchedAt: 1234,
+      missingTiles: 0,
+    });
+    if (withTraffic.traffic.status !== 'live') throw new Error('expected live traffic');
+    expect(withTraffic.traffic.matched).toBe(withTraffic.traffic.roads);
+    expect(withTraffic.traffic.slowed).toBe(withTraffic.traffic.roads);
+  });
+
+  it('falls back to usual speeds, and says why, when the provider refuses', async () => {
+    const fetchTraffic = vi.fn(async () => {
+      throw new TrafficError('tomtom', 'key', 'TomTom refused the key (HTTP 403)');
+    });
+    const result = await runJob({ ...request, traffic: tomtom }, deps({ fetchTraffic }).deps);
+    expect(result.traffic).toEqual({ status: 'failed', provider: 'tomtom', reason: 'key' });
+    const usual = await runJob(request, deps().deps);
+    expect(result.runs[0]!.timeline.route!.cost).toBeCloseTo(
+      usual.runs[0]!.timeline.route!.cost,
+      9,
+    );
+  });
+
+  it('treats an unexpected traffic error as the provider being unavailable', async () => {
+    const fetchTraffic = vi.fn(async () => {
+      throw new SyntaxError('Unexpected token');
+    });
+    const result = await runJob(
+      { ...request, traffic: { provider: 'here', key: 'k' } },
+      deps({ fetchTraffic }).deps,
+    );
+    expect(result.traffic).toEqual({ status: 'failed', provider: 'here', reason: 'unavailable' });
+  });
+
+  it('does not spend requests on traffic for walking or cycling, or without a key', async () => {
+    const fetchTraffic = live(0.5);
+    for (const mode of ['walk', 'bike'] as const) {
+      const result = await runJob(
+        { ...request, mode, traffic: tomtom },
+        deps({ fetchTraffic }).deps,
+      );
+      expect(result.traffic).toEqual({ status: 'off' });
+    }
+    expect((await runJob(request, deps({ fetchTraffic }).deps)).traffic).toEqual({ status: 'off' });
+    expect(fetchTraffic).not.toHaveBeenCalled();
+  });
+
+  it('still lets closures shape the shortest route', async () => {
+    const fetchTraffic = live(0.5);
+    const result = await runJob(
+      { ...request, objective: 'shortest', traffic: tomtom },
+      deps({ fetchTraffic }).deps,
+    );
+    expect(fetchTraffic).toHaveBeenCalled();
+    expect(result.traffic.status).toBe('live');
+  });
+
+  it('stops when cancelled while waiting for traffic', async () => {
+    const controller = new AbortController();
+    const fetchTraffic = vi.fn(async () => {
+      controller.abort();
+      throw new DOMException('Aborted', 'AbortError');
+    });
+    await expect(
+      runJob(
+        { ...request, traffic: tomtom },
+        deps({ fetchTraffic, signal: controller.signal }).deps,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
   });
 });

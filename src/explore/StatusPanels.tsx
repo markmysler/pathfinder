@@ -37,6 +37,7 @@ export function LoadingPanel({ stage, server, running, onCancel }: LoadingProps)
       'Downloading streets from OpenStreetMap…',
       'The public servers can take up to a minute. Next time this area loads instantly.',
     ],
+    traffic: ['Waiting for live traffic…', ''],
     graph: ['Building the road graph…', ''],
     search: [`Running ${running}…`, ''],
   }[stage ?? 'none']!;

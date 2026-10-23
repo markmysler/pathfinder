@@ -6,6 +6,9 @@ import { nodeLabels, type NodeLabels } from '../osm/places';
 import { prepareSearch } from '../osm/prepare';
 import type { TravelMode } from '../osm/roads';
 import { buildTimeline, type Timeline } from '../playback/timeline';
+import type { TimedTraffic, TrafficSource } from '../traffic/fetch';
+import { matchTraffic, trafficCoverage, type TrafficCoverage } from '../traffic/match';
+import { TrafficError, type TrafficFailure, type TrafficProvider } from '../traffic/types';
 
 export interface JobRequest {
   start: LatLon;
@@ -16,9 +19,23 @@ export interface JobRequest {
   algorithms: AlgorithmId[];
   /** Multiplies A*'s estimate (weighted A*): above 1 it expands less but may miss the best route. */
   astarWeight?: number;
+  /** The user's own traffic key, if they gave one. Used for driving only. */
+  traffic?: TrafficSource;
 }
 
-export type Stage = 'download' | 'graph' | 'search';
+export type Stage = 'download' | 'traffic' | 'graph' | 'search';
+
+/** Whether live traffic shaped the routes, and if not, why not. */
+export type TrafficOutcome =
+  | { status: 'off' }
+  | ({
+      status: 'live';
+      provider: TrafficProvider;
+      fetchedAt: number;
+      /** Tiles that never arrived; their roads kept their usual speeds. */
+      missingTiles: number;
+    } & TrafficCoverage)
+  | { status: 'failed'; provider: TrafficProvider; reason: TrafficFailure };
 
 /** The Overpass server being tried, once the first one has failed. */
 export interface ServerAttempt {
@@ -50,6 +67,7 @@ export interface JobResult {
   runs: AlgorithmRun[];
   /** Street names for the graph's nodes, shared by every run. */
   places: NodeLabels;
+  traffic: TrafficOutcome;
 }
 
 export interface JobDeps {
@@ -57,15 +75,33 @@ export interface JobDeps {
     area: BBox,
     options: { signal?: AbortSignal; onAttempt?: (endpoint: string, index: number) => void },
   ): Promise<{ network: RoadNetwork; fromCache: boolean }>;
+  /** Live traffic over the area, straight from the user's provider. */
+  fetchTraffic?(
+    source: TrafficSource,
+    area: BBox,
+    options: { signal?: AbortSignal },
+  ): Promise<TimedTraffic>;
   onProgress(stage: Stage, server?: ServerAttempt): void;
   signal?: AbortSignal;
 }
+
+const isAbort = (error: unknown) => (error as { name?: unknown } | null)?.name === 'AbortError';
 
 /** Everything between "Run" and playable timelines: area, roads, graph, then each search. */
 export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobResult> {
   const { signal } = deps;
   if (request.algorithms.length === 0) throw new Error('Choose at least one algorithm.');
   const area = searchArea(request.start, request.target);
+  // Traffic only changes cars' roads. It downloads alongside the roads, and a failure only means
+  // routing with the usual speeds.
+  const source = request.mode === 'car' ? request.traffic : undefined;
+  const traffic =
+    source && deps.fetchTraffic
+      ? deps.fetchTraffic(source, area, { signal }).then(
+          (fetched) => ({ fetched }),
+          (error: unknown) => ({ error }),
+        )
+      : undefined;
   deps.onProgress('download');
   const { network, fromCache } = await deps.loadRoadNetwork(area, {
     signal,
@@ -76,8 +112,26 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   });
   signal?.throwIfAborted();
 
+  let outcome: TrafficOutcome = { status: 'off' };
+  let segmentTraffic;
+  if (source && traffic) {
+    deps.onProgress('traffic');
+    const answer = await traffic;
+    signal?.throwIfAborted();
+    if ('fetched' in answer) {
+      const { readings, missingTiles, fetchedAt } = answer.fetched;
+      segmentTraffic = matchTraffic(network, readings);
+      const coverage = trafficCoverage(network, segmentTraffic);
+      outcome = { status: 'live', provider: source.provider, fetchedAt, missingTiles, ...coverage };
+    } else {
+      if (isAbort(answer.error)) throw answer.error;
+      const reason = answer.error instanceof TrafficError ? answer.error.reason : 'unavailable';
+      outcome = { status: 'failed', provider: source.provider, reason };
+    }
+  }
+
   deps.onProgress('graph');
-  const prepared = prepareSearch(network, request);
+  const prepared = prepareSearch(network, request, segmentTraffic);
   signal?.throwIfAborted();
 
   deps.onProgress('search');
@@ -118,6 +172,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
     snapped: { start: at(snapped.start), target: at(snapped.target) },
     runs,
     places: nodeLabels(network),
+    traffic: outcome,
   };
 }
 

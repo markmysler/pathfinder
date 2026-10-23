@@ -1,6 +1,7 @@
 import { straightLineHeuristic, type Heuristic } from '../algorithms/heuristics';
 import { largestStronglyConnectedComponent } from '../graph/components';
 import { nearestNode } from '../graph/nearest';
+import type { SegmentTraffic } from '../traffic/match';
 import type { LatLon } from './area';
 import { routingGraph, type Objective, type RoadNetwork, type RoutingGraph } from './network';
 import type { TravelMode } from './roads';
@@ -37,10 +38,16 @@ export class NoRoadNearbyError extends Error {
 
 /**
  * Turns a road network and a request into everything a search needs: the mode's graph, start and
- * target snapped onto its largest connected component, and matching heuristics.
+ * target snapped onto its largest connected component, and matching heuristics. Live traffic, if
+ * given, changes the car graph's weights and closes roads before anything is snapped.
  */
-export function prepareSearch(network: RoadNetwork, request: SearchRequest): PreparedSearch {
-  const { graph, maxSpeed } = routingGraph(network, request.mode, request.objective);
+export function prepareSearch(
+  network: RoadNetwork,
+  request: SearchRequest,
+  traffic?: SegmentTraffic,
+): PreparedSearch {
+  const routing = routingGraph(network, request.mode, request.objective, traffic);
+  const { graph, maxSpeed } = routing;
   const usable = largestStronglyConnectedComponent(graph);
   if (usable.reduce((count, inside) => count + inside, 0) < 2) {
     throw new NoRoadNearbyError(request.mode);
@@ -48,8 +55,7 @@ export function prepareSearch(network: RoadNetwork, request: SearchRequest): Pre
   const start = nearestNode(graph, request.start.lat, request.start.lon, usable)!;
   const target = nearestNode(graph, request.target.lat, request.target.lon, usable)!;
   return {
-    graph,
-    maxSpeed,
+    ...routing,
     source: start.node,
     target: target.node,
     heuristic: straightLineHeuristic(graph, target.node, maxSpeed),

@@ -65,5 +65,6 @@ export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
     },
     runs,
     places: { labels: ['Perú & Bolívar'], nodeLabel: new Int32Array(graph.nodeCount).fill(0) },
+    traffic: { status: 'off' },
   };
 }

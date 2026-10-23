@@ -1,5 +1,6 @@
 import { buildGraph, type Graph } from '../graph/graph';
 import { haversineMeters } from '../graph/geo';
+import type { SegmentTraffic } from '../traffic/match';
 import { allowedDirections, speedKmh, type Tags, type TravelMode } from './roads';
 
 export type OverpassElement =
@@ -103,36 +104,59 @@ export interface RoutingGraph {
    * by it gives a heuristic that never overestimates.
    */
   maxSpeed: number;
+  /**
+   * For car graphs built with traffic: each edge's current speed as a share of free flow, in
+   * graph edge order, NaN where there was no reading.
+   */
+  edgeTraffic?: Float32Array;
 }
 
-/** The graph one travel mode sees: only roads it may use, in the directions it may use them. */
+/**
+ * The graph one travel mode sees: only roads it may use, in the directions it may use them.
+ * Live traffic, when given, applies to cars: closed directions are left out, and for the fastest
+ * route each direction's usual speed is scaled by its current share of free flow.
+ */
 export function routingGraph(
   network: RoadNetwork,
   mode: TravelMode,
   objective: Objective,
+  traffic?: SegmentTraffic,
 ): RoutingGraph {
   const rules = network.wayTags.map((tags) => ({
     directions: allowedDirections(tags, mode),
     metersPerSecond: speedKmh(tags, mode) / 3.6,
   }));
+  const live = mode === 'car' ? traffic : undefined;
 
-  const edges: { from: number; to: number; weight: number }[] = [];
+  const edges: { from: number; to: number; weight: number; traffic: number }[] = [];
   let maxSpeed = objective === 'shortest' ? 1 : 0;
   for (let s = 0; s < network.segmentCount; s++) {
     const { directions, metersPerSecond } = rules[network.segmentWay[s]!]!;
     if (!directions) continue;
     const meters = network.segmentLength[s]!;
-    const weight = objective === 'shortest' ? meters : meters / metersPerSecond;
-    if (objective === 'fastest') maxSpeed = Math.max(maxSpeed, metersPerSecond);
     const a = network.segmentFrom[s]!;
     const b = network.segmentTo[s]!;
-    if (directions.forward) edges.push({ from: a, to: b, weight });
-    if (directions.backward) edges.push({ from: b, to: a, weight });
+    const add = (from: number, to: number, share: number) => {
+      if (share === 0) return; // closed
+      const speed = metersPerSecond * (Number.isNaN(share) ? 1 : share);
+      const weight = objective === 'shortest' ? meters : meters / speed;
+      if (objective === 'fastest') maxSpeed = Math.max(maxSpeed, speed);
+      edges.push({ from, to, weight, traffic: share });
+    };
+    if (directions.forward) add(a, b, live?.forward[s] ?? NaN);
+    if (directions.backward) add(b, a, live?.backward[s] ?? NaN);
   }
 
   const nodes = Array.from({ length: network.nodeCount }, (_, i) => ({
     lat: network.lat[i]!,
     lon: network.lon[i]!,
   }));
-  return { graph: buildGraph({ nodes, edges }), maxSpeed: maxSpeed || 1 };
+  const graph = buildGraph({ nodes, edges });
+  if (!live) return { graph, maxSpeed: maxSpeed || 1 };
+
+  // buildGraph groups edges by source and keeps their order, so the same pass lines them up.
+  const edgeTraffic = new Float32Array(graph.edgeCount);
+  const nextSlot = graph.firstEdge.slice(0, graph.nodeCount);
+  for (const { from, traffic: share } of edges) edgeTraffic[nextSlot[from]!++] = share;
+  return { graph, maxSpeed: maxSpeed || 1, edgeTraffic };
 }

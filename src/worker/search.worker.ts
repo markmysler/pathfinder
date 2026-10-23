@@ -1,6 +1,7 @@
 import { indexedDbCache } from '../osm/cache';
 import { loadRoadNetwork } from '../osm/load';
 import type { RoadNetwork } from '../osm/network';
+import { fetchTraffic, recentTraffic } from '../traffic/fetch';
 import { runJob, transferablesOf } from './job';
 import { describeError, type WorkerReply, type WorkerRequest } from './protocol';
 
@@ -12,6 +13,8 @@ const scope = self as unknown as {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const cache = indexedDbCache<RoadNetwork>({ name: 'pathfinder-roads', ttlMs: WEEK_MS });
+// Traffic changes by the minute, but re-running moments later should not cost the user's quota.
+const recent = recentTraffic({ ttlMs: 2 * 60 * 1000 });
 const running = new Map<number, AbortController>();
 
 scope.onmessage = async ({ data }) => {
@@ -27,6 +30,8 @@ scope.onmessage = async ({ data }) => {
   try {
     const result = await runJob(data.request, {
       loadRoadNetwork: (area, options) => loadRoadNetwork(area, { cache, ...options }),
+      fetchTraffic: (source, area, options) =>
+        fetchTraffic(source, area, { cache: recent, ...options }),
       onProgress: (stage, server) => scope.postMessage({ type: 'progress', id, stage, server }),
       signal: controller.signal,
     });

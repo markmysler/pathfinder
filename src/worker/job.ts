@@ -2,6 +2,7 @@ import { algorithms, type AlgorithmId } from '../algorithms';
 import { runSearch, summarize, type SearchStats } from '../algorithms/trace';
 import { searchArea, type BBox, type LatLon } from '../osm/area';
 import type { Objective, RoadNetwork } from '../osm/network';
+import { nodeLabels, type NodeLabels } from '../osm/places';
 import { prepareSearch } from '../osm/prepare';
 import type { TravelMode } from '../osm/roads';
 import { buildTimeline, type Timeline } from '../playback/timeline';
@@ -47,6 +48,8 @@ export interface JobResult {
   fromCache: boolean;
   snapped: { start: SnappedPoint; target: SnappedPoint };
   runs: AlgorithmRun[];
+  /** Street names for the graph's nodes, shared by every run. */
+  places: NodeLabels;
 }
 
 export interface JobDeps {
@@ -108,14 +111,16 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
     fromCache,
     snapped: { start: at(snapped.start), target: at(snapped.target) },
     runs,
+    places: nodeLabels(network),
   };
 }
 
 /** The buffers behind every timeline, so posting the result moves rather than copies them. */
 export function transferablesOf(result: JobResult): ArrayBuffer[] {
-  return result.runs.flatMap(({ timeline }) => {
-    const views: ArrayBufferView[] = Object.values(timeline).filter(ArrayBuffer.isView);
-    if (timeline.route) views.push(timeline.route.positions);
-    return views.map((view) => view.buffer as ArrayBuffer);
+  const views: ArrayBufferView[] = result.runs.flatMap(({ timeline }) => {
+    const own: ArrayBufferView[] = Object.values(timeline).filter(ArrayBuffer.isView);
+    return timeline.route ? [...own, timeline.route.positions] : own;
   });
+  views.push(result.places.nodeLabel);
+  return views.map((view) => view.buffer as ArrayBuffer);
 }

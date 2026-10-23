@@ -56,5 +56,6 @@ export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
       target: { lat: 0.004, lon: 0.004, meters: 4 },
     },
     runs,
+    places: { labels: ['Perú & Bolívar'], nodeLabel: new Int32Array(graph.nodeCount).fill(0) },
   };
 }

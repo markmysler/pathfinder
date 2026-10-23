@@ -82,6 +82,16 @@ describe('runJob', () => {
     );
   });
 
+  it('names the nodes after their streets, for listing the frontier', async () => {
+    const { places, runs } = await runJob(request, deps().deps);
+    const node = runs[0]!.timeline.expandedNode[1]!;
+    expect(places.nodeLabel.length).toBeGreaterThan(node);
+    expect(places.labels).toContain('Avenida de Mayo & Bolívar');
+    expect(transferablesOf(await runJob(request, deps().deps))).toHaveLength(
+      Object.values(runs[0]!.timeline).filter(ArrayBuffer.isView).length + 2,
+    );
+  });
+
   it('reports where A and B were snapped to', async () => {
     const result = await runJob(request, deps().deps);
     const { start, target } = result.snapped;
@@ -145,7 +155,9 @@ describe('runJob', () => {
     const typedArrays = result.runs.flatMap(({ timeline }) =>
       Object.values(timeline).filter(ArrayBuffer.isView),
     );
-    expect(buffers.length).toBe(typedArrays.length + 2);
+    // Plus each route's positions and the node labels.
+    expect(buffers.length).toBe(typedArrays.length + 2 + 1);
+    expect(buffers).toContain(result.places.nodeLabel.buffer);
   });
 
   it('says which server it is trying once the first one has failed', async () => {

@@ -81,3 +81,29 @@
 .run:disabled {
   opacity: 0.45;
 }
+
+/* Keeps Run reachable at the bottom of the panel however far it scrolls. */
+.runBar {
+  position: sticky;
+  bottom: -24px;
+  margin: 0 -24px -24px;
+  padding: 12px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .sectionTitle,
+  .explain {
+    display: none;
+  }
+
+  .runBar {
+    bottom: -16px;
+    margin: 0 -16px -16px;
+    padding: 10px 16px 16px;
+  }
+}

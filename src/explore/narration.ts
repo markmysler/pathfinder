@@ -15,14 +15,45 @@ export function searchStatus(timeline: Pick<Timeline, 'steps' | 'route'>, positi
   return timeline.route ? 'found' : 'no-route';
 }
 
-/** What a pushed neighbour means for each algorithm. */
-const PUSH_MEANS: Record<AlgorithmId, string> = {
-  bfs: 'led somewhere new',
-  dfs: 'led somewhere not yet explored',
-  greedy: 'led somewhere new',
-  dijkstra: 'reached a neighbour more cheaply',
-  astar: 'reached a neighbour more cheaply',
+/** How to say what pushing a neighbour means for each algorithm: some, none, or not via the only road. */
+const ROADS: Record<AlgorithmId, { some: string; none: string; onlyNot: string }> = {
+  bfs: {
+    some: 'led somewhere new',
+    none: 'led anywhere new',
+    onlyNot: 'did not lead anywhere new',
+  },
+  greedy: {
+    some: 'led somewhere new',
+    none: 'led anywhere new',
+    onlyNot: 'did not lead anywhere new',
+  },
+  dfs: {
+    some: 'led somewhere not yet explored',
+    none: 'led anywhere not yet explored',
+    onlyNot: 'did not lead anywhere not yet explored',
+  },
+  dijkstra: {
+    some: 'reached a neighbour more cheaply',
+    none: 'reached a neighbour more cheaply',
+    onlyNot: 'did not reach a neighbour more cheaply',
+  },
+  astar: {
+    some: 'reached a neighbour more cheaply',
+    none: 'reached a neighbour more cheaply',
+    onlyNot: 'did not reach a neighbour more cheaply',
+  },
 };
+
+function describeRoads(algorithm: AlgorithmId, pushes: number, degree: number): string {
+  const phrases = ROADS[algorithm];
+  if (degree === 0) return 'It is a dead end.';
+  const joined =
+    pushes === 0 ? '' : pushes === 1 ? ' It joined the frontier.' : ' They joined the frontier.';
+  if (degree === 1)
+    return pushes ? `Its only road ${phrases.some}.${joined}` : `Its only road ${phrases.onlyNot}.`;
+  if (pushes === 0) return `None of its ${degree} roads ${phrases.none}.`;
+  return `${pushes} of ${degree} roads ${phrases.some}.${joined}`;
+}
 
 /** A plain-language account of what the search did at a step. */
 export function describeStep(
@@ -51,11 +82,6 @@ export function describeStep(
     astar: `Took the frontier node with the lowest f = g + h: ${cost(g)} + ${cost(h)} = ${cost(g + h)}.`,
   }[algorithm];
 
-  const degree = timeline.expandedDegree[step]!;
-  const pushes = timeline.pushesAt[step]!;
-  if (degree === 0) return `${choice} It is a dead end.`;
-  const roads = `${pushes} of ${degree} road${degree === 1 ? '' : 's'} ${PUSH_MEANS[algorithm]}.`;
-  const joined =
-    pushes === 0 ? '' : pushes === 1 ? ' It joined the frontier.' : ' They joined the frontier.';
-  return `${choice} ${roads}${joined}`;
+  const roads = describeRoads(algorithm, timeline.pushesAt[step]!, timeline.expandedDegree[step]!);
+  return `${choice} ${roads}`;
 }

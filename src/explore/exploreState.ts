@@ -3,15 +3,21 @@ import type { Place } from '../geo/nominatim';
 import type { LatLon } from '../osm/area';
 import type { Objective } from '../osm/network';
 import type { TravelMode } from '../osm/roads';
-import { initialPlayback, play, type PlaybackState } from '../playback/playback';
-import type { JobResult, Stage } from '../worker/job';
+import {
+  initialPlayback,
+  play,
+  setSpeed,
+  suggestedSpeed,
+  type PlaybackState,
+} from '../playback/playback';
+import type { JobResult, ServerAttempt, Stage } from '../worker/job';
 import type { JobError } from '../worker/protocol';
 
 export type Role = 'start' | 'target';
 
 export type RunState =
   | { status: 'idle' }
-  | { status: 'loading'; stage: Stage | null }
+  | { status: 'loading'; stage: Stage | null; server?: ServerAttempt }
   | { status: 'failed'; error: JobError }
   | { status: 'ready'; result: JobResult; playback: PlaybackState };
 
@@ -29,13 +35,14 @@ export interface ExploreState {
 export type ExploreAction =
   | { type: 'placeChosen'; role: Role; place: Place }
   | { type: 'mapClicked'; point: LatLon }
+  | { type: 'pinMoved'; role: Role; point: LatLon }
   | { type: 'placeNamed'; role: Role; place: Place }
   | { type: 'swapped' }
   | { type: 'modeChosen'; mode: TravelMode }
   | { type: 'objectiveChosen'; objective: Objective }
   | { type: 'algorithmChosen'; algorithm: AlgorithmId }
   | { type: 'runRequested' }
-  | { type: 'runProgressed'; stage: Stage }
+  | { type: 'runProgressed'; stage: Stage; server?: ServerAttempt }
   | { type: 'runSucceeded'; result: JobResult }
   | { type: 'runFailed'; error: JobError }
   | { type: 'editRequested' }
@@ -70,6 +77,8 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
         [state.nextPick]: droppedPin(action.point),
         nextPick: other(state.nextPick),
       };
+    case 'pinMoved':
+      return { ...state, [action.role]: droppedPin(action.point) };
     case 'placeNamed': {
       const current = state[action.role];
       const unmoved = current?.lat === action.place.lat && current.lon === action.place.lon;
@@ -88,10 +97,11 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return { ...state, run: { status: 'loading', stage: null } };
     case 'runProgressed':
       if (state.run.status !== 'loading') return state;
-      return { ...state, run: { status: 'loading', stage: action.stage } };
+      return { ...state, run: { status: 'loading', stage: action.stage, server: action.server } };
     case 'runSucceeded': {
       if (state.run.status !== 'loading') return state;
-      const playback = play(initialPlayback(), action.result.timeline.steps);
+      const { steps } = action.result.timeline;
+      const playback = play(setSpeed(initialPlayback(), suggestedSpeed(steps)), steps);
       return { ...state, run: { status: 'ready', result: action.result, playback } };
     }
     case 'runFailed':

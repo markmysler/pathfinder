@@ -1,4 +1,4 @@
-import type { JobRequest, JobResult, Stage } from './job';
+import type { JobRequest, JobResult, ServerAttempt, Stage } from './job';
 import type { JobError, WorkerReply, WorkerRequest } from './protocol';
 
 export interface WorkerLike {
@@ -15,7 +15,7 @@ export interface RunningJob {
 interface Pending {
   resolve(result: JobResult): void;
   reject(error: JobError): void;
-  onProgress(stage: Stage): void;
+  onProgress(stage: Stage, server?: ServerAttempt): void;
 }
 
 /** A promise-based front end to the search worker; several jobs may be in flight. */
@@ -26,14 +26,17 @@ export function createSearchClient(worker: WorkerLike) {
   worker.onmessage = ({ data }) => {
     const job = pending.get(data.id);
     if (!job) return;
-    if (data.type === 'progress') return job.onProgress(data.stage);
+    if (data.type === 'progress') return job.onProgress(data.stage, data.server);
     pending.delete(data.id);
     if (data.type === 'done') job.resolve(data.result);
     else job.reject(data.error);
   };
 
   return {
-    run(request: JobRequest, onProgress: (stage: Stage) => void): RunningJob {
+    run(
+      request: JobRequest,
+      onProgress: (stage: Stage, server?: ServerAttempt) => void,
+    ): RunningJob {
       const id = ++lastId;
       const result = new Promise<JobResult>((resolve, reject) => {
         pending.set(id, { resolve, reject, onProgress });

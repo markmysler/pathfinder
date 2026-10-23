@@ -1,0 +1,45 @@
+/* MapLibre's controls, restyled for Night Chart. */
+.maplibregl-ctrl-group {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: none;
+}
+
+.maplibregl-ctrl-group button {
+  width: var(--touch);
+  height: var(--touch);
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border);
+}
+
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgb(14 17 22 / 85%);
+  color: var(--muted);
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--text-2);
+}
+
+.maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
+@media (max-width: 720px) {
+  /* Pinch to zoom on phones; keep the attribution clear of the top card and bottom sheet. */
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-group {
+    display: none;
+  }
+
+  .maplibregl-ctrl-top-right {
+    top: 140px;
+  }
+}

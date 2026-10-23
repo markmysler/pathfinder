@@ -88,4 +88,20 @@ describe('runJob', () => {
     const typedArrays = Object.values(timeline).filter(ArrayBuffer.isView);
     expect(buffers.length).toBe(typedArrays.length + 1);
   });
+
+  it('says which server it is trying once the first one has failed', async () => {
+    const progress: unknown[][] = [];
+    await runJob(request, {
+      loadRoadNetwork: async (_area, { onAttempt }) => {
+        onAttempt?.('https://overpass-api.de/api/interpreter', 0);
+        onAttempt?.('https://maps.mail.ru/osm/tools/overpass/api/interpreter', 1);
+        return { network, fromCache: false };
+      },
+      onProgress: (...args) => progress.push(args),
+    });
+    expect(progress.slice(0, 2)).toEqual([
+      ['download'],
+      ['download', { host: 'maps.mail.ru', attempt: 2 }],
+    ]);
+  });
 });

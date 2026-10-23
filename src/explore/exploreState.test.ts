@@ -1,4 +1,4 @@
-import { initialPlayback, play } from '../playback/playback';
+import { initialPlayback, play, setSpeed, suggestedSpeed } from '../playback/playback';
 import type { JobResult } from '../worker/job';
 import { exploreReducer, initialExplore, type ExploreState } from './exploreState';
 
@@ -58,6 +58,16 @@ describe('exploreReducer', () => {
     expect(moved.start?.lat).toBe(1);
   });
 
+  it('moves a pin dragged on the map without changing which point is next', () => {
+    const state = exploreReducer(withPlaces(), {
+      type: 'pinMoved',
+      role: 'target',
+      point: { lat: 5, lon: 6 },
+    });
+    expect(state.target).toMatchObject({ lat: 5, lon: 6, detail: 'Dropped pin' });
+    expect(state.nextPick).toBe(withPlaces().nextPick);
+  });
+
   it('swaps A and B', () => {
     expect(exploreReducer(withPlaces(), { type: 'swapped' })).toMatchObject({
       start: cabildo,
@@ -85,7 +95,25 @@ describe('exploreReducer', () => {
     state = exploreReducer(state, { type: 'runProgressed', stage: 'download' });
     expect(state.run).toEqual({ status: 'loading', stage: 'download' });
     state = exploreReducer(state, { type: 'runSucceeded', result });
-    expect(state.run).toEqual({ status: 'ready', result, playback: play(initialPlayback(), 100) });
+    expect(state.run).toEqual({
+      status: 'ready',
+      result,
+      playback: play(setSpeed(initialPlayback(), suggestedSpeed(100)), 100),
+    });
+  });
+
+  it('remembers which download server is being tried', () => {
+    let state = exploreReducer(withPlaces(), { type: 'runRequested' });
+    state = exploreReducer(state, {
+      type: 'runProgressed',
+      stage: 'download',
+      server: { host: 'maps.mail.ru', attempt: 2 },
+    });
+    expect(state.run).toEqual({
+      status: 'loading',
+      stage: 'download',
+      server: { host: 'maps.mail.ru', attempt: 2 },
+    });
   });
 
   it('shows failures, but treats a cancellation as going back', () => {

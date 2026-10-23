@@ -51,6 +51,29 @@ describe('describeStep', () => {
     );
   });
 
+  it('reads naturally when no road, or the only road, adds to the frontier', () => {
+    const t = (pushes: number, degree: number) =>
+      timeline({
+        pushesAt: Uint32Array.from([0, pushes, 0, 0, 0]),
+        expandedDegree: Uint32Array.from([0, degree, 0, 0, 0]),
+      });
+    expect(describeStep(t(0, 3), 1, 'dijkstra', 'shortest')).toMatch(
+      / None of its 3 roads reached a neighbour more cheaply\.$/,
+    );
+    expect(describeStep(t(1, 1), 1, 'dijkstra', 'shortest')).toMatch(
+      / Its only road reached a neighbour more cheaply\. It joined the frontier\.$/,
+    );
+    expect(describeStep(t(0, 1), 1, 'dijkstra', 'shortest')).toMatch(
+      / Its only road did not reach a neighbour more cheaply\.$/,
+    );
+    expect(describeStep(t(0, 1), 1, 'bfs', 'shortest')).toMatch(
+      / Its only road did not lead anywhere new\.$/,
+    );
+    expect(describeStep(t(0, 2), 1, 'dfs', 'shortest')).toMatch(
+      / None of its 2 roads led anywhere not yet explored\.$/,
+    );
+  });
+
   it('calls out dead ends', () => {
     expect(describeStep(timeline(), 3, 'bfs', 'shortest')).toBe(
       'Took the oldest node in the queue. It is a dead end.',

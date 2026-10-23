@@ -52,4 +52,19 @@ describe('loadRoadNetwork', () => {
     const { network } = await loadRoadNetwork(box, { fetchOverpass: async () => response, cache });
     expect(network.segmentCount).toBe(1);
   });
+
+  it('passes on which server is being tried', async () => {
+    const onAttempt = vi.fn();
+    await loadRoadNetwork(box, {
+      fetchOverpass: async (_query, options) => {
+        options.onAttempt?.('https://maps.mail.ru/osm/tools/overpass/api/interpreter', 1);
+        return response;
+      },
+      onAttempt,
+    });
+    expect(onAttempt).toHaveBeenCalledWith(
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+      1,
+    );
+  });
 });

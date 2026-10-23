@@ -1,0 +1,30 @@
+.map {
+  position: absolute;
+  inset: 0;
+  background: var(--map-land);
+}
+
+.marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px #090c10;
+  cursor: grab;
+}
+
+.start {
+  background: #f4f6f8;
+  color: var(--bg);
+}
+
+.target {
+  background: var(--bg);
+  color: #f4f6f8;
+  border: 3px solid #f4f6f8;
+}

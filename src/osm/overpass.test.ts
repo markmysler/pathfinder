@@ -28,7 +28,7 @@ describe('overpassQuery', () => {
   const query = overpassQuery(box);
 
   it('asks for JSON road ways inside the box, south-west-north-east', () => {
-    expect(query).toContain('[out:json]');
+    expect(query).toContain('[out:json][timeout:60]');
     expect(query).toContain('(-34.615,-58.39,-34.595,-58.365)');
   });
 
@@ -119,5 +119,36 @@ describe('fetchOverpass', () => {
       fetchOverpass('QUERY', { fetch, signal: controller.signal }),
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(calls).toHaveLength(1);
+  });
+
+  it('tries three public servers, starting with the main instance', () => {
+    expect(DEFAULT_ENDPOINTS).toEqual([
+      'https://overpass-api.de/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+      'https://overpass.private.coffee/api/interpreter',
+    ]);
+  });
+
+  it('gives up on a server that takes too long and tries the next', async () => {
+    const calls: string[] = [];
+    const fetch = (async (url: string, init?: RequestInit) => {
+      calls.push(url);
+      if (calls.length > 1) return json(okBody);
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)),
+      );
+    }) as typeof globalThis.fetch;
+    await expect(fetchOverpass('QUERY', { fetch, attemptTimeoutMs: 20 })).resolves.toEqual(okBody);
+    expect(calls).toEqual(DEFAULT_ENDPOINTS.slice(0, 2));
+  });
+
+  it('reports each server it tries', async () => {
+    const { fetch } = fakeFetch(json({}, 502), json(okBody));
+    const onAttempt = vi.fn();
+    await fetchOverpass('QUERY', { fetch, onAttempt });
+    expect(onAttempt.mock.calls).toEqual([
+      [DEFAULT_ENDPOINTS[0], 0],
+      [DEFAULT_ENDPOINTS[1], 1],
+    ]);
   });
 });

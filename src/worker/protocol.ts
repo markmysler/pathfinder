@@ -1,7 +1,7 @@
 import { RouteTooLongError } from '../osm/area';
 import { OverpassError } from '../osm/overpass';
 import { NoRoadNearbyError } from '../osm/prepare';
-import type { JobRequest, JobResult, Stage } from './job';
+import type { JobRequest, JobResult, ServerAttempt, Stage } from './job';
 
 export type WorkerRequest =
   { type: 'run'; id: number; request: JobRequest } | { type: 'cancel'; id: number };
@@ -11,7 +11,7 @@ export type JobError =
   | { kind: 'no-road' | 'download' | 'cancelled' | 'unknown'; message: string };
 
 export type WorkerReply =
-  | { type: 'progress'; id: number; stage: Stage }
+  | { type: 'progress'; id: number; stage: Stage; server?: ServerAttempt }
   | { type: 'done'; id: number; result: JobResult }
   | { type: 'error'; id: number; error: JobError };
 

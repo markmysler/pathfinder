@@ -1,5 +1,6 @@
 import {
   formatSpeed,
+  PRESET_SPEEDS,
   jumpToEnd,
   pause,
   play,
@@ -33,7 +34,6 @@ interface Props {
   variant?: 'full' | 'compact';
 }
 
-const PRESET_SPEEDS = [0.1, 0.3, 1, 3, 10, 30, 100];
 const nextPreset = (speed: number) =>
   PRESET_SPEEDS.find((s) => s > speed + 1e-9) ?? PRESET_SPEEDS[0]!;
 

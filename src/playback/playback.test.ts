@@ -12,6 +12,7 @@ import {
   speedToSlider,
   stepBack,
   stepForward,
+  suggestedSpeed,
   tick,
 } from './playback';
 
@@ -95,5 +96,18 @@ describe('speed slider', () => {
     expect(formatSpeed(2.512)).toBe('2.5×');
     expect(formatSpeed(31.6)).toBe('32×');
     expect(formatSpeed(100)).toBe('100×');
+  });
+});
+
+describe('suggestedSpeed', () => {
+  it('picks the preset speed that plays the whole search in about 15 seconds', () => {
+    expect(suggestedSpeed(3_000)).toBe(1);
+    expect(suggestedSpeed(30_000)).toBe(10);
+    expect(suggestedSpeed(9_000)).toBe(3);
+  });
+
+  it('stays within 0.1× and 100×', () => {
+    expect(suggestedSpeed(5)).toBe(0.1);
+    expect(suggestedSpeed(5_000_000)).toBe(100);
   });
 });

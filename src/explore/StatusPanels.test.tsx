@@ -1,6 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ErrorPanel, LoadingPanel } from './StatusPanels';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('LoadingPanel', () => {
   it.each([
@@ -16,6 +20,27 @@ describe('LoadingPanel', () => {
   it('warns that downloads can be slow', () => {
     render(<LoadingPanel stage="download" algorithmName="A* search" onCancel={() => {}} />);
     expect(screen.getByRole('status')).toHaveTextContent(/up to a minute/);
+  });
+
+  it('says when it has moved on to another server', () => {
+    render(
+      <LoadingPanel
+        stage="download"
+        server={{ host: 'maps.mail.ru', attempt: 2 }}
+        algorithmName="A* search"
+        onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "The first server didn't answer, so Pathfinder is trying maps.mail.ru (2 of 3).",
+    );
+  });
+
+  it('counts the time spent waiting', () => {
+    vi.useFakeTimers();
+    render(<LoadingPanel stage="download" algorithmName="A* search" onCancel={() => {}} />);
+    act(() => vi.advanceTimersByTime(42_000));
+    expect(screen.getByText('0:42 so far')).toBeInTheDocument();
   });
 
   it('can be cancelled', async () => {

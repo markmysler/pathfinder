@@ -90,4 +90,10 @@ Phase 1 can run in parallel with the design review in phase 2.
 - [x] Phase 1 — Graph core + base algorithms (CSR graph, event protocol, BFS, DFS, Greedy, Dijkstra, A*; property-tested against a brute-force reference)
 - [x] Phase 2 — Design: overall UI (approved; canvas: https://claude.ai/artifact/1yywQJ9p4xK44XNhqaNgRG)
 - [x] Phase 3 — OSM pipeline (search area + size cap, OSM tag rules per mode, road network, routing graphs, largest SCC + snapping, Overpass client with fallback, IndexedDB cache; tested on recorded Plaza de Mayo data)
-- [ ] Phase 4 — Single-algorithm visualization
+- [x] Phase 4 — Single-algorithm visualization (MapLibre + deck.gl map, address search, worker, playback, inspector, desktop and phone layouts per the approved designs)
+- [ ] Phase 5 — Multi-algorithm comparison
+
+Follow-ups noted during phase 4:
+
+- The JS bundle is about 560 KB gzipped (mostly deck.gl and MapLibre); split it in phase 10.
+- Public Overpass servers are often slow (30–60 s) or down; the client tries three servers with a 70 s limit each.

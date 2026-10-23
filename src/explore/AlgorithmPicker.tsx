@@ -34,6 +34,9 @@ export function AlgorithmPicker({ value, onChange }: Props) {
             <span className={styles.badge} aria-hidden="true">
               {style.badge}
             </span>
+            <span className={styles.short} aria-hidden="true">
+              {style.short}
+            </span>
             <span className={styles.text}>
               <span id={`algorithm-${id}`} className={styles.name}>
                 {name}

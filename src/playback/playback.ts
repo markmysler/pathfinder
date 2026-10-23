@@ -71,3 +71,15 @@ export function formatSpeed(speed: number): string {
   const rounded = speed < 10 ? Math.round(speed * 10) / 10 : Math.round(speed);
   return `${rounded}×`;
 }
+
+/** Speeds offered by the compact speed button, and used to pick a starting speed. */
+export const PRESET_SPEEDS = [0.1, 0.3, 1, 3, 10, 30, 100];
+const TARGET_SECONDS = 15;
+
+/** The preset speed that plays a search of `steps` expansions in about 15 seconds. */
+export function suggestedSpeed(steps: number): number {
+  const ideal = Math.log10(steps / (TARGET_SECONDS * STEPS_PER_SECOND_AT_1X));
+  return PRESET_SPEEDS.reduce((best, speed) =>
+    Math.abs(Math.log10(speed) - ideal) < Math.abs(Math.log10(best) - ideal) ? speed : best,
+  );
+}

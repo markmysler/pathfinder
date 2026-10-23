@@ -95,7 +95,7 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
             value={state.objective}
             onChange={(objective) => dispatch({ type: 'objectiveChosen', objective })}
           />
-          <p className={styles.caption}>
+          <p className={`${styles.caption} ${styles.explain}`}>
             Fastest weighs each road by travel time at {SPEED_SOURCE[state.mode]}. Shortest weighs
             it by length.
           </p>
@@ -106,23 +106,25 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
           onChange={(algorithm) => dispatch({ type: 'algorithmChosen', algorithm })}
         />
 
-        {problem && (
-          <p className={styles.alert} role="alert">
-            {problem}
-          </p>
-        )}
-        {missing && (
-          <p className={styles.caption}>Search for {missing} or click the map to drop it.</p>
-        )}
-        <button
-          type="button"
-          className={styles.run}
-          disabled={missing !== null || problem !== null}
-          onClick={() => dispatch({ type: 'runRequested' })}
-        >
-          <PlayIcon />
-          {runLabel}
-        </button>
+        <div className={styles.runBar}>
+          {problem && (
+            <p className={styles.alert} role="alert">
+              {problem}
+            </p>
+          )}
+          {missing && (
+            <p className={styles.caption}>Search for {missing} or click the map to drop it.</p>
+          )}
+          <button
+            type="button"
+            className={styles.run}
+            disabled={missing !== null || problem !== null}
+            onClick={() => dispatch({ type: 'runRequested' })}
+          >
+            <PlayIcon />
+            {runLabel}
+          </button>
+        </div>
       </section>
     </div>
   );

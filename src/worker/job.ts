@@ -16,6 +16,13 @@ export interface JobRequest {
 
 export type Stage = 'download' | 'graph' | 'search';
 
+/** The Overpass server being tried, once the first one has failed. */
+export interface ServerAttempt {
+  host: string;
+  /** 1-based position in the list of servers. */
+  attempt: number;
+}
+
 export interface SnappedPoint extends LatLon {
   /** Distance from the requested point to the road it snapped to. */
   meters: number;
@@ -35,9 +42,9 @@ export interface JobResult {
 export interface JobDeps {
   loadRoadNetwork(
     area: BBox,
-    options: { signal?: AbortSignal },
+    options: { signal?: AbortSignal; onAttempt?: (endpoint: string, index: number) => void },
   ): Promise<{ network: RoadNetwork; fromCache: boolean }>;
-  onProgress(stage: Stage): void;
+  onProgress(stage: Stage, server?: ServerAttempt): void;
   signal?: AbortSignal;
 }
 
@@ -46,7 +53,13 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   const { signal } = deps;
   const area = searchArea(request.start, request.target);
   deps.onProgress('download');
-  const { network, fromCache } = await deps.loadRoadNetwork(area, { signal });
+  const { network, fromCache } = await deps.loadRoadNetwork(area, {
+    signal,
+    onAttempt: (endpoint, index) => {
+      if (index > 0)
+        deps.onProgress('download', { host: new URL(endpoint).host, attempt: index + 1 });
+    },
+  });
   signal?.throwIfAborted();
 
   deps.onProgress('graph');

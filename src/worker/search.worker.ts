@@ -26,8 +26,8 @@ scope.onmessage = async ({ data }) => {
   running.set(id, controller);
   try {
     const result = await runJob(data.request, {
-      loadRoadNetwork: (area, { signal }) => loadRoadNetwork(area, { cache, signal }),
-      onProgress: (stage) => scope.postMessage({ type: 'progress', id, stage }),
+      loadRoadNetwork: (area, options) => loadRoadNetwork(area, { cache, ...options }),
+      onProgress: (stage, server) => scope.postMessage({ type: 'progress', id, stage, server }),
       signal: controller.signal,
     });
     if (!controller.signal.aborted) {

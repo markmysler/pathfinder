@@ -35,14 +35,19 @@ describe('createSearchClient', () => {
   it('forwards progress for its own job only', async () => {
     const { worker } = fakeWorker();
     const client = createSearchClient(worker);
-    const stages: string[] = [];
-    const job = client.run(request, (stage) => stages.push(stage));
+    const progress: unknown[][] = [];
+    const job = client.run(request, (...args) => progress.push(args));
     worker.reply({ type: 'progress', id: 1, stage: 'download' });
+    worker.reply({ type: 'progress', id: 1, stage: 'download', server: { host: 'b', attempt: 2 } });
     worker.reply({ type: 'progress', id: 99, stage: 'graph' });
     worker.reply({ type: 'progress', id: 1, stage: 'search' });
     worker.reply({ type: 'done', id: 1, result: {} as never });
     await job.result;
-    expect(stages).toEqual(['download', 'search']);
+    expect(progress).toEqual([
+      ['download', undefined],
+      ['download', { host: 'b', attempt: 2 }],
+      ['search', undefined],
+    ]);
   });
 
   it('rejects with the error the worker reported', async () => {

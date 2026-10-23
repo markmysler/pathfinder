@@ -1,15 +1,35 @@
+import { useEffect, useState } from 'react';
 import { MAX_ROUTE_METERS } from '../osm/area';
-import type { Stage } from '../worker/job';
+import { DEFAULT_ENDPOINTS } from '../osm/overpass';
+import { formatDuration } from '../ui/format';
+import type { ServerAttempt, Stage } from '../worker/job';
 import type { JobError } from '../worker/protocol';
 import styles from './StatusPanels.module.css';
 
 interface LoadingProps {
   stage: Stage | null;
+  server?: ServerAttempt;
   algorithmName: string;
   onCancel(): void;
 }
 
-export function LoadingPanel({ stage, algorithmName, onCancel }: LoadingProps) {
+function useSecondsSinceMount() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return seconds;
+}
+
+function describeServer({ host, attempt }: ServerAttempt) {
+  const failed = attempt === 2 ? 'The first server' : `The first ${attempt - 1} servers`;
+  return `${failed} didn't answer, so Pathfinder is trying ${host} (${attempt} of ${DEFAULT_ENDPOINTS.length}).`;
+}
+
+export function LoadingPanel({ stage, server, algorithmName, onCancel }: LoadingProps) {
+  const seconds = useSecondsSinceMount();
   const [message, detail] = {
     none: ['Getting ready…', ''],
     download: [
@@ -27,8 +47,12 @@ export function LoadingPanel({ stage, algorithmName, onCancel }: LoadingProps) {
         <p className={styles.message}>
           {message}
           {detail && <span className={styles.detail}>{detail}</span>}
+          {stage === 'download' && server && (
+            <span className={styles.detail}>{describeServer(server)}</span>
+          )}
         </p>
       </div>
+      <p className={styles.elapsed}>{formatDuration(seconds)} so far</p>
       <div className={styles.actions}>
         <button type="button" className={styles.button} onClick={onCancel}>
           Cancel

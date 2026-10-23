@@ -82,6 +82,34 @@ export const SearchIcon = stroke(
 export const ArrowRightIcon = stroke(<path d="M5 12h14M13 6l6 6-6 6" />);
 /** Two arrows, one each way: a search from both ends. */
 export const BothWaysIcon = stroke(<path d="M4 8h15l-4-4M20 16H5l4 4" />);
+export const KeyIcon = stroke(
+  <>
+    <circle cx="8" cy="15" r="4" />
+    <path d="M11 12l9-9M17 6l3 3M15 8l2 2" />
+  </>,
+);
+export const LockIcon = stroke(
+  <>
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </>,
+);
+export const EyeIcon = stroke(
+  <>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+export const EyeOffIcon = stroke(<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.6 9.6 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />);
+export const CloseIcon = stroke(<path d="M6 6l12 12M18 6L6 18" />);
+export const WarningIcon = stroke(<path d="M12 3l10 18H2zM12 10v5M12 18v.5" />);
+export const InfoIcon = stroke(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v6M12 7.5v.5" />
+  </>,
+);
+export const ExternalIcon = stroke(<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />);
 export const ChevronLeftIcon = stroke(<path d="M15 6l-6 6 6 6" />);
 export const ChevronRightIcon = stroke(<path d="M9 6l6 6-6 6" />);
 export const ChevronUpIcon = stroke(<path d="M6 15l6-6 6 6" />);

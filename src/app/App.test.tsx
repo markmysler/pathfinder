@@ -1,11 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { fakeGeocoder } from '../test/fakes';
+import { fakeGeocoder, fakeTraffic } from '../test/fakes';
 import { App } from './App';
 
 vi.mock('../map/MapCanvas', () => ({ MapCanvas: () => <div>map</div> }));
 
-const services = { geocoder: fakeGeocoder(), searchClient: { run: vi.fn() } };
+const services = {
+  geocoder: fakeGeocoder(),
+  searchClient: { run: vi.fn() },
+  traffic: fakeTraffic(),
+};
 
 describe('App', () => {
   afterEach(() => {

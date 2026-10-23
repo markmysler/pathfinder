@@ -179,6 +179,33 @@ describe('describePart', () => {
     expect(fast).toMatch(/^Road to Bolívar & Perú, taking 0\.4 s: 0:00 \+ 0\.4 s = 0:00/);
   });
 
+  it('says how traffic slowed a road, against its usual speed and time', () => {
+    const context = (share: number) => ({
+      timeline: {
+        ...t,
+        entryCost: Float64Array.from([0, 120, 300, 200]),
+        entryShare: Float32Array.from([NaN, share, NaN, NaN]),
+        entryMeters: Float32Array.from([0, 300, 500, 300]),
+      } as unknown as Timeline,
+      step: 1,
+      algorithm: 'dijkstra' as const,
+      objective: 'fastest' as const,
+      weight: 1,
+      names,
+    });
+    expect(describePart({ kind: 'road', entry: 1 }, context(0.25))).toMatch(
+      / Traffic: jammed, 9 km\/h instead of the usual 36, so 2:00 instead of 0:30\.$/,
+    );
+    expect(describePart({ kind: 'road', entry: 1 }, context(0.6))).toMatch(
+      / Traffic: slow, 9 km\/h instead of the usual 15, so 2:00 instead of 1:12\.$/,
+    );
+    expect(describePart({ kind: 'road', entry: 1 }, context(1))).toMatch(
+      / Traffic: flowing at its usual 9 km\/h\.$/,
+    );
+    // No reading: nothing about traffic.
+    expect(describePart({ kind: 'road', entry: 2 }, context(0.25))).not.toMatch(/Traffic/);
+  });
+
   it('explains roads that led nowhere better, skips and the goal', () => {
     expect(say({ kind: 'rejected', count: 2 }, 'astar')).toBe(
       'The other 2 roads did not reach anywhere more cheaply.',

@@ -12,13 +12,21 @@ import {
 } from '../playback/playback';
 import type { JobResult, ServerAttempt, Stage } from '../worker/job';
 import type { JobError } from '../worker/protocol';
+import type { TrafficSettings } from '../traffic/settings';
+import type { TrafficFailure, TrafficProvider } from '../traffic/types';
 import { totalSteps } from './comparison';
 
 export type Role = 'start' | 'target';
 
 export type RunState =
   | { status: 'idle' }
-  | { status: 'loading'; stage: Stage | null; server?: ServerAttempt }
+  | {
+      status: 'loading';
+      stage: Stage | null;
+      server?: ServerAttempt;
+      /** Pieces of live traffic arrived so far, when traffic is on. */
+      traffic?: { done: number; total: number };
+    }
   | { status: 'failed'; error: JobError }
   | {
       status: 'ready';
@@ -44,6 +52,13 @@ export interface ExploreState {
   astarWeight: number;
   /** Whether panning or zooming one comparison map moves the others. */
   mapsLinked: boolean;
+  /** The user's own traffic keys, and which provider is on. */
+  traffic: TrafficSettings;
+  trafficDialog: boolean;
+  /** Whether the map draws slow, jammed and closed roads. */
+  trafficLayer: boolean;
+  /** Why traffic failed on the last run, until a run gets it or the key changes. */
+  trafficProblem: TrafficFailure | null;
   run: RunState;
 }
 
@@ -64,7 +79,13 @@ export type ExploreAction =
   | { type: 'editRequested' }
   | { type: 'mapToggled'; algorithm: AlgorithmId }
   | { type: 'mapsLinkToggled' }
-  | { type: 'playback'; apply: (playback: PlaybackState, total: number) => PlaybackState };
+  | { type: 'playback'; apply: (playback: PlaybackState, total: number) => PlaybackState }
+  | { type: 'trafficDialogOpened' }
+  | { type: 'trafficDialogClosed' }
+  | { type: 'trafficSaved'; settings: TrafficSettings }
+  | { type: 'trafficSwitched'; on: boolean }
+  | { type: 'trafficLayerToggled' }
+  | { type: 'trafficProgressed'; done: number; total: number };
 
 export const initialExplore: ExploreState = {
   start: null,
@@ -75,8 +96,14 @@ export const initialExplore: ExploreState = {
   algorithms: ['greedy', 'dijkstra', 'astar'],
   astarWeight: 1,
   mapsLinked: true,
+  traffic: { provider: null, keys: {} },
+  trafficDialog: false,
+  trafficLayer: true,
+  trafficProblem: null,
   run: { status: 'idle' },
 };
+
+const PROVIDERS: readonly TrafficProvider[] = ['tomtom', 'here'];
 
 export const MIN_WEIGHT = 1;
 export const MAX_WEIGHT = 3;
@@ -156,14 +183,31 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return { ...state, run: { status: 'loading', stage: null } };
     case 'runProgressed':
       if (state.run.status !== 'loading') return state;
-      return { ...state, run: { status: 'loading', stage: action.stage, server: action.server } };
+      return { ...state, run: { ...state.run, stage: action.stage, server: action.server } };
+    case 'trafficProgressed':
+      if (state.run.status !== 'loading') return state;
+      return {
+        ...state,
+        run: { ...state.run, traffic: { done: action.done, total: action.total } },
+      };
     case 'runSucceeded': {
       if (state.run.status !== 'loading') return state;
       const { runs } = action.result;
       const steps = totalSteps(runs);
       const playback = play(setSpeed(initialPlayback(), suggestedSpeed(steps)), steps);
       const shown = runs.slice(-MAX_SHOWN_MAPS).map((run) => run.algorithm);
-      return { ...state, run: { status: 'ready', result: action.result, playback, shown } };
+      const traffic = action.result.traffic;
+      const trafficProblem =
+        traffic?.status === 'failed'
+          ? traffic.reason
+          : traffic?.status === 'live'
+            ? null
+            : state.trafficProblem;
+      return {
+        ...state,
+        trafficProblem,
+        run: { status: 'ready', result: action.result, playback, shown },
+      };
     }
     case 'runFailed':
       if (state.run.status !== 'loading') return state;
@@ -179,6 +223,19 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
         run: { ...state.run, playback: action.apply(playback, totalSteps(result.runs)) },
       };
     }
+    case 'trafficDialogOpened':
+      return { ...state, trafficDialog: true };
+    case 'trafficDialogClosed':
+      return { ...state, trafficDialog: false };
+    case 'trafficSaved':
+      return { ...state, traffic: action.settings, trafficDialog: false, trafficProblem: null };
+    case 'trafficSwitched': {
+      if (!action.on) return { ...state, traffic: { ...state.traffic, provider: null } };
+      const provider = PROVIDERS.find((p) => state.traffic.keys[p]);
+      return provider ? { ...state, traffic: { ...state.traffic, provider } } : state;
+    }
+    case 'trafficLayerToggled':
+      return { ...state, trafficLayer: !state.trafficLayer };
     case 'mapToggled':
       if (state.run.status !== 'ready') return state;
       return {

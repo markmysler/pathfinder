@@ -9,6 +9,7 @@ import { Segmented } from '../ui/Segmented';
 import { AlgorithmPicker } from './AlgorithmPicker';
 import type { ExploreAction, ExploreState } from './exploreState';
 import { PlaceInput } from './PlaceInput';
+import { TrafficRow } from './TrafficRow';
 import styles from './PlanPanel.module.css';
 
 const MODES = [
@@ -102,10 +103,19 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
             onChange={(objective) => dispatch({ type: 'objectiveChosen', objective })}
           />
           <p className={`${styles.caption} ${styles.explain}`}>
-            Fastest weighs each road by travel time at {SPEED_SOURCE[state.mode]}. Shortest weighs
-            it by length.
+            Fastest weighs each road by travel time at {SPEED_SOURCE[state.mode]}
+            {state.mode === 'car' && state.traffic.provider ? ', slowed by live traffic' : ''}.
+            Shortest weighs it by length.
           </p>
         </div>
+
+        <TrafficRow
+          settings={state.traffic}
+          mode={state.mode}
+          problem={state.trafficProblem}
+          onOpen={() => dispatch({ type: 'trafficDialogOpened' })}
+          onSwitch={(on) => dispatch({ type: 'trafficSwitched', on })}
+        />
 
         <AlgorithmPicker
           value={state.algorithms}

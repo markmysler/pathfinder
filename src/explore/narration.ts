@@ -4,6 +4,7 @@ import { labelOf, type NodeLabels } from '../osm/places';
 import type { StepPart } from '../playback/frontier';
 import { meetingSplit, sideNext, type StopCheck } from '../playback/sides';
 import { meetingAt, type Timeline } from '../playback/timeline';
+import { JAMMED_BELOW, SLOWED_BELOW } from '../traffic/match';
 import { formatCost, formatCostsApart } from '../ui/format';
 
 type NarratedTimeline = Pick<
@@ -226,7 +227,8 @@ export interface PartContext {
   timeline: Pick<
     Timeline,
     'entryNode' | 'entryCost' | 'entryEstimate' | 'entryPrevious' | 'expandedEntry' | 'pushesAt'
-  >;
+  > &
+    Partial<Pick<Timeline, 'entryShare' | 'entryMeters'>>;
   step: number;
   algorithm: AlgorithmId;
   objective: Objective;
@@ -235,6 +237,31 @@ export interface PartContext {
 }
 
 const BEST_FIRST: readonly AlgorithmId[] = ['dijkstra', 'astar'];
+
+/** Seconds on one road: tenths of a second when short, so they never read as zero. */
+const roadTime = (seconds: number, objective: Objective) =>
+  seconds < 10 ? `${seconds.toFixed(1)} s` : formatCost(seconds, objective);
+
+/**
+ * How live traffic changed a road that took `seconds` now, against its usual speed and time.
+ * Empty without a reading, or when the route is the shortest, which traffic does not change.
+ */
+function trafficNote(
+  t: PartContext['timeline'],
+  entry: number,
+  seconds: number,
+  objective: Objective,
+): string {
+  const share = t.entryShare?.[entry];
+  const meters = t.entryMeters?.[entry];
+  if (objective !== 'fastest' || share === undefined || Number.isNaN(share) || !meters) return '';
+  const kmh = (meters / seconds) * 3.6;
+  const now = Math.round(kmh);
+  if (share >= SLOWED_BELOW) return ` Traffic: flowing at its usual ${now} km/h.`;
+  const how = share < JAMMED_BELOW ? 'jammed' : 'slow';
+  const usual = `${Math.round(kmh / share)}`;
+  return ` Traffic: ${how}, ${now} km/h instead of the usual ${usual}, so ${roadTime(seconds, objective)} instead of ${roadTime(seconds * share, objective)}.`;
+}
 
 /** One part of a step, in words: what the highlighted pseudocode lines just did. */
 export function describePart(part: StepPart, context: PartContext): string {
@@ -283,14 +310,14 @@ export function describePart(part: StepPart, context: PartContext): string {
       const from = t.entryCost[t.expandedEntry[step]!]!;
       // Many street segments take a few seconds; whole seconds would round them to nothing.
       const c = g - from;
-      const road = objective === 'fastest' && c < 10 ? `${c.toFixed(1)} s` : cost(c);
+      const road = objective === 'fastest' ? roadTime(c, objective) : cost(c);
       const length = objective === 'fastest' ? `taking ${road}` : `${road} long`;
       const previous = t.entryPrevious[part.entry]!;
       const verdict = Number.isFinite(previous)
         ? `beats the best known way there, ${cost(previous)}`
         : 'is the first way found there';
       const joins = algorithm === 'dijkstra' ? `g = ${cost(g)}` : `f = ${sum(g, h)}`;
-      return `Road to ${to}, ${length}: ${cost(from)} + ${road} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.`;
+      return `Road to ${to}, ${length}: ${cost(from)} + ${road} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.${trafficNote(t, part.entry, c, objective)}`;
     }
     case 'rejected': {
       const others = t.pushesAt[step]! > 0;
@@ -352,7 +379,7 @@ function describeBothWaysPart(part: StepPart, context: PartContext): string {
         oneWayOf(algorithm) === 'astar'
           ? `priority g ${backward ? '−' : '+'} p = ${cost(t.entryPriority[entry]!)}`
           : `g = ${cost(g)}`;
-      return `${road}, ${length}: ${cost(from)} + ${roadCost} = ${cost(g)} ${toEnd(entry)} ${verdict}, so it joins ${side(entry)}'s frontier with ${joins}.`;
+      return `${road}, ${length}: ${cost(from)} + ${roadCost} = ${cost(g)} ${toEnd(entry)} ${verdict}, so it joins ${side(entry)}'s frontier with ${joins}.${trafficNote(t, entry, c, objective)}`;
     }
     case 'meet': {
       const entry = t.meetEntry[part.meeting]!;

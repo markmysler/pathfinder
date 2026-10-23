@@ -81,3 +81,20 @@ export async function checkKey(
     return { ok: false, reason: error instanceof TrafficError ? error.reason : 'unavailable' };
   }
 }
+
+/** Everything the page needs for traffic settings, swappable in tests. */
+export interface TrafficService {
+  load(): TrafficSettings;
+  save(settings: TrafficSettings): void;
+  check(source: TrafficSource): Promise<KeyCheck>;
+}
+
+/** Settings kept in this browser's storage, and keys tried against the real providers. */
+export function browserTraffic(): TrafficService {
+  return {
+    load: () => loadTrafficSettings(),
+    save: (settings) => saveTrafficSettings(settings),
+    check: (source) => checkKey(source),
+  };
+}
+

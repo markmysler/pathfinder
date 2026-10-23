@@ -1,0 +1,351 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(9 12 16 / 72%);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+}
+
+.grabber {
+  display: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: -10px;
+}
+
+.title {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.close {
+  flex: none;
+  width: var(--touch);
+  height: var(--touch);
+  margin: -8px -10px -8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-m);
+}
+
+.lede {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.providers {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.providers button {
+  min-height: var(--touch);
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.providers button[aria-pressed='true'] {
+  background: var(--border);
+  color: #fff;
+  font-weight: 600;
+}
+
+.works {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.keyRow {
+  display: flex;
+  gap: 8px;
+}
+
+.keyBox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 2px 0 12px;
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+}
+
+.keyBox:focus-within {
+  border-color: var(--text-2);
+}
+
+.keyBox input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.reveal {
+  flex: none;
+  width: var(--touch);
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-2);
+  border: 0;
+  border-radius: var(--radius-s);
+}
+
+.secondary,
+.cancel {
+  flex: none;
+  min-height: 46px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.secondary:disabled,
+.primary:disabled {
+  opacity: 0.45;
+}
+
+.result {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.result svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.result[data-ok='true'] {
+  color: var(--ok);
+}
+
+.result[data-ok='false'] svg {
+  color: var(--traffic);
+}
+
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--text);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.getKey {
+  align-self: flex-start;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.privacy {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--raised);
+  border-radius: 12px;
+  color: var(--text-2);
+}
+
+.privacy > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.privacy div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.privacy p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.privacy b {
+  color: var(--text);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.remove {
+  min-height: var(--touch);
+  padding: 0 4px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cancel {
+  min-height: var(--touch);
+}
+
+.primary {
+  min-height: var(--touch);
+  padding: 0 18px;
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  border: 0;
+  border-radius: var(--radius-m);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Phones: a bottom sheet, with the main action full width. */
+@media (max-width: 720px) {
+  .backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .dialog {
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    gap: 16px;
+    padding: 8px 16px 20px;
+    border-width: 1px 0 0;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .grabber {
+    display: block;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+  }
+
+  .keyRow {
+    flex-direction: column;
+  }
+
+  .keyBox {
+    min-height: 50px;
+  }
+
+  .keyBox input {
+    font-size: 16px;
+  }
+
+  .secondary {
+    align-self: flex-start;
+    min-height: var(--touch);
+  }
+
+  .getKey {
+    min-height: var(--touch);
+    font-size: 14px;
+  }
+
+  .footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .spacer,
+  .cancel {
+    display: none;
+  }
+
+  .primary {
+    min-height: 52px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+}

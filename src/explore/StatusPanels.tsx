@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { MAX_ROUTE_METERS } from '../osm/area';
 import { DEFAULT_ENDPOINTS } from '../osm/overpass';
 import { formatDuration } from '../ui/format';
+import type { TrafficProvider } from '../traffic/types';
+import { CheckIcon } from '../ui/icons';
 import type { ServerAttempt, Stage } from '../worker/job';
+import { PROVIDER_NAME } from './trafficText';
 import type { JobError } from '../worker/protocol';
 import styles from './StatusPanels.module.css';
 
@@ -11,6 +14,8 @@ interface LoadingProps {
   server?: ServerAttempt;
   /** What is being run: an algorithm's name, or "3 algorithms". */
   running: string;
+  /** Live traffic downloading alongside the streets, and how much of it has arrived. */
+  traffic?: { provider: TrafficProvider; done?: number; total?: number };
   onCancel(): void;
 }
 
@@ -29,8 +34,65 @@ function describeServer({ host, attempt }: ServerAttempt) {
   return `${failed} didn't answer, so Pathfinder is trying ${host} (${attempt} of ${DEFAULT_ENDPOINTS.length}).`;
 }
 
-export function LoadingPanel({ stage, server, running, onCancel }: LoadingProps) {
+/** One of the two downloads, with a spinner until it is in. */
+function Download({ label, state, done }: { label: string; state: string; done: boolean }) {
+  return (
+    <span className={styles.download}>
+      {done ? (
+        <CheckIcon size={14} className={styles.check} />
+      ) : (
+        <span className={styles.smallSpinner} aria-hidden="true" />
+      )}
+      <span className={styles.downloadLabel}>{label}</span>
+      <span className={styles.downloadState}>{state}</span>
+    </span>
+  );
+}
+
+function trafficState({ provider, done, total }: NonNullable<LoadingProps['traffic']>) {
+  const arrived = total !== undefined && done !== undefined && done >= total;
+  if (provider === 'here' || total === undefined) {
+    return { state: arrived ? 'arrived' : 'asking', arrived };
+  }
+  return { state: `${done ?? 0} of ${total} tiles`, arrived };
+}
+
+export function LoadingPanel({ stage, server, running, traffic, onCancel }: LoadingProps) {
   const seconds = useSecondsSinceMount();
+  if (traffic && (stage === null || stage === 'download' || stage === 'traffic')) {
+    const streetsIn = stage === 'traffic';
+    const { state, arrived } = trafficState(traffic);
+    return (
+      <div className={styles.panel}>
+        <div className={styles.row} role="status">
+          <span className={styles.spinner} aria-hidden="true" />
+          <p className={styles.message}>
+            {streetsIn ? 'Waiting for live traffic…' : 'Downloading streets and live traffic…'}
+            <Download
+              label="Streets from OpenStreetMap"
+              state={streetsIn ? 'done' : 'up to a minute'}
+              done={streetsIn}
+            />
+            {!streetsIn && server && (
+              <span className={styles.detail}>{describeServer(server)}</span>
+            )}
+            <Download
+              label={`Traffic from ${PROVIDER_NAME[traffic.provider]}`}
+              state={state}
+              done={arrived}
+            />
+          </p>
+        </div>
+        <p className={styles.elapsed}>{formatDuration(seconds)} so far</p>
+        <div className={styles.actions}>
+          <button type="button" className={styles.button} onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [message, detail] = {
     none: ['Getting ready…', ''],
     download: [

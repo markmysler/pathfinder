@@ -31,6 +31,11 @@ import { describeStep } from './narration';
 import { PlanPanel } from './PlanPanel';
 import { PlaybackBar } from './PlaybackBar';
 import { ErrorPanel, LoadingPanel } from './StatusPanels';
+import { activeSource } from '../traffic/settings';
+import type { TrafficOutcome } from '../worker/job';
+import { TrafficDialog } from './TrafficDialog';
+import { PROVIDER_NAME } from './trafficText';
+import { fetchedTime, TrafficKey, TrafficNotice, trafficSummary } from './TrafficViews';
 
 const MODE_LABEL = { car: 'Car', bike: 'Bike', walk: 'Walk' };
 const OBJECTIVE_LABEL = { fastest: 'Fastest', shortest: 'Shortest' };
@@ -66,8 +71,14 @@ function mapPadding(phone: boolean, watching: boolean, sheetHeight: number): Pad
 }
 
 export function ExplorePage() {
-  const { geocoder, searchClient } = useServices();
-  const [state, dispatch] = useReducer(exploreReducer, undefined, startingState);
+  const { geocoder, searchClient, traffic } = useServices();
+  const [state, dispatch] = useReducer(exploreReducer, undefined, () => ({
+    ...startingState(),
+    traffic: traffic.load(),
+  }));
+  useEffect(() => traffic.save(state.traffic), [traffic, state.traffic]);
+  // Traffic only changes cars' roads, so other modes never spend the user's quota.
+  const trafficSource = state.mode === 'car' ? activeSource(state.traffic) : undefined;
   const phone = useMediaQuery(PHONE);
   const job = useRef<RunningJob | null>(null);
   const planSheet = useRef<HTMLElement>(null);
@@ -89,9 +100,13 @@ export function ExplorePage() {
         objective: state.objective,
         algorithms: state.algorithms,
         astarWeight: state.astarWeight,
+        traffic: trafficSource,
       },
       (stage, server) => {
         if (job.current === running) dispatch({ type: 'runProgressed', stage, server });
+      },
+      (done, total) => {
+        if (job.current === running) dispatch({ type: 'trafficProgressed', done, total });
       },
     );
     job.current = running;
@@ -119,7 +134,11 @@ export function ExplorePage() {
   const step = watching ? Math.floor(run.playback.position) : 0;
   // The single-search view; comparisons draw their own maps.
   const single: RunView | null =
-    watching && !comparing ? { ...run.result.runs[0]!, objective: run.result.objective } : null;
+    watching && !comparing
+      ? { ...run.result.runs[0]!, objective: run.result.objective, traffic: run.result.traffic }
+      : null;
+  const checkKey = () => dispatch({ type: 'trafficDialogOpened' });
+  const toggleLayer = () => dispatch({ type: 'trafficLayerToggled' });
   const result = watching ? run.result : null;
   const look = useMemo(() => {
     const only = result?.runs[0];
@@ -161,7 +180,7 @@ export function ExplorePage() {
     <div className={styles.page} data-view={watching ? 'run' : 'plan'}>
       <TopBar route="explore" immersive={watching}>
         {watching && !phone && (
-          <RouteSummary state={state} onEdit={edit}>
+          <RouteSummary state={state} traffic={run.result.traffic} onEdit={edit}>
             {comparing && <LinkToggle state={state} dispatch={dispatch} />}
           </RouteSummary>
         )}
@@ -188,6 +207,7 @@ export function ExplorePage() {
                   stage={run.stage}
                   server={run.server}
                   running={runningLabel(state.algorithms)}
+                  traffic={trafficSource && { provider: trafficSource.provider, ...run.traffic }}
                   onCancel={cancelRun}
                 />
               )}
@@ -211,6 +231,18 @@ export function ExplorePage() {
                 <div className={styles.runCard}>
                   <RunCard run={single} step={step} />
                   {single.timeline.bidirectional && <MapKey run={single} />}
+                  {single.traffic?.status === 'live' && (
+                    <div className={styles.trafficKey}>
+                      <TrafficKey
+                        on={state.trafficLayer}
+                        onToggle={toggleLayer}
+                        clearRoute={Boolean(single.traffic.story?.changed)}
+                      />
+                    </div>
+                  )}
+                  {single.traffic && (
+                    <TrafficNotice outcome={single.traffic} onCheckKey={checkKey} />
+                  )}
                 </div>
                 <div className={styles.playback}>
                   <PlaybackBar
@@ -225,6 +257,9 @@ export function ExplorePage() {
             {watching && single && phone && (
               <PhoneRun
                 run={single}
+                trafficLayer={state.trafficLayer}
+                onToggleTraffic={toggleLayer}
+                onCheckKey={checkKey}
                 names={run.result.places}
                 onHighlight={setHighlight}
                 playback={run.playback}
@@ -248,8 +283,25 @@ export function ExplorePage() {
           )}
         </div>
       )}
+
+      {state.trafficDialog && (
+        <TrafficDialog
+          settings={state.traffic}
+          check={traffic.check}
+          onSave={(settings) => dispatch({ type: 'trafficSaved', settings })}
+          onClose={() => dispatch({ type: 'trafficDialogClosed' })}
+        />
+      )}
     </div>
   );
+}
+
+/** How the header names the speeds a run used. */
+function speedSource(traffic: TrafficOutcome | undefined) {
+  if (traffic?.status === 'live') {
+    return `Live traffic, ${PROVIDER_NAME[traffic.provider]}, ${fetchedTime(traffic.fetchedAt)}`;
+  }
+  return traffic?.status === 'failed' ? 'Speed limits (no live traffic)' : 'Speed limits';
 }
 
 /** Looks up addresses for pins dropped on the map, so they get a readable name. */
@@ -291,10 +343,12 @@ function usePinName(
 
 function RouteSummary({
   state,
+  traffic,
   onEdit,
   children,
 }: {
   state: ExploreState;
+  traffic?: TrafficOutcome;
   onEdit(): void;
   children?: ReactNode;
 }) {
@@ -309,7 +363,7 @@ function RouteSummary({
         <PointBadge role="target" size={18} />
         <span>{state.target?.name}</span>
         <span className={styles.summaryMuted}>
-          · {MODE_LABEL[state.mode]} · {OBJECTIVE_LABEL[state.objective]} · Speed limits
+          · {MODE_LABEL[state.mode]} · {OBJECTIVE_LABEL[state.objective]} · {speedSource(traffic)}
         </span>
       </div>
       <div className={styles.actions}>
@@ -325,6 +379,9 @@ function RouteSummary({
 
 interface PhoneRunProps {
   run: RunView;
+  trafficLayer: boolean;
+  onToggleTraffic(): void;
+  onCheckKey(): void;
   names: NodeLabels;
   onHighlight(position: [number, number] | null): void;
   playback: PlaybackState;
@@ -333,8 +390,25 @@ interface PhoneRunProps {
   onEdit(): void;
 }
 
-function PhoneRun({ run, names, onHighlight, playback, step, dispatch, onEdit }: PhoneRunProps) {
+function PhoneRun({
+  run,
+  trafficLayer,
+  onToggleTraffic,
+  onCheckKey,
+  names,
+  onHighlight,
+  playback,
+  step,
+  dispatch,
+  onEdit,
+}: PhoneRunProps) {
   const [details, setDetails] = useState(false);
+  const live = run.traffic?.status === 'live' ? run.traffic : null;
+  // At the end, the sheet sums up how traffic changed the route.
+  const summary =
+    live && step >= run.timeline.steps && run.timeline.route
+      ? trafficSummary(live, run.objective)
+      : null;
   return (
     <>
       <div className={styles.phoneTop}>
@@ -348,18 +422,34 @@ function PhoneRun({ run, names, onHighlight, playback, step, dispatch, onEdit }:
           <EditIcon size={17} />
         </button>
       </div>
+      {live && (
+        <div className={styles.phoneTraffic}>
+          <TrafficKey on={trafficLayer} onToggle={onToggleTraffic} clearRoute={false} />
+        </div>
+      )}
       <section className={styles.sheet} aria-label="Playback">
         <span className={styles.grabber} aria-hidden="true" />
+        {run.traffic && !details && <TrafficNotice outcome={run.traffic} onCheckKey={onCheckKey} />}
         <button
           type="button"
           className={styles.narration}
           aria-expanded={details}
           onClick={() => setDetails((open) => !open)}
         >
-          <span>
-            {describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}
-            {!details && <StopMeterLine run={run} step={step} />}
-          </span>
+          {summary ? (
+            <span className={styles.trafficSummary}>
+              <b>
+                <span className={styles.trafficDot} aria-hidden="true" />
+                Traffic changed the route
+              </b>
+              {summary}
+            </span>
+          ) : (
+            <span>
+              {describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}
+              {!details && <StopMeterLine run={run} step={step} />}
+            </span>
+          )}
           <span className={styles.details}>
             Details
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}

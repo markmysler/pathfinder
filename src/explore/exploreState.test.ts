@@ -232,3 +232,74 @@ describe('exploreReducer', () => {
     expect(editing).toMatchObject({ start: casaRosada, target: cabildo, run: { status: 'idle' } });
   });
 });
+
+describe('live traffic in the explore state', () => {
+  const saved = { provider: 'tomtom' as const, keys: { tomtom: 't-key' } };
+
+  it('starts with traffic off, the dialog closed and the map layer on', () => {
+    expect(initialExplore).toMatchObject({
+      traffic: { provider: null, keys: {} },
+      trafficDialog: false,
+      trafficLayer: true,
+      trafficProblem: null,
+    });
+  });
+
+  it('opens and closes the key dialog', () => {
+    const open = exploreReducer(initialExplore, { type: 'trafficDialogOpened' });
+    expect(open.trafficDialog).toBe(true);
+    expect(exploreReducer(open, { type: 'trafficDialogClosed' }).trafficDialog).toBe(false);
+  });
+
+  it('saves keys, closes the dialog and forgets an earlier problem', () => {
+    const troubled = { ...initialExplore, trafficDialog: true, trafficProblem: 'key' as const };
+    const state = exploreReducer(troubled, { type: 'trafficSaved', settings: saved });
+    expect(state).toMatchObject({ traffic: saved, trafficDialog: false, trafficProblem: null });
+  });
+
+  it('switches traffic off and back on with a saved key', () => {
+    const on = { ...initialExplore, traffic: saved };
+    const off = exploreReducer(on, { type: 'trafficSwitched', on: false });
+    expect(off.traffic).toEqual({ provider: null, keys: { tomtom: 't-key' } });
+    expect(exploreReducer(off, { type: 'trafficSwitched', on: true }).traffic).toEqual(saved);
+    const onlyHere = { ...initialExplore, traffic: { provider: null, keys: { here: 'h' } } };
+    expect(exploreReducer(onlyHere, { type: 'trafficSwitched', on: true }).traffic.provider).toBe(
+      'here',
+    );
+    // Without any key there is nothing to switch on.
+    expect(exploreReducer(initialExplore, { type: 'trafficSwitched', on: true })).toBe(
+      initialExplore,
+    );
+  });
+
+  it('counts traffic tiles while loading', () => {
+    const loading = exploreReducer(withPlaces(), { type: 'runRequested' });
+    const state = exploreReducer(loading, { type: 'trafficProgressed', done: 3, total: 36 });
+    expect(state.run).toMatchObject({ status: 'loading', traffic: { done: 3, total: 36 } });
+    const later = exploreReducer(state, { type: 'runProgressed', stage: 'traffic' });
+    expect(later.run).toMatchObject({ stage: 'traffic', traffic: { done: 3, total: 36 } });
+    expect(exploreReducer(initialExplore, { type: 'trafficProgressed', done: 1, total: 1 })).toBe(
+      initialExplore,
+    );
+  });
+
+  it('remembers why traffic failed on the last run, until it works again', () => {
+    const failed = {
+      ...result,
+      traffic: { status: 'failed', provider: 'tomtom', reason: 'key' },
+    } as JobResult;
+    const state = ready(failed);
+    expect(state.trafficProblem).toBe('key');
+    const live = { ...result, traffic: { status: 'live' } } as unknown as JobResult;
+    const again = exploreReducer(
+      exploreReducer({ ...state, run: { status: 'idle' } }, { type: 'runRequested' }),
+      { type: 'runSucceeded', result: live },
+    );
+    expect(again.trafficProblem).toBeNull();
+  });
+
+  it('shows or hides the traffic layer', () => {
+    const hidden = exploreReducer(initialExplore, { type: 'trafficLayerToggled' });
+    expect(hidden.trafficLayer).toBe(false);
+  });
+});

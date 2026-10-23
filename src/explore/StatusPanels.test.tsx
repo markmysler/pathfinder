@@ -43,6 +43,50 @@ describe('LoadingPanel', () => {
     expect(screen.getByText('0:42 so far')).toBeInTheDocument();
   });
 
+  describe('with live traffic on', () => {
+    it('downloads streets and traffic at once, counting the tiles', () => {
+      render(
+        <LoadingPanel
+          stage="download"
+          running="A* search"
+          traffic={{ provider: 'tomtom', done: 12, total: 36 }}
+          onCancel={() => {}}
+        />,
+      );
+      const status = screen.getByRole('status');
+      expect(status).toHaveTextContent('Downloading streets and live traffic…');
+      expect(status).toHaveTextContent(/Streets from OpenStreetMap\s*up to a minute/);
+      expect(status).toHaveTextContent(/Traffic from TomTom\s*12 of 36 tiles/);
+    });
+
+    it('says when the traffic has all arrived', () => {
+      render(
+        <LoadingPanel
+          stage="download"
+          running="A* search"
+          traffic={{ provider: 'here', done: 1, total: 1 }}
+          onCancel={() => {}}
+        />,
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(/Traffic from HERE\s*arrived/);
+    });
+
+    it('waits for traffic once the streets are in', () => {
+      render(
+        <LoadingPanel
+          stage="traffic"
+          running="A* search"
+          traffic={{ provider: 'tomtom' }}
+          onCancel={() => {}}
+        />,
+      );
+      const status = screen.getByRole('status');
+      expect(status).toHaveTextContent('Waiting for live traffic…');
+      expect(status).toHaveTextContent(/Streets from OpenStreetMap\s*done/);
+      expect(status).toHaveTextContent(/Traffic from TomTom\s*asking/);
+    });
+  });
+
   it('can be cancelled', async () => {
     const onCancel = vi.fn();
     render(<LoadingPanel stage="download" running="A* search" onCancel={onCancel} />);

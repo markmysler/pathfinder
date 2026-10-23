@@ -72,4 +72,20 @@ describe('PlanPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/apart.*up to 15 km/);
     expect(screen.getByRole('button', { name: 'Run A* search' })).toBeDisabled();
   });
+
+  it('offers live traffic, opening the key dialog', async () => {
+    const dispatch = renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Add key' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'trafficDialogOpened' });
+  });
+
+  it('switches saved traffic on and off, and says fastest routes use it', async () => {
+    const dispatch = renderPanel({
+      ...ready,
+      traffic: { provider: 'tomtom', keys: { tomtom: 'k' } },
+    });
+    expect(screen.getByText(/slowed by live traffic/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('switch', { name: 'Live traffic' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'trafficSwitched', on: false });
+  });
 });

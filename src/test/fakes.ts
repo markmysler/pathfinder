@@ -3,6 +3,7 @@ import { algorithms, type AlgorithmId } from '../algorithms';
 import { straightLineHeuristic } from '../algorithms/heuristics';
 import { runSearch, summarize } from '../algorithms/trace';
 import { buildTimeline } from '../playback/timeline';
+import type { TrafficService, TrafficSettings } from '../traffic/settings';
 import type { JobResult } from '../worker/job';
 import { grid } from './fixtures';
 
@@ -68,3 +69,14 @@ export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
     traffic: { status: 'off' },
   };
 }
+
+/** Traffic settings kept in memory, and a key check that answers as told. */
+export function fakeTraffic(settings: TrafficSettings = { provider: null, keys: {} }) {
+  let stored = settings;
+  return {
+    load: vi.fn(() => stored),
+    save: vi.fn((next: TrafficSettings) => void (stored = next)),
+    check: vi.fn<TrafficService['check']>(async () => ({ ok: true })),
+  } satisfies TrafficService;
+}
+

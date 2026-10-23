@@ -1,11 +1,13 @@
 import { createContext, useContext } from 'react';
 import type { Geocoder } from '../geo/nominatim';
+import type { TrafficService } from '../traffic/settings';
 import type { SearchClient } from '../worker/client';
 
 /** Everything that talks to the outside world, so tests can swap in fakes. */
 export interface Services {
   geocoder: Geocoder;
   searchClient: Pick<SearchClient, 'run'>;
+  traffic: TrafficService;
 }
 
 const ServicesContext = createContext<Services | null>(null);

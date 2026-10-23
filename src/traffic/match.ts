@@ -139,6 +139,8 @@ export function matchTraffic(
 
 /** Below this share of free flow, a road counts as slowed by traffic. */
 export const SLOWED_BELOW = 0.75;
+/** Below this share, a slowed road counts as jammed. */
+export const JAMMED_BELOW = 0.4;
 
 export interface TrafficCoverage {
   /** Directions of road a car may drive. */

@@ -20,6 +20,9 @@ import {
 import { searchStatus } from './narration';
 import { PlaybackBar, type PlaybackChange } from './PlaybackBar';
 import { ResultsTable } from './ResultsTable';
+import { PROVIDER_NAME } from './trafficText';
+import { fetchedTime, TrafficKey, TrafficNotice } from './TrafficViews';
+import type { TrafficOutcome } from '../worker/job';
 
 type Ready = Extract<RunState, { status: 'ready' }>;
 
@@ -43,6 +46,9 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
   const snaps = useSnapLinks(state.start, state.target, result.snapped);
   const total = totalSteps(runs);
   const onPlayback = (apply: PlaybackChange) => dispatch({ type: 'playback', apply });
+  const traffic = (
+    <TrafficParts traffic={result.traffic} layer={state.trafficLayer} dispatch={dispatch} />
+  );
 
   const mapFor = (r: AlgorithmRun) => (
     <ComparisonMap
@@ -126,6 +132,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
         </section>
 
         <section className={styles.panel} aria-label="Results">
+          {traffic}
           <ResultsTable
             runs={runs}
             objective={objective}
@@ -133,6 +140,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
             variant="compact"
             hidden={hidden}
           />
+          <WithoutTraffic traffic={result.traffic} objective={objective} />
         </section>
       </div>
     );
@@ -163,9 +171,54 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           <h2 id="results-title">Results</h2>
           <p>Fills in as each search reaches B.</p>
         </div>
+        {traffic}
         <ResultsTable runs={runs} objective={objective} step={step} />
+        <WithoutTraffic traffic={result.traffic} objective={objective} />
       </section>
     </main>
+  );
+}
+
+/** What the results need to say about traffic: whether it was live, or why not. */
+function TrafficParts({
+  traffic,
+  layer,
+  dispatch,
+}: {
+  traffic: TrafficOutcome;
+  layer: boolean;
+  dispatch(action: ExploreAction): void;
+}) {
+  const notice = (
+    <TrafficNotice outcome={traffic} onCheckKey={() => dispatch({ type: 'trafficDialogOpened' })} />
+  );
+  if (traffic.status !== 'live') return notice;
+  return (
+    <div className={styles.traffic}>
+      <p className={styles.trafficCaption}>
+        With live traffic, {PROVIDER_NAME[traffic.provider]}, {fetchedTime(traffic.fetchedAt)}.
+      </p>
+      <TrafficKey
+        on={layer}
+        onToggle={() => dispatch({ type: 'trafficLayerToggled' })}
+        clearRoute={Boolean(traffic.story?.changed)}
+      />
+      {notice}
+    </div>
+  );
+}
+
+/** The best route's cost on clear roads, under the results. */
+function WithoutTraffic({ traffic, objective }: { traffic: TrafficOutcome; objective: Objective }) {
+  if (traffic.status !== 'live' || !traffic.story) return null;
+  const cost = formatCost(traffic.story.clear.cost, objective);
+  return (
+    <p className={styles.withoutTraffic}>
+      <span className={styles.dotted} aria-hidden="true" />
+      {objective === 'fastest'
+        ? `Without traffic the fastest route takes ${cost}.`
+        : `Without closures the shortest route is ${cost}.`}
+    </p>
   );
 }
 

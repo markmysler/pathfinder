@@ -239,3 +239,52 @@
     display: none;
   }
 }
+
+.trafficKey {
+  align-self: flex-start;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+
+.phoneTraffic {
+  position: absolute;
+  top: 152px;
+  right: 12px;
+  z-index: 2;
+}
+
+/* On phones only the switch shows; the sheet explains the colours. */
+.phoneTraffic > div > span {
+  display: none;
+}
+
+.phoneTraffic button {
+  background: var(--panel);
+  border-color: var(--border);
+}
+
+.trafficSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.trafficSummary b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.trafficDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--traffic);
+}

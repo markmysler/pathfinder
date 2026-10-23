@@ -21,6 +21,14 @@
   --algo-dijkstra: #2fc59a;
   --algo-astar: #b197fc;
 
+  /* Live traffic: slow, jammed and closed roads, drawn as soft bands under the search. */
+  --traffic: #ff6b6b;
+  --traffic-text: #ff8a8a;
+  --traffic-slow: rgb(255 107 107 / 32%);
+  --traffic-jam: rgb(255 107 107 / 70%);
+  --ok: #7fd8a8;
+  --notice-border: #5a6675;
+
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 

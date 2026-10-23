@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { learnHref } from '../app/routes';
 import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import { algorithms } from '../algorithms';
 import type { NodeLabels } from '../osm/places';
@@ -6,14 +7,15 @@ import { meetingAt, roadsExploredBy } from '../playback/timeline';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
 import type { Objective } from '../osm/network';
-import type { AlgorithmRun } from '../worker/job';
+import type { AlgorithmRun, TrafficOutcome } from '../worker/job';
 import styles from './Inspector.module.css';
 import { BothFrontiersView, BothWaysNow, BothWaysTiles } from './BothWaysViews';
 import { CodeView, FrontierView } from './InspectorViews';
 import { describeStep, searchStatus } from './narration';
+import { TrafficCoverage, TrafficStoryCard } from './TrafficViews';
 
-/** One algorithm's search and what its costs measure. */
-export type RunView = AlgorithmRun & { objective: Objective };
+/** One algorithm's search, what its costs measure, and the traffic it ran with. */
+export type RunView = AlgorithmRun & { objective: Objective; traffic?: TrafficOutcome };
 
 interface Props {
   run: RunView;
@@ -219,6 +221,20 @@ function NowView({ run, step }: Props) {
         </section>
       )}
 
+      {found && run.traffic?.status === 'live' && (
+        <>
+          <TrafficStoryCard outcome={run.traffic} objective={objective} />
+          <TrafficCoverage outcome={run.traffic} />
+          {exactWithTraffic(run) && (
+            <p className={styles.note}>
+              A* still finds the best route with traffic: traffic only ever slows a road, so its
+              straight-line estimate at the top speed still never overestimates.{' '}
+              <a href={learnHref('roads')}>Why traffic changes routes</a>
+            </p>
+          )}
+        </>
+      )}
+
       <section aria-labelledby="inspector-legend">
         <h3 id="inspector-legend" className={styles.eyebrow}>
           On the map
@@ -255,3 +271,7 @@ function NowView({ run, step }: Props) {
     </>
   );
 }
+
+/** A* that is still guaranteed the best route: plain, not weighted. */
+const exactWithTraffic = (run: RunView) =>
+  (run.algorithm === 'astar' && run.weight === 1) || run.algorithm === 'biastar';

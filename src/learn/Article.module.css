@@ -1,0 +1,554 @@
+.article {
+  flex: 999 1 560px;
+  min-width: 0;
+  max-width: 840px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 32px 48px 64px;
+}
+
+.article p,
+.article li {
+  max-width: 68ch;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.breadcrumb {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.breadcrumb a {
+  color: var(--muted);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.badge {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--algo, var(--text));
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.title {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.lede {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary,
+.secondary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border-radius: var(--radius-m);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.primary {
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  font-weight: 600;
+}
+
+.secondary {
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scroll-margin-top: 16px;
+}
+
+.h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.h3 {
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.section > p,
+.section > ul,
+.section > ol {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+
+.section > ul,
+.section > ol {
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section b,
+.section strong {
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.small {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.glance {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+
+.glance > div {
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.glance dt {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.glance dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.formula {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.formulaLine {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  text-align: center;
+}
+
+.formulaParts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+}
+
+.formulaParts dt {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.formulaParts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.callout {
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--algo, var(--text)) 10%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--algo, var(--text)) 40%, var(--bg));
+  border-radius: var(--radius-l);
+}
+
+.calloutIcon {
+  flex: none;
+  color: var(--algo, var(--text));
+}
+
+.calloutTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.calloutText {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.stripLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stripArrow {
+  color: var(--muted);
+}
+
+.stripItem {
+  min-width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1.5px dashed var(--algo, var(--text));
+  border-radius: var(--radius-m);
+}
+
+.stripItem[data-first] {
+  background: var(--algo, var(--text));
+  border-style: solid;
+  color: var(--bg);
+}
+
+.stripItem[data-first] .mono {
+  color: var(--bg);
+}
+
+.stripItem .mono {
+  font-size: 12.5px;
+}
+
+.codeFigure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.maps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+
+.mapFigure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--map-land);
+}
+
+.street {
+  stroke: #2a333e;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.explored {
+  stroke: var(--algo);
+  stroke-opacity: 0.7;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.routeCasing,
+.routeLine {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.routeCasing {
+  stroke: #090c10;
+  stroke-width: 8;
+}
+
+.routeLine {
+  stroke: var(--algo);
+  stroke-width: 4.5;
+}
+
+.pointA {
+  fill: #f4f6f8;
+}
+
+.pointB {
+  fill: var(--bg);
+  stroke: #f4f6f8;
+  stroke-width: 2.5;
+}
+
+.mapCaption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--algo);
+}
+
+.mapCount {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+
+.table {
+  overflow-x: auto;
+  padding: 4px 16px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.table table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px 10px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.table thead th {
+  padding-top: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.table tbody th {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.algoName {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terms {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.terms dt {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.terms dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.moreLink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+}
+
+.moreLink span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.moreLink b {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.nextLink {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.figure svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  margin: 0 auto;
+}
+
+@media (max-width: 720px) {
+  .article {
+    gap: 32px;
+    padding: 20px 16px 48px;
+  }
+
+  .breadcrumb {
+    display: none;
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .lede {
+    font-size: 16px;
+  }
+
+  .h2 {
+    font-size: 22px;
+  }
+
+  .formulaLine {
+    font-size: 20px;
+  }
+
+  .primary,
+  .secondary {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+.edge {
+  stroke: var(--border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.edgeOn {
+  stroke: var(--algo, #b197fc);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.arrowHead {
+  fill: var(--text-2);
+}
+
+.edgeLabel {
+  fill: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.node {
+  fill: var(--raised);
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
+
+.nodeLabel {
+  fill: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+}

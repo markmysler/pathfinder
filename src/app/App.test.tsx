@@ -20,6 +20,16 @@ describe('App', () => {
     expect(screen.getByRole('textbox', { name: 'Start' })).toBeInTheDocument();
   });
 
+  it('opens Explore with the algorithms a Learn article links to', () => {
+    window.location.hash = '#/?algorithms=dijkstra,astar';
+    render(<App services={services} />);
+    const ticked = screen
+      .getAllByRole('checkbox')
+      .filter((box) => (box as HTMLInputElement).checked)
+      .map((box) => (box as HTMLInputElement).value);
+    expect(ticked).toEqual(['dijkstra', 'astar']);
+  });
+
   it('switches to Learn', async () => {
     render(<App services={services} />);
     await userEvent.click(screen.getAllByRole('link', { name: 'Learn' })[0]!);

@@ -5,6 +5,7 @@ import { frontierAt, partsOfStep, type StepPart } from '../playback/frontier';
 import type { Timeline } from '../playback/timeline';
 import { formatCost, formatCount } from '../ui/format';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
+import { PseudocodeListing } from '../ui/Pseudocode';
 import type { RunView } from './Inspector';
 import styles from './InspectorViews.module.css';
 import { describePart } from './narration';
@@ -123,33 +124,6 @@ export function FrontierView({
   );
 }
 
-const KEYWORDS = /\b(function|while|for each|if|return|in|is not|not in)\b/g;
-
-/** A line of pseudocode with its keywords marked. */
-function Code({ text, note }: { text: string; note?: string }) {
-  const pieces: (string | { keyword: string })[] = [];
-  let last = 0;
-  for (const match of text.matchAll(KEYWORDS)) {
-    pieces.push(text.slice(last, match.index), { keyword: match[0] });
-    last = match.index + match[0].length;
-  }
-  pieces.push(text.slice(last));
-  return (
-    <span className={styles.code}>
-      {pieces.map((piece, i) =>
-        typeof piece === 'string' ? (
-          piece
-        ) : (
-          <span key={i} className={styles.keyword}>
-            {piece.keyword}
-          </span>
-        ),
-      )}
-      {note && <span className={styles.note}> {note}</span>}
-    </span>
-  );
-}
-
 const START: PartLines = { lines: [2, 3, 4], focus: 4 };
 
 export function CodeView({ run, step, names, playing }: ViewProps & { playing: boolean }) {
@@ -210,30 +184,7 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
         </button>
       </div>
       <p className={styles.account}>{account}</p>
-      <div
-        className={styles.listing}
-        role="figure"
-        aria-label={`Pseudocode, line ${lines.focus} highlighted`}
-      >
-        {code.lines.map((text, i) => {
-          const n = i + 1;
-          const focus = n === lines.focus;
-          return (
-            <div
-              key={n}
-              className={styles.line}
-              data-run={lines.lines.includes(n) || undefined}
-              data-focus={focus || undefined}
-              aria-current={focus ? 'step' : undefined}
-            >
-              <span className={styles.number} aria-hidden="true">
-                {n}
-              </span>
-              <Code text={text} note={focus ? note : undefined} />
-            </div>
-          );
-        })}
-      </div>
+      <PseudocodeListing lines={code.lines} run={lines.lines} focus={lines.focus} note={note} />
       <p className={styles.footnote}>
         While playing, the highlight stays on line {code.parts.take!.focus}, the node each step
         takes. Pause to go through the lines of a step one by one.

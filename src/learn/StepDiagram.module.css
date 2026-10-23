@@ -1,0 +1,270 @@
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepButton {
+  width: var(--touch);
+  height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+}
+
+.stepButton:disabled {
+  opacity: 0.4;
+}
+
+.position {
+  margin: 0;
+  font-size: 14px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.toggle {
+  margin-left: auto;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toggle[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--algo) 18%, var(--panel));
+  border: 1.5px solid var(--algo);
+  font-weight: 600;
+}
+
+.tick {
+  color: var(--algo);
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.segmented button {
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.segmented button[aria-pressed='true'] {
+  background: var(--border);
+  color: #fff;
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--algo);
+}
+
+.dot[data-on='true'] {
+  background: var(--algo);
+}
+
+.canvas {
+  overflow-x: auto;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+}
+
+.road {
+  stroke: var(--border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.road[data-used] {
+  stroke: var(--algo);
+}
+
+.road[data-route] {
+  stroke: var(--algo);
+  stroke-width: 6;
+}
+
+.cost {
+  fill: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.node rect {
+  fill: var(--panel);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.node[data-status='explored'] rect {
+  fill: color-mix(in srgb, var(--algo) 20%, var(--panel));
+  stroke: var(--algo);
+}
+
+.node[data-status='frontier'] rect {
+  stroke: var(--algo);
+  stroke-dasharray: 5 4;
+}
+
+.node[data-status='next'] rect {
+  fill: var(--algo);
+  stroke: var(--algo);
+}
+
+.name {
+  fill: var(--text);
+  font-size: 14px;
+}
+
+.id {
+  font-weight: 700;
+}
+
+.values {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.node[data-status='unreached'] .name,
+.node[data-status='unreached'] .values {
+  fill: var(--muted);
+}
+
+.node[data-status='next'] .name,
+.node[data-status='next'] .values {
+  fill: var(--bg);
+}
+
+.legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 18px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+}
+
+.swatch[data-status='explored'] {
+  background: color-mix(in srgb, var(--algo) 20%, var(--panel));
+  border-color: var(--algo);
+}
+
+.swatch[data-status='frontier'] {
+  border-style: dashed;
+  border-color: var(--algo);
+}
+
+.swatch[data-status='next'] {
+  background: var(--algo);
+  border-color: var(--algo);
+}
+
+.roadSwatch {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--algo);
+}
+
+.caption {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.caption b {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .figure {
+    padding: 14px 8px 16px;
+  }
+
+  .controls {
+    flex-wrap: nowrap;
+    padding: 0 6px;
+  }
+
+  .position {
+    flex: 1;
+    text-align: center;
+  }
+
+  .segmented,
+  .legend,
+  .caption {
+    margin: 0 6px;
+  }
+
+  .caption {
+    font-size: 14.5px;
+  }
+}

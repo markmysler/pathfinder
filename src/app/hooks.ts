@@ -9,6 +9,15 @@ const subscribeToHash = (onChange: () => void) => {
 const currentRoute = (): Route =>
   window.location.hash.startsWith('#/learn') ? 'learn' : 'explore';
 
+/** The URL hash, kept up to date. */
+export function useHash(): string {
+  return useSyncExternalStore(
+    subscribeToHash,
+    () => window.location.hash,
+    () => '',
+  );
+}
+
 /** The page named by the URL hash; hash routes work on static hosting with no server setup. */
 export function useHashRoute(): Route {
   return useSyncExternalStore(subscribeToHash, currentRoute, () => 'explore');

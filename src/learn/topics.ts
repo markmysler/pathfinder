@@ -115,3 +115,6 @@ export function neighbours(slug: string) {
   const i = TOPICS.findIndex((t) => t.slug === slug);
   return { previous: TOPICS[i - 1] ?? null, next: TOPICS[i + 1] ?? null };
 }
+
+/** The topic for an article file, which must exist. */
+export const topic = (slug: string) => topicBySlug(slug)!;

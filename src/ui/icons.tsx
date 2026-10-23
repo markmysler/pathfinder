@@ -70,6 +70,16 @@ export const CheckIcon = stroke(<path d="M5 12l5 5 9-10" />);
 export const LinkIcon = stroke(
   <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
 );
+export const SparkIcon = stroke(
+  <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z" />,
+);
+export const SearchIcon = stroke(
+  <>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </>,
+);
+export const ArrowRightIcon = stroke(<path d="M5 12h14M13 6l6 6-6 6" />);
 export const ChevronLeftIcon = stroke(<path d="M15 6l-6 6 6 6" />);
 export const ChevronRightIcon = stroke(<path d="M9 6l6 6-6 6" />);
 export const ChevronUpIcon = stroke(<path d="M6 15l6-6 6 6" />);

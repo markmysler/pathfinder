@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { algorithms } from '../algorithms';
 import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
+import { parseHash } from '../app/routes';
 import { useServices } from '../app/services';
 import { TopBar } from '../app/TopBar';
 import type { Place } from '../geo/nominatim';
@@ -18,6 +19,7 @@ import styles from './ExplorePage.module.css';
 import {
   exploreReducer,
   initialExplore,
+  MAX_ALGORITHMS,
   type ExploreAction,
   type ExploreState,
   type Role,
@@ -41,6 +43,14 @@ function previewArea(start: Place | null, target: Place | null): BBox | null {
 }
 
 /** Map space hidden behind panels, kept clear when framing A, B or the download area. */
+/** Algorithms linked to from Learn (`#/?algorithms=astar`) are ticked from the start. */
+function startingState(): ExploreState {
+  const location = parseHash(window.location.hash);
+  return location.page === 'explore' && location.algorithms
+    ? { ...initialExplore, algorithms: location.algorithms.slice(0, MAX_ALGORITHMS) }
+    : initialExplore;
+}
+
 /** What the loading panel says is being run. */
 function runningLabel(chosen: ExploreState['algorithms']) {
   return chosen.length === 1 ? algorithms[chosen[0]!].name : `${chosen.length} algorithms`;
@@ -55,7 +65,7 @@ function mapPadding(phone: boolean, watching: boolean, sheetHeight: number): Pad
 
 export function ExplorePage() {
   const { geocoder, searchClient } = useServices();
-  const [state, dispatch] = useReducer(exploreReducer, initialExplore);
+  const [state, dispatch] = useReducer(exploreReducer, undefined, startingState);
   const phone = useMediaQuery(PHONE);
   const job = useRef<RunningJob | null>(null);
   const planSheet = useRef<HTMLElement>(null);

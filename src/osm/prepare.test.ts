@@ -58,6 +58,20 @@ describe('prepareSearch', () => {
     expect(fastest.heuristic(0)).toBeCloseTo(fastest.graph.edgeWeight[0]! * 2, 6);
   });
 
+  it('builds a second estimate, from A, for searching backward from B', () => {
+    const fastest = prepareSearch(network, {
+      start: { lat: 0, lon: 0 },
+      target: { lat: 0, lon: 0.002 },
+      mode: 'car',
+      objective: 'fastest',
+    });
+    expect(fastest.backwardHeuristic(fastest.source)).toBe(0);
+    expect(fastest.backwardHeuristic(fastest.target)).toBeCloseTo(
+      fastest.heuristic(fastest.source),
+      9,
+    );
+  });
+
   it('fails clearly when the area has no roads for this mode', () => {
     const empty = buildRoadNetwork({ elements: [] });
     expect(() =>

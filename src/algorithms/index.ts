@@ -1,5 +1,6 @@
 import { aStar } from './astar';
 import { bfs } from './bfs';
+import { bidirectionalAStar, bidirectionalBfs, bidirectionalDijkstra } from './bidirectional';
 import { dfs } from './dfs';
 import { dijkstra } from './dijkstra';
 import { greedy } from './greedy';
@@ -17,6 +18,10 @@ export interface AlgorithmInfo {
   informed: boolean;
   /** How the frontier picks what to take next: oldest first, newest first, or lowest priority. */
   frontier: FrontierRule;
+  /** Searches from both ends at once, forward from A and backward from B. */
+  bidirectional: boolean;
+  /** For a bidirectional search, the one-way search it runs from each end. */
+  oneWay?: string;
 }
 
 export type FrontierRule = 'queue' | 'stack' | 'priority';
@@ -30,6 +35,7 @@ export const algorithms = {
     weighted: false,
     informed: false,
     frontier: 'queue',
+    bidirectional: false,
   },
   dfs: {
     id: 'dfs',
@@ -39,6 +45,7 @@ export const algorithms = {
     weighted: false,
     informed: false,
     frontier: 'stack',
+    bidirectional: false,
   },
   greedy: {
     id: 'greedy',
@@ -48,6 +55,7 @@ export const algorithms = {
     weighted: false,
     informed: true,
     frontier: 'priority',
+    bidirectional: false,
   },
   dijkstra: {
     id: 'dijkstra',
@@ -57,6 +65,7 @@ export const algorithms = {
     weighted: true,
     informed: false,
     frontier: 'priority',
+    bidirectional: false,
   },
   astar: {
     id: 'astar',
@@ -66,7 +75,45 @@ export const algorithms = {
     weighted: true,
     informed: true,
     frontier: 'priority',
+    bidirectional: false,
+  },
+  bibfs: {
+    id: 'bibfs',
+    name: 'Bidirectional BFS',
+    search: bidirectionalBfs,
+    optimal: false,
+    weighted: false,
+    informed: false,
+    frontier: 'queue',
+    bidirectional: true,
+    oneWay: 'bfs',
+  },
+  bidijkstra: {
+    id: 'bidijkstra',
+    name: 'Bidirectional Dijkstra',
+    search: bidirectionalDijkstra,
+    optimal: true,
+    weighted: true,
+    informed: false,
+    frontier: 'priority',
+    bidirectional: true,
+    oneWay: 'dijkstra',
+  },
+  biastar: {
+    id: 'biastar',
+    name: 'Bidirectional A*',
+    search: bidirectionalAStar,
+    optimal: true,
+    weighted: true,
+    informed: true,
+    frontier: 'priority',
+    bidirectional: true,
+    oneWay: 'astar',
   },
 } as const satisfies Record<string, AlgorithmInfo>;
 
 export type AlgorithmId = keyof typeof algorithms;
+
+/** The one-way search an algorithm runs: itself, or for a bidirectional search, from each end. */
+export const oneWayOf = (algorithm: AlgorithmId) =>
+  ((algorithms[algorithm] as AlgorithmInfo).oneWay ?? algorithm) as AlgorithmId;

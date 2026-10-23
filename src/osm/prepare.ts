@@ -21,7 +21,10 @@ export interface Snap {
 export interface PreparedSearch extends RoutingGraph {
   source: number;
   target: number;
+  /** Estimated cost to the target. */
   heuristic: Heuristic;
+  /** Estimated cost from the source, for searching backward from the target. */
+  backwardHeuristic: Heuristic;
   snapped: { start: Snap; target: Snap };
 }
 
@@ -34,7 +37,7 @@ export class NoRoadNearbyError extends Error {
 
 /**
  * Turns a road network and a request into everything a search needs: the mode's graph, start and
- * target snapped onto its largest connected component, and a matching heuristic.
+ * target snapped onto its largest connected component, and matching heuristics.
  */
 export function prepareSearch(network: RoadNetwork, request: SearchRequest): PreparedSearch {
   const { graph, maxSpeed } = routingGraph(network, request.mode, request.objective);
@@ -50,6 +53,7 @@ export function prepareSearch(network: RoadNetwork, request: SearchRequest): Pre
     source: start.node,
     target: target.node,
     heuristic: straightLineHeuristic(graph, target.node, maxSpeed),
+    backwardHeuristic: straightLineHeuristic(graph, start.node, maxSpeed),
     snapped: { start, target },
   };
 }

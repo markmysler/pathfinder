@@ -32,17 +32,25 @@ export function fakeGeocoder(places: Place[] = [casaRosada, cabildo]) {
 export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
   const graph = grid(5);
   const heuristic = straightLineHeuristic(graph, 24);
+  const backwardHeuristic = straightLineHeuristic(graph, 0);
   const runs = (chosen.length ? chosen : (['astar'] as const)).map((algorithm) => {
     const trace = runSearch(algorithms[algorithm].search, {
       graph,
       source: 0,
       target: 24,
       heuristic,
+      backwardHeuristic,
     });
     return {
       algorithm,
       weight: 1,
-      timeline: buildTimeline(graph, trace, heuristic, algorithms[algorithm].frontier),
+      timeline: buildTimeline(
+        graph,
+        trace,
+        heuristic,
+        algorithms[algorithm].frontier,
+        backwardHeuristic,
+      ),
       stats: summarize(trace.events),
     };
   });

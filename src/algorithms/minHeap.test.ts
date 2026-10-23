@@ -8,6 +8,17 @@ describe('MinHeap', () => {
     expect(heap.pop()).toBeUndefined();
   });
 
+  it('peeks at the lowest priority without removing it', () => {
+    const heap = new MinHeap<string>();
+    expect(heap.peekPriority()).toBe(Infinity);
+    heap.push('b', 2);
+    heap.push('a', 1);
+    expect(heap.peekPriority()).toBe(1);
+    expect(heap.size).toBe(2);
+    heap.pop();
+    expect(heap.peekPriority()).toBe(2);
+  });
+
   it('pops entries in ascending priority', () => {
     const heap = new MinHeap<string>();
     heap.push('c', 3);

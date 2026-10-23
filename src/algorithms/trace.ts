@@ -32,7 +32,7 @@ export function summarize(events: readonly SearchEvent[]): SearchStats {
     if (event.type === 'push') {
       stats.pushed++;
       stats.maxFrontier = Math.max(stats.maxFrontier, ++frontier);
-    } else {
+    } else if (event.type !== 'meet') {
       frontier--;
       if (event.type === 'pop') stats.expanded++;
     }

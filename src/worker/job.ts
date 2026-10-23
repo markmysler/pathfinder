@@ -85,7 +85,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
   const runs = request.algorithms.map((algorithm): AlgorithmRun => {
     signal?.throwIfAborted();
     const weight = algorithm === 'astar' ? (request.astarWeight ?? 1) : 1;
-    const { heuristic } = prepared;
+    const { heuristic, backwardHeuristic } = prepared;
     const search = {
       ...prepared,
       heuristic: weight === 1 ? heuristic : (n: number) => weight * heuristic(n),
@@ -95,7 +95,13 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
       algorithm,
       weight,
       // The timeline keeps the plain estimate, which is what the inspector explains.
-      timeline: buildTimeline(graph, trace, heuristic, algorithms[algorithm].frontier),
+      timeline: buildTimeline(
+        graph,
+        trace,
+        heuristic,
+        algorithms[algorithm].frontier,
+        backwardHeuristic,
+      ),
       stats: summarize(trace.events),
     };
   });

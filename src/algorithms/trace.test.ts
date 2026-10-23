@@ -26,6 +26,20 @@ describe('summarize', () => {
     expect(summarize(events)).toEqual({ expanded: 3, pushed: 4, maxFrontier: 3 });
   });
 
+  it('counts both sides of a bidirectional search together, and not the meetings', () => {
+    const events: SearchEvent[] = [
+      { type: 'push', node: 0, edge: null, cost: 0, side: 'forward' },
+      { type: 'push', node: 2, edge: null, cost: 0, side: 'backward' },
+      { type: 'pop', node: 0, cost: 0, entry: 0, side: 'forward' },
+      { type: 'push', node: 1, edge: 0, cost: 1, side: 'forward' },
+      { type: 'pop', node: 2, cost: 0, entry: 1, side: 'backward' },
+      { type: 'push', node: 1, edge: 1, cost: 1, side: 'backward' },
+      { type: 'meet', node: 1, cost: 2, length: 2 },
+      { type: 'push', node: 3, edge: 2, cost: 1, side: 'backward' },
+    ];
+    expect(summarize(events)).toEqual({ expanded: 2, pushed: 5, maxFrontier: 3 });
+  });
+
   it('is all zeros for no events', () => {
     expect(summarize([])).toEqual({ expanded: 0, pushed: 0, maxFrontier: 0 });
   });

@@ -11,11 +11,13 @@ const ids = Object.keys(algorithms) as AlgorithmId[];
 
 // What the line a part points at must say, whatever the algorithm.
 const FOCUS: Record<string, RegExp> = {
-  take: /← frontier\.(take|pop)/,
+  take: /← (frontier|side)\.(take|pop)/,
   skip: /skip it/,
   goal: /= goal/,
   road: /^\s*if /,
   rejected: /^\s*if /,
+  meet: /A\[next\] \+ \w+B\[next\] < best/,
+  stop: /^\s*while .* < best/,
 };
 
 describe('pseudocode', () => {
@@ -24,8 +26,19 @@ describe('pseudocode', () => {
     fc.assert(
       fc.property(randomGeoProblem(), (problem) => {
         const heuristic = straightLineHeuristic(problem.graph, problem.target);
-        const trace = runSearch(algorithms[id].search, { ...problem, heuristic });
-        const t = buildTimeline(problem.graph, trace, heuristic, algorithms[id].frontier);
+        const backwardHeuristic = straightLineHeuristic(problem.graph, problem.source);
+        const trace = runSearch(algorithms[id].search, {
+          ...problem,
+          heuristic,
+          backwardHeuristic,
+        });
+        const t = buildTimeline(
+          problem.graph,
+          trace,
+          heuristic,
+          algorithms[id].frontier,
+          backwardHeuristic,
+        );
         for (let step = 1; step <= t.steps; step++) {
           for (const part of partsOfStep(t, step)) {
             const lines = code.parts[part.kind];
@@ -48,6 +61,15 @@ describe('pseudocode', () => {
     expect(pseudocode('greedy').lines.join('\n')).toMatch(/ordered by h\b/);
     expect(pseudocode('dijkstra').lines.join('\n')).toMatch(/ordered by g\b/);
     expect(pseudocode('astar').lines.join('\n')).toMatch(/ordered by g \+ h/);
+    expect(pseudocode('bibfs').lines.join('\n')).toMatch(/frontier B ← queue/);
+    expect(pseudocode('bidijkstra').lines.join('\n')).toMatch(/ordered by gB\b/);
+    expect(pseudocode('biastar').lines.join('\n')).toMatch(/ordered by gB − p\b/);
+  });
+
+  it("pushes a two-sided A*'s nodes with the shared estimate, added from A and taken off from B", () => {
+    const code = pseudocode('biastar').lines.join('\n');
+    expect(code).toMatch(/p\(n\) ← \(hB\(n\) − hA\(n\)\) \/ 2/);
+    expect(code).toMatch(/frontier A ← priority queue ordered by gA \+ p/);
   });
 
   it('writes the weight into weighted A*', () => {

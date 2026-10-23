@@ -76,6 +76,28 @@ describe('runJob', () => {
     expect(t.expandedEstimate[1]).toBeCloseTo(plain.runs[0]!.timeline.expandedEstimate[1]!, 9);
   });
 
+  it('runs the bidirectional searches to the same cost as their one-way versions', async () => {
+    const result = await runJob(
+      { ...request, algorithms: ['dijkstra', 'astar', 'bidijkstra', 'biastar', 'bibfs'] },
+      deps().deps,
+    );
+    const [dijkstra, astar, bidijkstra, biastar, bibfs] = result.runs;
+    expect(bidijkstra!.timeline.route!.cost).toBeCloseTo(dijkstra!.timeline.route!.cost, 6);
+    expect(biastar!.timeline.route!.cost).toBeCloseTo(astar!.timeline.route!.cost, 6);
+    for (const run of [bidijkstra, biastar, bibfs]) {
+      expect(run!.timeline.bidirectional).toBe(true);
+      expect(run!.timeline.meetCount).toBeGreaterThan(0);
+      expect(run!.weight).toBe(1);
+    }
+    // Each side first expands its own start, estimating the same straight line from A to B.
+    const t = biastar!.timeline;
+    const firstBackward = t.expandedSide.indexOf(1);
+    expect(t.expandedSide[1]).toBe(0);
+    expect(firstBackward).toBeGreaterThan(1);
+    expect(t.expandedEstimate[firstBackward]).toBeGreaterThan(0);
+    expect(t.expandedEstimate[firstBackward]).toBeCloseTo(t.expandedEstimate[1]!, 9);
+  });
+
   it('refuses a request without algorithms', async () => {
     await expect(runJob({ ...request, algorithms: [] }, deps().deps)).rejects.toThrow(
       /at least one algorithm/,

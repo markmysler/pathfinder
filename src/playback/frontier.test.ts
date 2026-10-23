@@ -14,29 +14,50 @@ function solve(
   algorithm: AlgorithmInfo = algorithms.astar,
 ) {
   const heuristic = straightLineHeuristic(problem.graph, problem.target);
-  const trace = runSearch(algorithm.search, { ...problem, heuristic });
-  return { trace, timeline: buildTimeline(problem.graph, trace, heuristic, algorithm.frontier) };
+  const backwardHeuristic = straightLineHeuristic(problem.graph, problem.source);
+  const trace = runSearch(algorithm.search, { ...problem, heuristic, backwardHeuristic });
+  return {
+    trace,
+    timeline: buildTimeline(problem.graph, trace, heuristic, algorithm.frontier, backwardHeuristic),
+  };
 }
 
-/** Replays a trace and lists each frontier entry with when it came in, went stale and left. */
+interface Replayed {
+  node: number;
+  side: number;
+  enter: number;
+  leave: number;
+  stale: number;
+  cost: number;
+}
+
+/**
+ * Replays a trace and lists each frontier entry with when it came in, went stale and left. Each
+ * side of a bidirectional search has its own frontier.
+ */
 function replay({ events }: Trace) {
-  const entries: { node: number; enter: number; leave: number; stale: number; cost: number }[] = [];
+  const entries: Replayed[] = [];
+  const same = (old: Replayed, node: number, side: number) =>
+    old.node === node && old.side === side && old.leave === NEVER && old.stale === NEVER;
   let step = 0;
   for (const event of events) {
+    if (event.type === 'meet') continue;
+    const side = event.side === 'backward' ? 1 : 0;
     if (event.type === 'push') {
       // An older entry for the same node still waiting goes stale: the new one will be used.
-      for (const old of entries) {
-        if (old.node === event.node && old.leave === NEVER && old.stale === NEVER) old.stale = step;
-      }
-      entries.push({ node: event.node, enter: step, leave: NEVER, stale: NEVER, cost: event.cost });
+      for (const old of entries) if (same(old, event.node, side)) old.stale = step;
+      entries.push({
+        node: event.node,
+        side,
+        enter: step,
+        leave: NEVER,
+        stale: NEVER,
+        cost: event.cost,
+      });
     } else {
       if (event.type === 'pop') {
         step++;
-        for (const old of entries) {
-          if (old.node === event.node && old.leave === NEVER && old.stale === NEVER) {
-            old.stale = step;
-          }
-        }
+        for (const old of entries) if (same(old, event.node, side)) old.stale = step;
         entries[event.entry]!.stale = NEVER;
       }
       // A skip happens while the next step looks for its node, so it belongs to that step.
@@ -55,6 +76,7 @@ describe('frontier entries in the timeline', () => {
         expect(t.entryCount).toBe(expected.length);
         expected.forEach((entry, i) => {
           expect(t.entryNode[i]).toBe(entry.node);
+          expect(t.entrySide[i]).toBe(entry.side);
           expect(t.entryEnter[i]).toBe(entry.enter);
           expect(t.entryLeave[i]).toBe(entry.leave);
           expect(t.entryCost[i]).toBe(entry.cost);
@@ -103,6 +125,30 @@ describe('frontierAt', () => {
     }
   });
 
+  it("lists one side's frontier of a bidirectional search, with that side's counts", () => {
+    fc.assert(
+      fc.property(
+        randomGeoProblem(),
+        fc.constantFrom(algorithms.bibfs, algorithms.bidijkstra, algorithms.biastar),
+        (problem, algorithm) => {
+          const { timeline: t } = solve(problem, algorithm);
+          for (let step = 0; step <= t.steps; step++) {
+            const all = frontierAt(t, step, 1000);
+            const sides = [0, 1].map((side) => frontierAt(t, step, 1000, side));
+            sides.forEach((listed, side) =>
+              listed.entries.forEach((e) => expect(t.entrySide[e]).toBe(side)),
+            );
+            expect(new Set([...sides[0]!.entries, ...sides[1]!.entries])).toEqual(
+              new Set(all.entries),
+            );
+            expect(sides[0]!.waiting + sides[1]!.waiting).toBe(all.waiting);
+            expect(sides[0]!.outdated + sides[1]!.outdated).toBe(all.outdated);
+          }
+        },
+      ),
+    );
+  });
+
   it('stops at the limit but still counts everything', () => {
     const { timeline: t } = solve({ graph: grid(6), source: 0, target: 35 }, algorithms.bfs);
     const step = Math.floor(t.steps / 2);
@@ -117,28 +163,39 @@ describe('partsOfStep', () => {
     fc.assert(
       fc.property(randomGeoProblem(), every, (problem, algorithm) => {
         const { trace, timeline: t } = solve(problem, algorithm);
-        // Rebuild the trace's events from the parts of every step.
-        const rebuilt: string[] = ['push 0'];
+        let pushes = 0;
+        const actual = trace.events.map((e) =>
+          e.type === 'push'
+            ? `push ${pushes++}`
+            : e.type === 'meet'
+              ? `meet ${e.node}`
+              : `${e.type} ${e.entry}`,
+        );
+        // Rebuild the trace's events from the parts of every step, after the start (the source,
+        // and the target too when searching from both ends).
+        const rebuilt = actual.slice(0, algorithm.bidirectional ? 2 : 1);
         for (let step = 1; step <= t.steps; step++) {
           let rejected = 0;
           let goal = false;
+          let stop = false;
           for (const part of partsOfStep(t, step)) {
             if (part.kind === 'skip') rebuilt.push(`skip ${part.entry}`);
             if (part.kind === 'take') rebuilt.push(`pop ${part.entry}`);
             if (part.kind === 'road') rebuilt.push(`push ${part.entry}`);
+            if (part.kind === 'meet') rebuilt.push(`meet ${t.meetNode[part.meeting]}`);
             if (part.kind === 'rejected') rejected = part.count;
             if (part.kind === 'goal') goal = true;
+            if (part.kind === 'stop') stop = true;
           }
-          // Reaching B ends the search before its roads are looked at.
+          // Reaching B ends a one-way search before its roads are looked at.
           if (goal) expect(step).toBe(t.steps);
           else expect(rejected).toBe(t.expandedDegree[step]! - t.pushesAt[step]!);
+          expect(goal && algorithm.bidirectional).toBe(false);
+          // A bidirectional search stops after its last step, once it is sure of the route.
+          expect(stop).toBe(algorithm.bidirectional && step === t.steps);
         }
-        let pushes = 0;
-        const actual = trace.events
-          .map((e) => (e.type === 'push' ? `push ${pushes++}` : `${e.type} ${e.entry}`))
-          // A search that ends without reaching B can still have skips after its last expansion.
-          .slice(0, rebuilt.length);
-        expect(rebuilt).toEqual(actual);
+        // A search that ends without reaching B can still have skips after its last expansion.
+        expect(rebuilt).toEqual(actual.slice(0, rebuilt.length));
       }),
     );
   });

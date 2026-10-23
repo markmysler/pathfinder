@@ -16,6 +16,11 @@ export class MinHeap<T> {
     return this.entries.length;
   }
 
+  /** The priority of the entry `pop` would return next; Infinity when empty. */
+  peekPriority(): number {
+    return this.entries[0]?.priority ?? Infinity;
+  }
+
   push(value: T, priority: number): void {
     this.entries.push({ value, priority, seq: this.nextSeq++ });
     this.siftUp(this.entries.length - 1);

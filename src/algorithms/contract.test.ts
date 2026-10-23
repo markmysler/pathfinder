@@ -15,6 +15,7 @@ describe.each(Object.values(algorithms))('$name', (algorithm) => {
       source,
       target,
       heuristic: straightLineHeuristic(graph, target),
+      backwardHeuristic: straightLineHeuristic(graph, source),
     });
 
   it('finds a path exactly when the target is reachable', () => {
@@ -46,29 +47,50 @@ describe.each(Object.values(algorithms))('$name', (algorithm) => {
     );
   });
 
-  it('starts by pushing the source and ends by expanding the target', () => {
+  it('starts by pushing the source', () => {
     fc.assert(
       fc.property(randomGeoProblem(), (problem) => {
-        const { events, result } = solve(problem);
-        expect(events[0]).toMatchObject({
+        expect(solve(problem).events[0]).toMatchObject({
           type: 'push',
           node: problem.source,
           edge: null,
           cost: 0,
         });
+      }),
+    );
+  });
+
+  it.runIf(!algorithm.bidirectional)('ends by expanding the target', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), (problem) => {
+        const { events, result } = solve(problem);
         if (result.found)
           expect(events.at(-1)).toMatchObject({ type: 'pop', node: problem.target });
       }),
     );
   });
 
-  it('only takes nodes out of the frontier after putting them in', () => {
+  it(`works ${algorithm.bidirectional ? 'from both ends' : 'forward only'}`, () => {
     fc.assert(
       fc.property(randomGeoProblem(), (problem) => {
-        const pushed = new Set<number>();
+        const { events } = solve(problem);
+        const backward = events.some((e) => e.type !== 'meet' && e.side === 'backward');
+        const meets = events.some((e) => e.type === 'meet');
+        expect(backward).toBe(algorithm.bidirectional);
+        if (!algorithm.bidirectional) expect(meets).toBe(false);
+      }),
+    );
+  });
+
+  it('only takes nodes out of a frontier after putting them in', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), (problem) => {
+        const pushed = new Set<string>();
         for (const event of solve(problem).events) {
-          if (event.type === 'push') pushed.add(event.node);
-          else expect(pushed.has(event.node)).toBe(true);
+          if (event.type === 'meet') continue;
+          const key = `${event.side ?? 'forward'} ${event.node}`;
+          if (event.type === 'push') pushed.add(key);
+          else expect(pushed.has(key)).toBe(true);
         }
       }),
     );
@@ -80,6 +102,7 @@ describe.each(Object.values(algorithms))('$name', (algorithm) => {
         const pushes: number[] = [];
         const taken = new Set<number>();
         for (const event of solve(problem).events) {
+          if (event.type === 'meet') continue;
           if (event.type === 'push') {
             pushes.push(event.node);
             continue;

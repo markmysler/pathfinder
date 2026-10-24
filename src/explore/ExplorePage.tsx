@@ -6,6 +6,7 @@ import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../ap
 import { parseHash } from '../app/routes';
 import { useServices } from '../app/services';
 import { TopBar } from '../app/TopBar';
+import { SkipLink } from '../ui/SkipLink';
 import type { Place } from '../geo/nominatim';
 import type { NodeLabels } from '../osm/places';
 import { createCameraSync } from '../map/cameraSync';
@@ -249,6 +250,13 @@ export function ExplorePage() {
 
   return (
     <div className={styles.page} data-view={watching ? 'run' : 'plan'}>
+      <SkipLink target={watching ? 'playback' : 'plan'}>
+        {watching
+          ? 'Skip to the playback controls'
+          : phone
+            ? 'Skip to the run settings'
+            : 'Skip to the route and algorithms'}
+      </SkipLink>
       <TopBar route="explore" immersive={watching}>
         {watching && !phone && (
           <RouteSummary state={state} traffic={run.result.traffic} onEdit={edit}>
@@ -272,7 +280,13 @@ export function ExplorePage() {
       ) : (
         <div className={styles.body}>
           {!watching && (
-            <aside ref={planSheet} className={styles.side} aria-label="Plan a run">
+            <aside
+              ref={planSheet}
+              id="plan"
+              tabIndex={-1}
+              className={styles.side}
+              aria-label="Plan a run"
+            >
               {run.status === 'loading' && (
                 <LoadingPanel
                   stage={run.stage}
@@ -328,7 +342,12 @@ export function ExplorePage() {
                     <TrafficNotice outcome={single.traffic} onCheckKey={checkKey} />
                   )}
                 </div>
-                <div className={styles.playback}>
+                <section
+                  id="playback"
+                  tabIndex={-1}
+                  className={styles.playback}
+                  aria-label="Playback"
+                >
                   <RunPlayback
                     run={single}
                     part={part}
@@ -338,7 +357,7 @@ export function ExplorePage() {
                     dispatch={dispatch}
                     onSkip={skipToSearch}
                   />
-                </div>
+                </section>
               </>
             )}
             {watching && single && phone && (
@@ -562,7 +581,7 @@ function PhoneRun({
           <TrafficKey on={trafficLayer} onToggle={onToggleTraffic} clearRoute={false} />
         </div>
       )}
-      <section className={styles.sheet} aria-label="Playback">
+      <section id="playback" tabIndex={-1} className={styles.sheet} aria-label="Playback">
         <span className={styles.grabber} aria-hidden="true" />
         {run.traffic && !details && <TrafficNotice outcome={run.traffic} onCheckKey={onCheckKey} />}
         <button

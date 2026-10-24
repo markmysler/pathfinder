@@ -53,7 +53,7 @@ export function LearnHome() {
     : null;
 
   return (
-    <main className={styles.home}>
+    <main id="learn-main" tabIndex={-1} className={styles.home}>
       <header className={styles.header}>
         <h1 className={styles.title}>Learn</h1>
         <p className={styles.lede}>

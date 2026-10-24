@@ -5,6 +5,9 @@ import { App } from './App';
 
 vi.mock('../map/LazyMapCanvas', () => ({ LazyMapCanvas: () => <div>map</div> }));
 
+// Explore loads lazily; the first test to show it waits for its modules to be compiled.
+const lazily = { timeout: 10_000 };
+
 const services = {
   geocoder: fakeGeocoder(),
   searchClient: { run: vi.fn() },
@@ -18,7 +21,7 @@ describe('App', () => {
 
   it('opens on Explore with Explore and Learn in the navigation', async () => {
     render(<App services={services} />);
-    expect(await screen.findByRole('textbox', { name: 'Start' })).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'Start' }, lazily)).toBeInTheDocument();
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0]!;
     expect(nav).toHaveTextContent('Explore');
     expect(nav).toHaveTextContent('Learn');
@@ -27,7 +30,7 @@ describe('App', () => {
   it('opens Explore with the algorithms a Learn article links to', async () => {
     window.location.hash = '#/?algorithms=dijkstra,astar';
     render(<App services={services} />);
-    const ticked = (await screen.findAllByRole('checkbox'))
+    const ticked = (await screen.findAllByRole('checkbox', {}, lazily))
       .filter((box) => (box as HTMLInputElement).checked)
       .map((box) => (box as HTMLInputElement).value);
     expect(ticked).toEqual(['dijkstra', 'astar']);
@@ -35,7 +38,7 @@ describe('App', () => {
 
   it('switches to Learn', async () => {
     render(<App services={services} />);
-    await userEvent.click((await screen.findAllByRole('link', { name: 'Learn' }))[0]!);
+    await userEvent.click((await screen.findAllByRole('link', { name: 'Learn' }, lazily))[0]!);
     expect(await screen.findByRole('heading', { name: 'Learn', level: 1 })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Learn' })[0]).toHaveAttribute(
       'aria-current',

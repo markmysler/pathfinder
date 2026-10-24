@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PHONE, useHash, useMediaQuery } from '../app/hooks';
 import { learnHref, parseHash } from '../app/routes';
 import { TopBar } from '../app/TopBar';
+import { SkipLink } from '../ui/SkipLink';
 import { algoColor } from '../ui/algorithmStyle';
 import { ChevronLeftIcon } from '../ui/icons';
 import { ARTICLES } from './articles';
@@ -28,6 +29,8 @@ export function LearnPage() {
     <LearnHome />
   ) : Article && topic ? (
     <main
+      id="learn-main"
+      tabIndex={-1}
       className={articleStyles.article}
       style={topic.algorithm ? algoColor(topic.algorithm) : ({} as CSSProperties)}
     >
@@ -47,6 +50,7 @@ export function LearnPage() {
 
   return (
     <div className={styles.page}>
+      <SkipLink target="learn-main">{slug ? 'Skip to the article' : 'Skip to the topics'}</SkipLink>
       <TopBar route="learn" />
       {phone && topic && (
         <header className={styles.phoneHeader}>

@@ -139,7 +139,12 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           {runs.filter((r) => shown.includes(r.algorithm)).map(mapFor)}
         </div>
 
-        <section className={styles.panel} aria-label="Playback for all maps">
+        <section
+          id="playback"
+          tabIndex={-1}
+          className={styles.panel}
+          aria-label="Playback for all maps"
+        >
           <PlaybackBar
             playback={playback}
             total={total}
@@ -176,7 +181,12 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
       <h1 className="visually-hidden">Comparing {runs.length}</h1>
       <div className={styles.grid}>{runs.map(mapFor)}</div>
 
-      <section className={styles.panel} aria-label="Playback for all maps">
+      <section
+        id="playback"
+        tabIndex={-1}
+        className={styles.panel}
+        aria-label="Playback for all maps"
+      >
         <PlaybackBar
           playback={playback}
           total={total}

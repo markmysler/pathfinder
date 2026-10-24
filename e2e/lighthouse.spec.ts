@@ -2,9 +2,9 @@ import { chromium, expect, test } from '@playwright/test';
 import lighthouse from 'lighthouse';
 
 /**
- * Lighthouse's phone profile on the built site, against the budgets in docs/PLAN.md. It runs in a
- * Chromium of its own, started here with a debugging port: Lighthouse's own launcher misplaces
- * its profile folder on WSL.
+ * Lighthouse's phone profile on the built site, against the budgets in docs/CONTRIBUTING.md. It
+ * runs in a Chromium of its own, started here with a debugging port: Lighthouse's own launcher
+ * misplaces its profile folder on WSL.
  */
 const PAGES = [
   { name: 'Explore', path: '/', performance: 65 },

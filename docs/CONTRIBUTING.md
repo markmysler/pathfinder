@@ -25,11 +25,11 @@ npm run lint && npm run format:check && npm run typecheck && npm test && npm run
 
 CI runs the same checks and deploys `main` to GitHub Pages when they pass.
 
-## Design first
+## Design for both sizes
 
-Phones and desktops are both first-class. Any change to what the interface looks like starts as a
-design for both, on the project's design canvas (linked in `docs/PLAN.md`). HTML and CSS are
-written only after the design is approved. The look is "Night Chart":
+Phones and desktops are both first-class. Design any interface change for both before writing it,
+and show both sizes in the pull request (screenshots or a short recording). The look is
+"Night Chart":
 
 - Dark only, with the tokens in `src/styles/tokens.css`.
 - IBM Plex Sans and Mono.

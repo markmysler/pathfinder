@@ -128,9 +128,52 @@ deployment downloads in the background. `UpdatePrompt` then offers to reload, bu
 is open. `useOnline` follows the browser's connection: offline, Explore shows the saved routes and
 drops live traffic.
 
+The whole app is precached, map code included: about 3.5 MB on disk, about 1.1 MB over the
+network, since everything but the fonts is served compressed. Explore is the landing page and
+already loads most of that (MapLibre, deck.gl and their workers), and the precache reuses the
+browser's copies of those hashed files instead of fetching them twice. The real extra cost of
+precaching on a first visit is Learn's code and the fonts, about 300 KB, fetched after the page
+has loaded. Caching the map code only at runtime instead was considered and rejected: the first
+visit isn't controlled by the service worker yet, so the map code it loads wouldn't be kept, and
+after an update the new map code would only be cached once Explore ran again online. Either way,
+"routes you have run open offline" would silently break.
+
 ## Learn
 
 Articles live in `src/learn/articles`, one per topic in `src/learn/topics.ts`. Diagrams use small
 graphs from `networks.ts`, run through the real algorithms. `streets.ts` and `measured.ts` hold
 results recorded on real Buenos Aires streets, so the articles can quote real numbers without
 downloading anything.
+
+## Limits and measurements
+
+What was measured while building Pathfinder, and the limits that came out of it.
+
+- **Six algorithms per run.** Each comparison map uses two WebGL contexts (MapLibre and deck.gl's
+  overlay) and browsers allow about 16. deck.gl's interleaved mode, which would share one, fails
+  on MapLibre 6 (`_nearZ` errors), so `MAX_ALGORITHMS` is 6.
+- **Overpass is slow.** Public Overpass servers often take 30–60 s or are down. The client tries
+  three servers, with a 70 s limit each, and caches every area it downloads in IndexedDB.
+- **Drawing needs a GPU.** On a 9 km route with a real GPU, playback holds 60 fps, with one 0.8 s
+  hitch when six maps start. When WebGL is drawn in software the page freezes for 10–20 s whenever
+  a big search is drawn, which is why `graphics.ts` warns about it. Headless Chromium and CI draw
+  in software, so judge drawing speed headed, on a real GPU.
+- **First load.** The map code loads after the page, so the start shared by Explore and Learn is
+  76 KB gzipped (it was one 629 KB bundle). Lighthouse, phone profile: Explore 69–72 (budget 65,
+  nearly all of its blocking time is MapLibre starting and drawing in software), Learn 93–94;
+  accessibility, best practices and SEO 100; no layout shift.
+- **Bidirectional search.** On the recorded streets, bidirectional Dijkstra expands 57% fewer nodes
+  than Dijkstra, but bidirectional A\* only 6% fewer than A\*. Better estimates (ALT) are where A\*
+  gains. Bidirectional A\* uses the averaged estimate, which needs consistent estimates; straight-line
+  distance is one. The A\* weight applies to one-way A\* only.
+- **Bellman-Ford** stops recording at 400,000 steps and says how many the whole search needs. At
+  the top speed of 100×, 400,000 steps take about 20 s.
+- **Live traffic.** Checked with a real TomTom key around Plaza de Mayo: zoom-14 flow tiles cover
+  96% of residential street directions, 93% of living streets, every main road and 15% of service
+  roads, and a line's point order is its direction of travel. Matching ignores road type, so a
+  service road within 15 m of a jammed avenue, running the same way, takes the avenue's speed.
+  HERE sends its 401s without CORS headers, so a wrong HERE key reads as "HERE didn't answer"; the
+  messages say so. HERE hasn't been checked with a real key. Contraction hierarchies leave out
+  road-by-road traffic notes, because their events name shortcuts, which have no single road.
+- **Not covered end to end:** a real new deployment reaching the update prompt. Playwright can't
+  intercept the service worker's own script, so `UpdatePrompt` is unit-tested only.

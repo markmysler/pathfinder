@@ -17,6 +17,11 @@ export interface Landmarks {
   from: Float64Array;
   /** Row i: the cost from node n to landmark i. */
   to: Float64Array;
+  /**
+   * Why each was picked: the round trip to the nearest landmark before it (to the start, for
+   * the first), the farthest of any node at the time.
+   */
+  spread: Float64Array;
 }
 
 export const LANDMARK_COUNT = 8;
@@ -39,6 +44,7 @@ export function chooseLandmarks(
   for (let n = 0; n < nodeCount; n++) nearest[n] = there[n]! + back[n]!;
 
   const chosen: number[] = [];
+  const spread: number[] = [];
   const fromRows: Float64Array[] = [];
   const toRows: Float64Array[] = [];
   while (chosen.length < count) {
@@ -50,6 +56,7 @@ export function chooseLandmarks(
     }
     if (pick < 0) break;
     chosen.push(pick);
+    spread.push(nearest[pick]!);
     const fromRow = distancesFrom(graph, pick);
     const toRow = distancesTo(graph, pick);
     fromRows.push(fromRow);
@@ -67,7 +74,37 @@ export function chooseLandmarks(
   const to = new Float64Array(chosen.length * nodeCount);
   fromRows.forEach((row, i) => from.set(row, i * nodeCount));
   toRows.forEach((row, i) => to.set(row, i * nodeCount));
-  return { nodes: Uint32Array.from(chosen), nodeCount, from, to };
+  return {
+    nodes: Uint32Array.from(chosen),
+    nodeCount,
+    from,
+    to,
+    spread: Float64Array.from(spread),
+  };
+}
+
+/**
+ * Landmarks at the given nodes rather than chosen, as Learn's diagrams use them. Each one's
+ * spread is its round trip to the nearest landmark before it (0 for the first).
+ */
+export function landmarksAt(graph: Graph, nodes: readonly number[]): Landmarks {
+  const { nodeCount } = graph;
+  const from = new Float64Array(nodes.length * nodeCount);
+  const to = new Float64Array(nodes.length * nodeCount);
+  nodes.forEach((node, i) => {
+    from.set(distancesFrom(graph, node), i * nodeCount);
+    to.set(distancesTo(graph, node), i * nodeCount);
+  });
+  const spread = Float64Array.from(nodes, (node, i) =>
+    i === 0
+      ? 0
+      : Math.min(
+          ...nodes
+            .slice(0, i)
+            .map((_, j) => from[j * nodeCount + node]! + to[j * nodeCount + node]!),
+        ),
+  );
+  return { nodes: Uint32Array.from(nodes), nodeCount, from, to, spread };
 }
 
 /** How an estimate was found: the landmark that gave it, and on which side of the trip. */

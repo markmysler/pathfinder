@@ -1,26 +1,13 @@
 import fc from 'fast-check';
 import { algorithms, type AlgorithmInfo } from '../algorithms';
-import { straightLineHeuristic } from '../algorithms/heuristics';
-import { runSearch, type Trace } from '../algorithms/trace';
+import type { Trace } from '../algorithms/trace';
 import { randomGeoProblem } from '../test/arbitraries';
 import { grid } from '../test/fixtures';
+import { solve } from '../test/timelines';
 import { frontierAt, partsOfStep } from './frontier';
-import { buildTimeline, NEVER } from './timeline';
+import { NEVER } from './timeline';
 
-const every = fc.constantFrom(...Object.values(algorithms));
-
-function solve(
-  problem: Parameters<typeof runSearch>[1],
-  algorithm: AlgorithmInfo = algorithms.astar,
-) {
-  const heuristic = straightLineHeuristic(problem.graph, problem.target);
-  const backwardHeuristic = straightLineHeuristic(problem.graph, problem.source);
-  const trace = runSearch(algorithm.search, { ...problem, heuristic, backwardHeuristic });
-  return {
-    trace,
-    timeline: buildTimeline(problem.graph, trace, heuristic, algorithm.frontier, backwardHeuristic),
-  };
-}
+const every = fc.constantFrom(...(Object.values(algorithms) as AlgorithmInfo[]));
 
 interface Replayed {
   node: number;
@@ -190,7 +177,7 @@ describe('partsOfStep', () => {
           // Reaching B ends a one-way search before its roads are looked at.
           if (goal) expect(step).toBe(t.steps);
           else expect(rejected).toBe(t.expandedDegree[step]! - t.pushesAt[step]!);
-          expect(goal && algorithm.bidirectional).toBe(false);
+          expect(goal && (algorithm.bidirectional || Boolean(algorithm.exhaustive))).toBe(false);
           // A bidirectional search stops after its last step, once it is sure of the route.
           expect(stop).toBe(algorithm.bidirectional && step === t.steps);
         }
@@ -198,6 +185,16 @@ describe('partsOfStep', () => {
         expect(rebuilt).toEqual(actual.slice(0, rebuilt.length));
       }),
     );
+  });
+
+  it('never checks for the goal in a search that keeps going after B', () => {
+    const { timeline: t } = solve(
+      { graph: grid(4), source: 0, target: 15 },
+      algorithms.bellmanford,
+    );
+    for (let step = 1; step <= t.steps; step++) {
+      expect(partsOfStep(t, step).map((p) => p.kind)).not.toContain('goal');
+    }
   });
 
   it('checks for the goal only when the step reaches it', () => {

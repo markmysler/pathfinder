@@ -65,6 +65,29 @@ describe('createSearchClient', () => {
     expect(traffic).toEqual([[3, 36]]);
   });
 
+  it('forwards how preparing is getting on', async () => {
+    const { worker } = fakeWorker();
+    const prepare: unknown[] = [];
+    const job = createSearchClient(worker).run(
+      request,
+      () => {},
+      undefined,
+      (progress) => prepare.push(progress),
+    );
+    const progress = {
+      kind: 'hierarchy',
+      done: 256,
+      total: 900,
+      nodes: 900,
+      shortcuts: 40,
+    } as const;
+    worker.reply({ type: 'prepare', id: 1, progress });
+    worker.reply({ type: 'prepare', id: 2, progress });
+    worker.reply({ type: 'done', id: 1, result: {} as never });
+    await job.result;
+    expect(prepare).toEqual([progress]);
+  });
+
   it('rejects with the error the worker reported', async () => {
     const { worker } = fakeWorker();
     const job = createSearchClient(worker).run(request, () => {});

@@ -6,7 +6,7 @@ import { randomGeoProblem } from '../test/arbitraries';
 import { undirectedGraphFrom } from '../test/fixtures';
 import { referenceDistances } from '../test/reference';
 import { bidirectionalDijkstra } from './bidirectional';
-import { contract, contractionHierarchies, unpack } from './hierarchy';
+import { climbEdges, contract, contractionHierarchies, unpack } from './hierarchy';
 import { runSearch, summarize } from './trace';
 
 const shortcutsOf = (h: ReturnType<typeof contract>) =>
@@ -135,6 +135,39 @@ describe('contract', () => {
   });
 });
 
+describe('contract’s record of each contraction', () => {
+  it('counts the ways through a node, the roads it removes and its neighbours already gone', () => {
+    // A star: 0 in the middle, roads both ways to 1, 2 and 3. Contracting 1 first, then 0.
+    const graph = undirectedGraphFrom([
+      [0, 1, 1],
+      [0, 2, 1],
+      [0, 3, 1],
+    ]);
+    const h = contract(graph, { order: [1, 0, 2, 3] });
+    // Node 1 has one neighbour, 0: no way through, two roads (in and out), nothing gone yet.
+    expect([h.contractWays[0], h.contractDegree[0], h.contractGone[0]]).toEqual([0, 2, 0]);
+    // Node 0 then joins 2 and 3: two ways through (2 → 3, 3 → 2), four roads, one neighbour gone.
+    expect([h.contractWays[1], h.contractDegree[1], h.contractGone[1]]).toEqual([2, 4, 1]);
+  });
+
+  it('numbers shortcuts in the order the contractions made them', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), ({ graph }) => {
+        const h = contract(graph);
+        expect(h.shortcutsBy[0]).toBe(0);
+        expect(h.shortcutsBy[graph.nodeCount]).toBe(h.edgeCount - h.baseEdgeCount);
+        for (let r = 0; r < graph.nodeCount; r++) {
+          for (let i = h.shortcutsBy[r]!; i < h.shortcutsBy[r + 1]!; i++) {
+            expect(h.rank[h.shortcutVia[i]!]).toBe(r);
+          }
+          // A shortcut is needed only where no witness was found, so never more than the ways.
+          expect(h.shortcutsBy[r + 1]! - h.shortcutsBy[r]!).toBeLessThanOrEqual(h.contractWays[r]!);
+        }
+      }),
+    );
+  });
+});
+
 describe('contractionHierarchies', () => {
   it('finds a route exactly as cheap as the cheapest, between any two nodes', () => {
     fc.assert(
@@ -160,6 +193,22 @@ describe('contractionHierarchies', () => {
           expect(event.node).toBe(higher);
           expect(hierarchy.rank[higher]).toBeGreaterThan(hierarchy.rank[lower]!);
         }
+      }),
+    );
+  });
+
+  it('can say which roads and shortcuts the two climbs took, which unpack into the route', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), ({ graph, source, target }) => {
+        const hierarchy = contract(graph);
+        const { events, result } = runSearch(contractionHierarchies, {
+          graph,
+          source,
+          target,
+          hierarchy,
+        });
+        if (!result.found) return;
+        expect(unpack(hierarchy, climbEdges(events, hierarchy))).toEqual(result.edges);
       }),
     );
   });

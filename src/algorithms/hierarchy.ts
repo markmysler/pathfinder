@@ -2,7 +2,7 @@ import { NodeHeap } from '../graph/distances';
 import type { Graph } from '../graph/graph';
 import { MinHeap } from './minHeap';
 import { checkProblem } from './support';
-import type { SearchEvent, SearchProblem, SearchResult, Side } from './types';
+import type { SearchEdges, SearchEvent, SearchProblem, SearchResult, Side } from './types';
 
 /**
  * A contraction hierarchy: every node ranked by importance, plus the shortcuts that keep
@@ -30,6 +30,16 @@ export interface Hierarchy {
   /** Edges arriving at each node from a more important one. */
   downFirst: Uint32Array;
   downEdge: Uint32Array;
+  /**
+   * What each contraction found, by rank: the ways through the node (neighbour to a different
+   * neighbour), the roads it took away, and how many of its neighbours had already gone. Its
+   * importance was the shortcuts it needed, minus the roads, plus the neighbours gone.
+   */
+  contractWays: Uint32Array;
+  contractDegree: Uint32Array;
+  contractGone: Uint32Array;
+  /** Shortcuts made by the contraction of rank r: shortcutsBy[r] up to shortcutsBy[r + 1]. */
+  shortcutsBy: Uint32Array;
 }
 
 export interface ContractOptions {
@@ -37,8 +47,8 @@ export interface ContractOptions {
   order?: readonly number[];
   /** How many nodes a witness search may settle before giving up and adding the shortcut. */
   witnessLimit?: number;
-  /** Called every so often with how many nodes are contracted so far. */
-  onProgress?(contracted: number, total: number): void;
+  /** Called every so often with how many nodes are contracted, and shortcuts made, so far. */
+  onProgress?(contracted: number, total: number, shortcuts: number): void;
 }
 
 /** Roads in or out of one node among those not yet contracted, as parallel arrays. */
@@ -138,6 +148,7 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
     const needed: [number, number, number, number, number][] = [];
     const into = cheapest(ins[v]!, v);
     const outOf = cheapest(outs[v]!, v);
+    let ways = 0;
     for (const [u, toV] of into) {
       let maxCost = -1;
       for (const [w, fromV] of outOf)
@@ -146,11 +157,12 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
       witnessCosts(u, v, maxCost);
       for (const [w, fromV] of outOf) {
         if (w === u) continue;
+        ways++;
         const through = toV.weight + fromV.weight;
         if (dist[w]! > through) needed.push([u, w, through, toV.edge, fromV.edge]);
       }
     }
-    return { needed, degree: into.size + outOf.size };
+    return { needed, ways, degree: into.size + outOf.size };
   };
 
   const contracted = new Uint8Array(nodeCount);
@@ -161,8 +173,16 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
   };
 
   const order: number[] = [];
+  const contractWays: number[] = [];
+  const contractDegree: number[] = [];
+  const contractGone: number[] = [];
+  const shortcutsBy = [0];
   const contractNode = (v: number) => {
-    for (const [u, w, weight, first, second] of shortcutsFor(v).needed) {
+    const { needed, ways, degree } = shortcutsFor(v);
+    contractWays.push(ways);
+    contractDegree.push(degree);
+    contractGone.push(deletedNeighbours[v]!);
+    for (const [u, w, weight, first, second] of needed) {
       addEdge(u, w, weight);
       shortcutFirst.push(first);
       shortcutSecond.push(second);
@@ -170,6 +190,7 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
     }
     contracted[v] = 1;
     order.push(v);
+    shortcutsBy.push(shortcutFirst.length);
     // Take v out of its neighbours' lists, so later searches never see it.
     const neighbours = new Set([...outs[v]!.node, ...ins[v]!.node]);
     neighbours.delete(v);
@@ -191,7 +212,9 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
   };
 
   const report = (count: number) => {
-    if (onProgress && (count % 256 === 0 || count === nodeCount)) onProgress(count, nodeCount);
+    if (onProgress && (count % 256 === 0 || count === nodeCount)) {
+      onProgress(count, nodeCount, shortcutFirst.length);
+    }
   };
   if (options.order) {
     for (const v of options.order) {
@@ -269,6 +292,20 @@ export function contract(graph: Graph, options: ContractOptions = {}): Hierarchy
     upEdge,
     downFirst,
     downEdge,
+    contractWays: Uint32Array.from(contractWays),
+    contractDegree: Uint32Array.from(contractDegree),
+    contractGone: Uint32Array.from(contractGone),
+    shortcutsBy: Uint32Array.from(shortcutsBy),
+  };
+}
+
+/** The hierarchy's edges as its search uses them: going up forward, and coming down backward. */
+export function hierarchyEdges(h: Hierarchy): SearchEdges {
+  return {
+    from: h.edgeFrom,
+    to: h.edgeTo,
+    degree: (node, side) =>
+      side ? h.downFirst[node + 1]! - h.downFirst[node]! : h.upFirst[node + 1]! - h.upFirst[node]!,
   };
 }
 
@@ -286,6 +323,29 @@ export function unpack(hierarchy: Hierarchy, edges: readonly number[]): number[]
     stack.push(hierarchy.shortcutSecond[i]!, hierarchy.shortcutFirst[i]!);
   }
   return out;
+}
+
+/**
+ * The edges a contraction hierarchies search climbed along to its best meeting point, from A
+ * up and then down to B, read back from its events: shortcuts stay packed.
+ */
+export function climbEdges(events: readonly SearchEvent[], h: Hierarchy): number[] {
+  // The last push of a node on a side came along the cheapest edge that side found to it.
+  const parents = [new Map<number, number>(), new Map<number, number>()];
+  let meeting = -1;
+  for (const event of events) {
+    if (event.type === 'meet') meeting = event.node;
+    else if (event.type === 'push' && event.edge !== null) {
+      parents[event.side === 'backward' ? 1 : 0]!.set(event.node, event.edge);
+    }
+  }
+  if (meeting < 0) return [];
+  const up: number[] = [];
+  for (let n = meeting, e; (e = parents[0]!.get(n)) !== undefined; n = h.edgeFrom[e]!) {
+    up.unshift(e);
+  }
+  for (let n = meeting, e; (e = parents[1]!.get(n)) !== undefined; n = h.edgeTo[e]!) up.push(e);
+  return up;
 }
 
 interface Item {

@@ -85,4 +85,16 @@ describe('buildGraph', () => {
       );
     }
   });
+
+  it('accepts roads that cost less than nothing only when asked, for teaching Bellman-Ford', () => {
+    const input = {
+      nodes: [
+        { lat: 0, lon: 0 },
+        { lat: 0, lon: 1 },
+      ],
+      edges: [{ from: 0, to: 1, weight: -4 }],
+    };
+    expect(() => buildGraph(input)).toThrow(RangeError);
+    expect(buildGraph(input, { allowNegative: true }).edgeWeight[0]).toBe(-4);
+  });
 });

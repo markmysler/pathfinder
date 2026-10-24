@@ -1,10 +1,13 @@
 import { algorithms, type AlgorithmId } from '../algorithms';
 import { runSearch } from '../algorithms/trace';
 import { partsOfStep } from '../playback/frontier';
-import { stopCheck } from '../playback/sides';
+import { contract, hierarchyEdges } from '../algorithms/hierarchy';
+import { climbStopCheck, stopCheck } from '../playback/sides';
 import { buildTimeline, type Timeline } from '../playback/timeline';
-import { undirectedGraphFrom } from '../test/fixtures';
+import { hopsVsCost, undirectedGraphFrom } from '../test/fixtures';
+import { solve as solveWith } from '../test/timelines';
 import {
+  describeClimbStop,
   describePart,
   describeStep,
   describeStopCheck,
@@ -120,6 +123,11 @@ describe('describeStep', () => {
 });
 
 describe('searchStatus', () => {
+  it('says when a search was stopped at the step limit', () => {
+    expect(searchStatus(timeline({ stopped: true, route: null }), 4)).toBe('stopped');
+    expect(searchStatus(timeline({ stopped: true, route: null }), 3)).toBe('searching');
+  });
+
   it('is searching until the last step, then reports the outcome', () => {
     expect(searchStatus(timeline(), 0)).toBe('searching');
     expect(searchStatus(timeline(), 3.5)).toBe('searching');
@@ -343,5 +351,132 @@ describe('searches from both ends', () => {
         'shortest',
       ),
     ).toBe('Yes: a side ran out of roads without meeting the other, so there is no route.');
+  });
+});
+
+describe('Bellman-Ford, round by round', () => {
+  // 0 → 3 directly costs 10, but 0 → 1 → 2 → 3 costs 3 and is only found in round 3.
+  const { timeline: t } = solveWith(
+    { graph: hopsVsCost(), source: 0, target: 3 },
+    algorithms.bellmanford,
+  );
+  const names = {
+    labels: ['S', 'P', 'Q', 'T'],
+    nodeLabel: Int32Array.from([0, 1, 2, 3]),
+  };
+  const context = (step: number) => ({
+    timeline: t,
+    step,
+    algorithm: 'bellmanford' as const,
+    objective: 'shortest' as const,
+    weight: 1,
+    names,
+  });
+
+  it('says which round each step is in', () => {
+    expect(describeStep(t, 0, 'bellmanford', 'shortest')).toBe(
+      'Start: A is the only node in the queue.',
+    );
+    expect(describeStep(t, 1, 'bellmanford', 'shortest')).toBe(
+      'Round 0: took the oldest node in the queue, at 0 m. 2 of 2 roads made a neighbour cheaper. They joined the queue.',
+    );
+    expect(describeStep(t, 4, 'bellmanford', 'shortest')).toBe(
+      'Round 2: took the oldest node in the queue, at 2 m. Its only road made a neighbour cheaper. It joined the queue.',
+    );
+  });
+
+  it('ends once a round changes nothing, not on reaching B', () => {
+    expect(describeStep(t, t.steps, 'bellmanford', 'shortest')).toBe(
+      'Nothing got cheaper after round 3, so every cost is final. The route to B is 3 m long.',
+    );
+  });
+
+  it('says when it was stopped before it finished', () => {
+    expect(
+      describeStep({ ...t, stopped: true, route: null }, t.steps, 'bellmanford', 'fastest'),
+    ).toBe(
+      `Stopped after ${t.steps} steps, before Bellman-Ford finished: the rest is too long to replay.`,
+    );
+  });
+
+  it('explains taking a node, and its roads joining the next round', () => {
+    const take = partsOfStep(t, 3).find((p) => p.kind === 'take')!;
+    expect(describePart(take, context(3))).toBe(
+      'Took P, the oldest node in the queue: round 1, at 1 m.',
+    );
+    const road = partsOfStep(t, 3).find((p) => p.kind === 'road')!;
+    expect(describePart(road, context(3))).toBe(
+      'Road to Q, 1 m long: 1 m + 1 m = 2 m is the first way found there, so it joins the queue for round 2.',
+    );
+  });
+});
+
+describe('ALT', () => {
+  it('reads like A*, its estimate coming from the landmarks', () => {
+    expect(describeStep(timeline(), 1, 'alt', 'shortest')).toBe(
+      'Took the frontier node with the lowest f = g + h: 372 m + 303 m = 675 m. ' +
+        '2 of 3 roads reached a neighbour more cheaply. They joined the frontier.',
+    );
+  });
+});
+
+describe('contraction hierarchies', () => {
+  // A line S – P – Q – R – T, contracted middle-out: from S one shortcut climbs straight to T.
+  const graph = undirectedGraphFrom([
+    [0, 1, 1],
+    [1, 2, 1],
+    [2, 3, 1],
+    [3, 4, 1],
+  ]);
+  const hierarchy = contract(graph, { order: [1, 3, 2, 0, 4] });
+  const t = buildTimeline(
+    graph,
+    runSearch(algorithms.ch.search, { graph, source: 0, target: 4, hierarchy }),
+    undefined,
+    'priority',
+    undefined,
+    { edges: hierarchyEdges(hierarchy) },
+  );
+  const names = { labels: ['S', 'P', 'Q', 'R', 'T'], nodeLabel: Int32Array.from([0, 1, 2, 3, 4]) };
+  const context = (step: number) => ({
+    timeline: t,
+    step,
+    algorithm: 'ch' as const,
+    objective: 'shortest' as const,
+    weight: 1,
+    names,
+  });
+
+  it('describes each step as a climb, from one end or the other', () => {
+    expect(describeStep(t, 1, 'ch', 'shortest')).toBe(
+      'From A: took the node nearest A (0 m). Its only road up reached a node more cheaply. ' +
+        'It joined the frontier. The sides meet: a route of 4 m, the best so far.',
+    );
+    expect(describeStep(t, t.steps, 'ch', 'shortest')).toBe(
+      'Neither side can reach anything cheaper than the best route found. The route is 4 m long.',
+    );
+  });
+
+  it('stops by its own rule: each side’s next node against the best route', () => {
+    expect(describeClimbStop(climbStopCheck(t, 0), 'shortest')).toBe(
+      'Not yet: the sides have not met, so there is no route to beat.',
+    );
+    expect(describeClimbStop(climbStopCheck(t, 1), 'shortest')).toBe(
+      "Not yet. B's next node costs 0 m, under the best route, 4 m: a cheaper meeting could still lie beyond it.",
+    );
+    expect(describeClimbStop(climbStopCheck(t, 2), 'shortest')).toBe(
+      "Yes. Neither side's next node costs less than the best route, 4 m: nothing either side reaches could do better.",
+    );
+  });
+
+  it('explains its roads up and its stop line by line', () => {
+    const road = partsOfStep(t, 1).find((p) => p.kind === 'road')!;
+    expect(describePart(road, context(1))).toBe(
+      "Up to T, 4 m: 0 m + 4 m = 4 m from A is the first way found there, so it joins A's frontier with g = 4 m.",
+    );
+    const stop = partsOfStep(t, 2).find((p) => p.kind === 'stop')!;
+    expect(describePart(stop, context(2))).toBe(
+      'Next from A: 4 m; from B: none left. Neither is under the best route, 4 m, so the search stops.',
+    );
   });
 });

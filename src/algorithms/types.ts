@@ -52,6 +52,18 @@ export type SearchEvent =
   | { type: 'meet'; node: number; cost: number; length: number };
 
 export type SearchResult =
-  { found: true; path: number[]; edges: number[]; cost: number } | { found: false };
+  | { found: true; path: number[]; edges: number[]; cost: number }
+  /** `negativeLoop`: Bellman-Ford found a loop costing less than nothing, so no cheapest route. */
+  | { found: false; negativeLoop?: boolean };
 
 export type SearchAlgorithm = (problem: SearchProblem) => Generator<SearchEvent, SearchResult>;
+
+/**
+ * The edges a search's events name, when they are not the graph's own: contraction hierarchies
+ * add shortcuts. `degree` is how many roads a node's expansion looks along on a side.
+ */
+export interface SearchEdges {
+  from: ArrayLike<number>;
+  to: ArrayLike<number>;
+  degree(node: number, side: 0 | 1): number;
+}

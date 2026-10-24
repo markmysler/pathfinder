@@ -111,4 +111,42 @@ describe('bellmanFord', () => {
     const fast = summarize(runSearch(dijkstra, { graph, source: 0, target: 35 }).events);
     expect(slow.expanded).toBeGreaterThanOrEqual(fast.expanded);
   });
+
+  it('copes with roads that cost less than nothing, where Dijkstra stops too soon', () => {
+    // S → T costs 2; S → B costs 5, and B → T gives 4 back: through B costs 1.
+    const graph = graphFrom(
+      [
+        [0, 2, 2],
+        [0, 1, 5],
+        [1, 2, -4],
+      ],
+      { allowNegative: true },
+    );
+    expect(runSearch(bellmanFord, { graph, source: 0, target: 2 }).result).toMatchObject({
+      found: true,
+      path: [0, 1, 2],
+      cost: 1,
+    });
+    expect(runSearch(dijkstra, { graph, source: 0, target: 2 }).result).toMatchObject({
+      cost: 2,
+    });
+  });
+
+  it('stops on a loop that costs less than nothing, saying there is no cheapest route', () => {
+    // X → Y → Z → X costs 2 + 1 − 4 = −1 a lap.
+    const graph = graphFrom(
+      [
+        [0, 1, 1],
+        [1, 2, 2],
+        [2, 3, 1],
+        [3, 1, -4],
+        [3, 4, 1],
+      ],
+      { allowNegative: true },
+    );
+    const { result, events } = runSearch(bellmanFord, { graph, source: 0, target: 4 });
+    expect(result).toEqual({ found: false, negativeLoop: true });
+    const rounds = events.flatMap((e) => (e.type === 'push' ? [e.priority!] : []));
+    expect(Math.max(...rounds)).toBeLessThanOrEqual(graph.nodeCount);
+  });
 });

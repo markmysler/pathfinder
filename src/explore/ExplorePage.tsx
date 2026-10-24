@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import type { Timeline } from '../playback/timeline';
-import { formatCost } from '../ui/format';
+import { formatCost, formatCount, formatMs } from '../ui/format';
 import { algorithms } from '../algorithms';
 import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
 import { parseHash } from '../app/routes';
@@ -13,6 +13,7 @@ import { explorationColors, type SnapLink } from '../map/explorationLayers';
 import { MapCanvas, type Padding } from '../map/MapCanvas';
 import { searchArea, type BBox } from '../osm/area';
 import { tick, type PlaybackState } from '../playback/playback';
+import type { RunPart } from './exploreState';
 import { ChevronDownIcon, ChevronUpIcon, EditIcon, PointBadge } from '../ui/icons';
 import type { RunningJob } from '../worker/client';
 import { CompareView, LinkToggle } from './CompareView';
@@ -26,6 +27,10 @@ import {
   type Role,
 } from './exploreState';
 import { Inspector, RunCard, type RunView } from './Inspector';
+import { AdvancedMapKey, ContractionInspector, LandmarksPrepared, PartTabs } from './AdvancedViews';
+import { advancedLine, advancedView, preparationsOf, roundJump, roundsOf } from './advancedRun';
+import type { HierarchyView } from '../worker/job';
+import { pause, play, seek } from '../playback/playback';
 import { MapKey, StopMeterLine } from './BothWaysViews';
 import { describeStep } from './narration';
 import { PlanPanel } from './PlanPanel';
@@ -109,6 +114,9 @@ export function ExplorePage() {
       (done, total) => {
         if (job.current === running) dispatch({ type: 'trafficProgressed', done, total });
       },
+      (progress) => {
+        if (job.current === running) dispatch({ type: 'prepareProgressed', progress });
+      },
     );
     job.current = running;
     running.result.then(
@@ -128,16 +136,33 @@ export function ExplorePage() {
 
   useDroppedPinNames(state, dispatch, geocoder);
 
-  useAnimationClock(watching && run.playback.playing, (elapsed) =>
-    dispatch({ type: 'playback', apply: (playback, total) => tick(playback, elapsed, total) }),
+  // Contraction hierarchies' preparing plays on its own clock, before the search.
+  const part: RunPart = watching ? run.part : 'search';
+  const preparePlayback = watching && part === 'prepare' ? run.preparePlayback : null;
+  const playing = preparePlayback ? preparePlayback.playing : watching && run.playback.playing;
+  useAnimationClock(playing, (elapsed) =>
+    dispatch({
+      type: preparePlayback ? 'preparePlayback' : 'playback',
+      apply: (playback, total) => tick(playback, elapsed, total),
+    }),
   );
 
   const step = watching ? Math.floor(run.playback.position) : 0;
+  const prepareStep = preparePlayback ? Math.floor(preparePlayback.position) : 0;
   // The single-search view; comparisons draw their own maps.
   const single: RunView | null =
     watching && !comparing
-      ? { ...run.result.runs[0]!, objective: run.result.objective, traffic: run.result.traffic }
+      ? {
+          ...run.result.runs[0]!,
+          objective: run.result.objective,
+          traffic: run.result.traffic,
+          preparation: run.result.preparation,
+          target: run.result.snapped.target.node,
+        }
       : null;
+  const hierarchy = single?.algorithm === 'ch' ? single.preparation?.hierarchy : undefined;
+  const landmarks = single?.algorithm === 'alt' ? single.preparation?.landmarks : undefined;
+  const prepares = Boolean(hierarchy || landmarks);
   const checkKey = () => dispatch({ type: 'trafficDialogOpened' });
   const toggleLayer = () => dispatch({ type: 'trafficLayerToggled' });
   const result = watching ? run.result : null;
@@ -157,13 +182,51 @@ export function ExplorePage() {
       meetLabel: (m: number) => `Met · best ${formatCost(timeline.meetCost[m]!, result.objective)}`,
     };
   }, [result, state.start, state.target]);
+  const advanced = useMemo(
+    () =>
+      result && result.runs.length === 1
+        ? advancedView(
+            result.runs[0]!,
+            result.preparation,
+            result.snapped.target.node,
+            part === 'prepare',
+          )
+        : undefined,
+    [result, part],
+  );
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
   const live = result?.traffic.status === 'live' ? result.traffic : null;
   const mapTraffic = useMemo(
     () => (live ? { live, bands: state.trafficLayer } : null),
     [live, state.trafficLayer],
   );
-  const exploration = single && look ? { step, ...look, highlight, traffic: mapTraffic } : null;
+  const exploration =
+    single && look
+      ? {
+          step,
+          ...look,
+          highlight,
+          traffic: mapTraffic,
+          advanced,
+          contraction:
+            hierarchy && part === 'prepare'
+              ? { replay: hierarchy.replay, step: prepareStep }
+              : null,
+        }
+      : null;
+  const onPart = (next: RunPart) => dispatch({ type: 'partChosen', part: next });
+  const tabs = prepares && watching && (
+    <PartTabs
+      part={part}
+      onPart={onPart}
+      reused={Boolean((hierarchy ?? landmarks)?.reused)}
+      done={!hierarchy || (run.preparePlayback?.position ?? 0) >= hierarchy.replay.steps}
+    />
+  );
+  const skipToSearch = () => {
+    dispatch({ type: 'partChosen', part: 'search' });
+    dispatch({ type: 'playback', apply: play });
+  };
 
   const map = (
     <MapCanvas
@@ -214,6 +277,8 @@ export function ExplorePage() {
                   server={run.server}
                   running={runningLabel(state.algorithms)}
                   traffic={trafficSource && { provider: trafficSource.provider, ...run.traffic }}
+                  needs={preparationsOf(state.algorithms)}
+                  prepare={run.prepare}
                   onCancel={cancelRun}
                 />
               )}
@@ -235,8 +300,18 @@ export function ExplorePage() {
             {watching && single && !phone && (
               <>
                 <div className={styles.runCard}>
-                  <RunCard run={single} step={step} />
-                  {single.timeline.bidirectional && <MapKey run={single} />}
+                  <RunCard
+                    run={single}
+                    step={step}
+                    status={part === 'prepare' ? (hierarchy ? 'Preparing' : 'Prepared') : undefined}
+                  >
+                    {tabs}
+                  </RunCard>
+                  {algorithms[single.algorithm].advanced ? (
+                    <AdvancedMapKey run={single} part={part} />
+                  ) : (
+                    single.timeline.bidirectional && <MapKey run={single} />
+                  )}
                   {single.traffic?.status === 'live' && (
                     <div className={styles.trafficKey}>
                       <TrafficKey
@@ -251,11 +326,14 @@ export function ExplorePage() {
                   )}
                 </div>
                 <div className={styles.playback}>
-                  <PlaybackBar
+                  <RunPlayback
+                    run={single}
+                    part={part}
                     playback={run.playback}
-                    total={single.timeline.steps}
-                    meetAt={firstMeeting(single.timeline)}
-                    onChange={(apply) => dispatch({ type: 'playback', apply })}
+                    preparePlayback={run.preparePlayback}
+                    hierarchy={hierarchy}
+                    dispatch={dispatch}
+                    onSkip={skipToSearch}
                   />
                 </div>
               </>
@@ -263,6 +341,11 @@ export function ExplorePage() {
             {watching && single && phone && (
               <PhoneRun
                 run={single}
+                part={part}
+                tabs={tabs}
+                preparePlayback={run.preparePlayback}
+                hierarchy={hierarchy}
+                onSkip={skipToSearch}
                 trafficLayer={state.trafficLayer}
                 onToggleTraffic={toggleLayer}
                 onCheckKey={checkKey}
@@ -278,13 +361,34 @@ export function ExplorePage() {
 
           {watching && single && !phone && (
             <aside className={styles.inspectorSide} aria-label="Inspector">
-              <Inspector
-                run={single}
-                step={step}
-                names={run.result.places}
-                playing={run.playback.playing}
-                onHighlight={setHighlight}
-              />
+              {part === 'prepare' && hierarchy ? (
+                <ContractionInspector
+                  hierarchy={hierarchy}
+                  step={prepareStep}
+                  names={run.result.places}
+                  objective={run.result.objective}
+                />
+              ) : part === 'prepare' && landmarks ? (
+                <LandmarksPrepared
+                  landmarks={landmarks}
+                  names={run.result.places}
+                  objective={run.result.objective}
+                />
+              ) : (
+                <Inspector
+                  run={single}
+                  step={step}
+                  names={run.result.places}
+                  playing={run.playback.playing}
+                  onHighlight={setHighlight}
+                  onWatch={() =>
+                    dispatch({
+                      type: 'playback',
+                      apply: (p, total) => play({ ...p, position: 0 }, total),
+                    })
+                  }
+                />
+              )}
             </aside>
           )}
         </div>
@@ -385,6 +489,12 @@ function RouteSummary({
 
 interface PhoneRunProps {
   run: RunView;
+  part: RunPart;
+  /** Prepare and Search, for algorithms that prepare first. */
+  tabs: ReactNode;
+  preparePlayback: PlaybackState | null;
+  hierarchy?: HierarchyView;
+  onSkip(): void;
   trafficLayer: boolean;
   onToggleTraffic(): void;
   onCheckKey(): void;
@@ -398,6 +508,11 @@ interface PhoneRunProps {
 
 function PhoneRun({
   run,
+  part,
+  tabs,
+  preparePlayback,
+  hierarchy,
+  onSkip,
   trafficLayer,
   onToggleTraffic,
   onCheckKey,
@@ -409,6 +524,7 @@ function PhoneRun({
   onEdit,
 }: PhoneRunProps) {
   const [details, setDetails] = useState(false);
+  const prepareAt = preparePlayback ? Math.floor(preparePlayback.position) : 0;
   const live = run.traffic?.status === 'live' ? run.traffic : null;
   // At the end, the sheet sums up how traffic changed the route.
   const summary =
@@ -418,7 +534,17 @@ function PhoneRun({
   return (
     <>
       <div className={styles.phoneTop}>
-        <RunCard run={run} step={step} compact />
+        <RunCard
+          run={run}
+          step={step}
+          compact
+          status={part === 'prepare' ? (hierarchy ? 'Preparing' : 'Prepared') : undefined}
+          prepareStep={
+            part === 'prepare' && preparePlayback ? Math.floor(preparePlayback.position) : undefined
+          }
+        >
+          {tabs}
+        </RunCard>
         <button
           type="button"
           className={styles.iconButton}
@@ -452,8 +578,11 @@ function PhoneRun({
             </span>
           ) : (
             <span>
-              {describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}
-              {!details && <StopMeterLine run={run} step={step} />}
+              {advancedLine(run, part === 'prepare' ? prepareAt : step, names, part) ??
+                describeStep(run.timeline, step, run.algorithm, run.objective, run.weight)}
+              {!details && part === 'search' && run.algorithm !== 'ch' && (
+                <StopMeterLine run={run} step={step} />
+              )}
             </span>
           )}
           <span className={styles.details}>
@@ -461,23 +590,49 @@ function PhoneRun({
             {details ? <ChevronDownIcon size={16} /> : <ChevronUpIcon size={16} />}
           </span>
         </button>
-        {details && (
-          <Inspector
-            run={run}
-            step={step}
-            names={names}
-            playing={playback.playing}
-            compact
-            onHighlight={onHighlight}
-          />
-        )}
-        <PlaybackBar
+        {details &&
+          (part === 'prepare' && hierarchy ? (
+            <ContractionInspector
+              hierarchy={hierarchy}
+              step={prepareAt}
+              names={names}
+              objective={run.objective}
+              compact
+            />
+          ) : part === 'prepare' && run.preparation?.landmarks ? (
+            <LandmarksPrepared
+              landmarks={run.preparation.landmarks}
+              names={names}
+              objective={run.objective}
+            />
+          ) : (
+            <Inspector
+              run={run}
+              step={step}
+              names={names}
+              playing={playback.playing}
+              compact
+              onHighlight={onHighlight}
+            />
+          ))}
+        <RunPlayback
+          run={run}
+          part={part}
           playback={playback}
-          total={run.timeline.steps}
-          onChange={(apply) => dispatch({ type: 'playback', apply })}
-          variant="compact"
-          meetAt={firstMeeting(run.timeline)}
+          preparePlayback={preparePlayback}
+          hierarchy={hierarchy}
+          dispatch={dispatch}
+          onSkip={onSkip}
+          compact
         />
+        {roundsOf(run) && part === 'search' && (
+          <p className={styles.phoneNote}>The step buttons jump a whole round at a time.</p>
+        )}
+        {part === 'prepare' && hierarchy && !hierarchy.reused && (
+          <p className={styles.phoneNote}>
+            Your phone did all of this in {formatMs(hierarchy.ms)}; it's slowed down to watch.
+          </p>
+        )}
       </section>
     </>
   );
@@ -486,3 +641,77 @@ function PhoneRun({
 /** Where a bidirectional search's sides first met, if they did. */
 const firstMeeting = (timeline: Timeline) =>
   timeline.meetCount > 0 ? timeline.meetStep[0] : undefined;
+
+interface RunPlaybackProps {
+  run: RunView;
+  part: RunPart;
+  playback: PlaybackState;
+  preparePlayback: PlaybackState | null;
+  hierarchy?: HierarchyView;
+  dispatch(action: ExploreAction): void;
+  onSkip(): void;
+  compact?: boolean;
+}
+
+/**
+ * The playback bar for whatever is being watched: contraction being prepared, Bellman-Ford a
+ * round at a time, or any other search a step at a time.
+ */
+function RunPlayback({
+  run,
+  part,
+  playback,
+  preparePlayback,
+  hierarchy,
+  dispatch,
+  onSkip,
+  compact = false,
+}: RunPlaybackProps) {
+  const variant = compact ? 'compact' : 'full';
+  if (part === 'prepare') {
+    if (!hierarchy || !preparePlayback) return null;
+    const { replay } = hierarchy;
+    const at = Math.floor(preparePlayback.position);
+    return (
+      <PlaybackBar
+        playback={preparePlayback}
+        total={replay.steps}
+        onChange={(apply) => dispatch({ type: 'preparePlayback', apply })}
+        variant={variant}
+        label={
+          compact
+            ? `Contracted ${formatCount(at)} of ${formatCount(replay.steps)} nodes`
+            : `Contracted ${formatCount(at)} of ${formatCount(replay.steps)} nodes · ${formatCount(replay.shortcutsBy[at]!)} shortcuts so far`
+        }
+        onSkip={onSkip}
+      />
+    );
+  }
+  const rounds = roundsOf(run);
+  const total = run.timeline.steps;
+  const step = Math.floor(playback.position);
+  const jump = (direction: 1 | -1) => () => {
+    const to = roundJump(rounds!, step, direction, total);
+    dispatch({ type: 'playback', apply: (p, t) => pause(seek(p, to, t)) });
+  };
+  return (
+    <PlaybackBar
+      playback={playback}
+      total={total}
+      onChange={(apply) => dispatch({ type: 'playback', apply })}
+      variant={variant}
+      meetAt={firstMeeting(run.timeline)}
+      rounds={
+        rounds
+          ? {
+              label: run.timeline.stopped
+                ? `round ${rounds.roundAt[step]}`
+                : `round ${rounds.roundAt[step]} of ${rounds.count - 1}`,
+              onBack: jump(-1),
+              onForward: jump(1),
+            }
+          : undefined
+      }
+    />
+  );
+}

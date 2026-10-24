@@ -60,3 +60,37 @@ export function meetingSplit(
   const fromA = t.entrySide[entry] === 0 ? cost : total - cost;
   return { fromA, toB: total - fromA };
 }
+
+export interface ClimbStopCheck {
+  /** Each side's next entry worth taking, or -1 if it has none; outdated entries don't count. */
+  entries: [number, number];
+  /** Their costs; Infinity when a side has run out. */
+  next: [number, number];
+  /** The best route found so far; Infinity before the sides meet. */
+  best: number;
+  /** Neither side can beat the best route any more: the search stops here. */
+  canStop: boolean;
+}
+
+/**
+ * Contraction hierarchies' stop rule after `step`. Each side only climbs, so a cheaper meeting
+ * can lie beyond either side's frontier: it stops once each side's cheapest node waiting costs
+ * at least the best route, rather than once the two add up to it.
+ */
+export function climbStopCheck(
+  t: Entries & Pick<Timeline, 'entryStale' | 'entryCost' | 'meetCount' | 'meetStep' | 'meetLength'>,
+  step: number,
+): ClimbStopCheck {
+  const entries: [number, number] = [-1, -1];
+  const end = Math.min(t.entryCount, t.leftBy[step]! + SCAN_LIMIT);
+  for (let i = t.leftBy[step]!; i < end && (entries[0] < 0 || entries[1] < 0); i++) {
+    const entry = t.leaveOrder[i]!;
+    if (t.entryEnter[entry]! > step || t.entryStale[entry]! <= step) continue;
+    const side = t.entrySide[entry]!;
+    if (entries[side]! < 0) entries[side] = entry;
+  }
+  const next = entries.map((e) => (e < 0 ? Infinity : t.entryCost[e]!)) as [number, number];
+  const meeting = meetingAt(t, step);
+  const best = meeting < 0 ? Infinity : t.meetLength[meeting]!;
+  return { entries, next, best, canStop: Math.min(...next) >= best };
+}

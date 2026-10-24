@@ -12,16 +12,29 @@ export interface PartLines {
 export interface Pseudocode {
   lines: string[];
   parts: Partial<Record<StepPartKind, PartLines>>;
+  /** The lines that set up the search; by default, those before its first loop. */
+  start?: PartLines;
 }
 
 const span = (from: number, to: number) =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
-/** Dijkstra and A*: the same loop, ordered by g, or by g plus a (possibly weighted) estimate. */
-function bestFirst(name: string, args: string, order: string, pushed: string): Pseudocode {
+/**
+ * Dijkstra and A*: the same loop, ordered by g, or by g plus a (possibly weighted) estimate.
+ * `prelude` goes before the loop's set-up, such as how ALT works out its estimate.
+ */
+function bestFirst(
+  name: string,
+  args: string,
+  order: string,
+  pushed: string,
+  prelude: string[] = [],
+): Pseudocode {
+  const n = (line: number) => line + prelude.length;
   return {
     lines: [
       `function ${name}(${args})`,
+      ...prelude,
       '  g[start] ← 0',
       `  frontier ← priority queue ordered by ${order}`,
       '  frontier.push(start)',
@@ -37,11 +50,11 @@ function bestFirst(name: string, args: string, order: string, pushed: string): P
       '  return "no route"',
     ],
     parts: {
-      skip: { lines: [6, 7], focus: 7 },
-      take: { lines: [6, 7], focus: 6 },
-      goal: { lines: [8], focus: 8 },
-      road: { lines: span(9, 13), focus: 10 },
-      rejected: { lines: [9, 10], focus: 10 },
+      skip: { lines: [n(6), n(7)], focus: n(7) },
+      take: { lines: [n(6), n(7)], focus: n(6) },
+      goal: { lines: [n(8)], focus: n(8) },
+      road: { lines: span(n(9), n(13)), focus: n(10) },
+      rejected: { lines: [n(9), n(10)], focus: n(10) },
     },
   };
 }
@@ -165,6 +178,73 @@ export function pseudocode(algorithm: AlgorithmId, weight = 1): Pseudocode {
           road: { lines: span(8, 12), focus: 9 },
           meet: { lines: [13, 14], focus: 13 },
           rejected: { lines: [8, 9], focus: 9 },
+        },
+      };
+    case 'alt':
+      return bestFirst('alt', 'start, goal, landmarks', 'g + h', 'g[next] + h(next)', [
+        '  h(n) ← largest, over landmarks L, of',
+        '           cost(n→L) − cost(goal→L)',
+        '           cost(L→goal) − cost(L→n)',
+      ]);
+    case 'bellmanford':
+      return {
+        lines: [
+          'function bellmanFord(start, goal)',
+          '  g[start] ← 0',
+          '  queue ← [start], round 0',
+          '  while queue is not empty',
+          '    node ← queue.takeOldest()',
+          '    if this entry is outdated: skip it',
+          '    for each road from node to next, costing c',
+          '      if g[node] + c < g[next]',
+          '        if that is round n, for n nodes: return "negative loop"',
+          '        g[next] ← g[node] + c',
+          '        parent[next] ← node',
+          '        queue.add(next), one round on',
+          '  return path to goal, or "no route"',
+        ],
+        parts: {
+          skip: { lines: [5, 6], focus: 6 },
+          take: { lines: [5, 6], focus: 5 },
+          road: { lines: span(7, 12), focus: 8 },
+          rejected: { lines: [7, 8], focus: 8 },
+        },
+      };
+    case 'ch':
+      return {
+        lines: [
+          'function contract(roads)',
+          '  while nodes are left',
+          '    v ← least important node left',
+          '    for each u → v → w',
+          '      if no other way u ⇝ w is as quick',
+          '        add shortcut u → w, costing c(u,v) + c(v,w)',
+          '    take v out; rank[v] ← next rank',
+          '',
+          'function chSearch(start, goal)',
+          '  gA[start] ← 0;  gB[goal] ← 0;  best ← ∞',
+          '  frontier A ← priority queue ordered by gA, holding start',
+          '  frontier B ← priority queue ordered by gB, holding goal',
+          '  while lowest(A) < best or lowest(B) < best',
+          '    side ← A if lowest(A) ≤ lowest(B), else B',
+          '    node ← side.popLowest()',
+          '    if this entry is outdated: skip it',
+          '    for each road or shortcut from node up to next, costing c',
+          '      if g[node] + c < g[next]',
+          '        g[next] ← g[node] + c;  parent[next] ← node',
+          '        side.push(next, g[next])',
+          '        if gA[next] + gB[next] < best',
+          '          best ← that sum; meeting ← next',
+          '  return path through meeting, shortcuts unpacked',
+        ],
+        start: { lines: [10, 11, 12], focus: 12 },
+        parts: {
+          stop: { lines: [13], focus: 13 },
+          take: { lines: [14, 15], focus: 15 },
+          skip: { lines: [15, 16], focus: 16 },
+          road: { lines: span(17, 20), focus: 18 },
+          meet: { lines: [21, 22], focus: 21 },
+          rejected: { lines: [17, 18], focus: 18 },
         },
       };
     case 'dfs':

@@ -69,6 +69,7 @@ type Steps = Entries &
     | 'entryLeave'
     | 'route'
     | 'bidirectional'
+    | 'exhaustive'
     | 'meetCount'
     | 'meetStep'
     | 'meetEntry'
@@ -95,7 +96,12 @@ export function partsOfStep(timeline: Steps, step: number): StepPart[] {
     if (entry !== taken) parts.push({ kind: 'skip', entry });
   }
   parts.push({ kind: 'take', entry: taken });
-  if (step === timeline.steps && timeline.route && !timeline.bidirectional) {
+  if (
+    step === timeline.steps &&
+    timeline.route &&
+    !timeline.bidirectional &&
+    !timeline.exhaustive
+  ) {
     parts.push({ kind: 'goal' });
     return parts;
   }

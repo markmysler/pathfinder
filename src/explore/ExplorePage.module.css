@@ -288,3 +288,10 @@
   border-radius: 50%;
   background: var(--traffic);
 }
+
+/* A line under the phone's playback bar, such as how Bellman-Ford's buttons step. */
+.phoneNote {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}

@@ -1,4 +1,5 @@
 import type { JobRequest, JobResult, ServerAttempt, Stage } from './job';
+import type { PrepareProgress } from './preparations';
 import type { JobError, WorkerReply, WorkerRequest } from './protocol';
 
 export interface WorkerLike {
@@ -17,6 +18,7 @@ interface Pending {
   reject(error: JobError): void;
   onProgress(stage: Stage, server?: ServerAttempt): void;
   onTraffic?(done: number, total: number): void;
+  onPrepare?(progress: PrepareProgress): void;
 }
 
 /** A promise-based front end to the search worker; several jobs may be in flight. */
@@ -29,6 +31,7 @@ export function createSearchClient(worker: WorkerLike) {
     if (!job) return;
     if (data.type === 'progress') return job.onProgress(data.stage, data.server);
     if (data.type === 'traffic') return job.onTraffic?.(data.done, data.total);
+    if (data.type === 'prepare') return job.onPrepare?.(data.progress);
     pending.delete(data.id);
     if (data.type === 'done') job.resolve(data.result);
     else job.reject(data.error);
@@ -40,10 +43,12 @@ export function createSearchClient(worker: WorkerLike) {
       onProgress: (stage: Stage, server?: ServerAttempt) => void,
       /** How many pieces of live traffic have arrived, out of how many. */
       onTraffic?: (done: number, total: number) => void,
+      /** How preparing landmarks or shortcuts is getting on. */
+      onPrepare?: (progress: PrepareProgress) => void,
     ): RunningJob {
       const id = ++lastId;
       const result = new Promise<JobResult>((resolve, reject) => {
-        pending.set(id, { resolve, reject, onProgress, onTraffic });
+        pending.set(id, { resolve, reject, onProgress, onTraffic, onPrepare });
       });
       worker.postMessage({ type: 'run', id, request });
       return {

@@ -3,10 +3,7 @@ import { randomGeoProblem, type RandomProblem } from '../test/arbitraries';
 import { binaryTree } from '../test/fixtures';
 import { referenceHops } from '../test/reference';
 import { straightLineHeuristic } from './heuristics';
-import { bellmanFord } from './bellmanFord';
-import { contractionHierarchies } from './hierarchy';
 import { algorithms } from './index';
-import { alt } from './landmarks';
 import { runSearch } from './trace';
 import type { SearchAlgorithm } from './types';
 
@@ -18,16 +15,9 @@ interface Entry {
   exhaustive?: boolean;
 }
 
-// Built and tested, waiting for their UI before they join the registry.
-const PENDING: Entry[] = [
-  { name: 'Bellman-Ford', search: bellmanFord, bidirectional: false, exhaustive: true },
-  { name: 'ALT', search: alt, bidirectional: false },
-  { name: 'Contraction hierarchies', search: contractionHierarchies, bidirectional: true },
-];
-
 // Every algorithm, present and future, must honour these rules. Adding an algorithm to the
 // registry is enough to put it under test here.
-describe.each<Entry>([...Object.values(algorithms), ...PENDING])('$name', (algorithm) => {
+describe.each<Entry>(Object.values(algorithms))('$name', (algorithm) => {
   const solve = ({ graph, source, target }: RandomProblem) =>
     runSearch(algorithm.search, {
       graph,

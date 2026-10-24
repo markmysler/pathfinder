@@ -3,16 +3,35 @@ import type { SearchAlgorithm, SearchEvent, SearchProblem, SearchResult } from '
 export interface Trace {
   events: SearchEvent[];
   result: SearchResult;
+  /** Set when recording stopped at `maxSteps`: how many steps the whole search took. */
+  stopped?: { needed: number };
 }
 
-/** Runs a search to the end, recording every event it emits. */
-export function runSearch(search: SearchAlgorithm, problem: SearchProblem): Trace {
+/**
+ * Runs a search to the end, recording every event it emits, or only those of its first
+ * `maxSteps` expansions. Past that it still runs, to count the steps and find the result.
+ */
+export function runSearch(
+  search: SearchAlgorithm,
+  problem: SearchProblem,
+  { maxSteps = Infinity }: { maxSteps?: number } = {},
+): Trace {
   const events: SearchEvent[] = [];
   const steps = search(problem);
+  let expanded = 0;
+  let recording = true;
   for (;;) {
     const step = steps.next();
-    if (step.done) return { events, result: step.value };
-    events.push(step.value);
+    if (step.done) {
+      const trace: Trace = { events, result: step.value };
+      if (!recording) trace.stopped = { needed: expanded };
+      return trace;
+    }
+    const event = step.value;
+    // A step begins with the skips before its expansion; the limit cuts before the next one.
+    if (expanded >= maxSteps && (event.type === 'pop' || event.type === 'skip')) recording = false;
+    if (event.type === 'pop') expanded++;
+    if (recording) events.push(event);
   }
 }
 

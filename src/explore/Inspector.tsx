@@ -1,21 +1,39 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { learnHref } from '../app/routes';
 import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import { algorithms } from '../algorithms';
-import type { NodeLabels } from '../osm/places';
+import { labelOf, type NodeLabels } from '../osm/places';
 import { meetingAt, roadsExploredBy } from '../playback/timeline';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { formatCost, formatCount, formatDistance } from '../ui/format';
 import type { Objective } from '../osm/network';
-import type { AlgorithmRun, TrafficOutcome } from '../worker/job';
+import type { AlgorithmRun, PreparationView, TrafficOutcome } from '../worker/job';
+import {
+  AltNow,
+  AltTiles,
+  ClimbNow,
+  ClimbTiles,
+  RoundNow,
+  RoundTiles,
+  StepLimitNotice,
+} from './AdvancedViews';
+import { roundTitle, useRounds } from './advancedRun';
 import styles from './Inspector.module.css';
 import { BothFrontiersView, BothWaysNow, BothWaysTiles } from './BothWaysViews';
 import { CodeView, FrontierView } from './InspectorViews';
 import { describeStep, searchStatus } from './narration';
 import { TrafficCoverage, TrafficStoryCard } from './TrafficViews';
 
-/** One algorithm's search, what its costs measure, and the traffic it ran with. */
-export type RunView = AlgorithmRun & { objective: Objective; traffic?: TrafficOutcome };
+/**
+ * One algorithm's search, what its costs measure, and the traffic it ran with. The advanced
+ * algorithms also need what was prepared, and the node B snapped to.
+ */
+export type RunView = AlgorithmRun & {
+  objective: Objective;
+  traffic?: TrafficOutcome;
+  preparation?: PreparationView;
+  target?: number;
+};
 
 interface Props {
   run: RunView;
@@ -32,18 +50,44 @@ interface InspectorProps {
   compact?: boolean;
   /** Rings a node on the map, or clears the ring with null. */
   onHighlight?(position: [number, number] | null): void;
+  /** Plays a search stopped at the step limit from its start. */
+  onWatch?(): void;
 }
 
 type View = 'now' | 'frontier' | 'code';
 
-const STATUS_LABEL = { searching: 'Searching', found: 'Found route', 'no-route': 'No route' };
+const STATUS_LABEL = {
+  searching: 'Searching',
+  found: 'Found route',
+  'no-route': 'No route',
+  stopped: 'Stopped · too long',
+};
 
 /** The algorithm's badge, name and status, shown over the map. */
-export function RunCard({ run, step, compact = false }: Props & { compact?: boolean }) {
+export function RunCard({
+  run,
+  step,
+  compact = false,
+  children,
+  status: statusText,
+  prepareStep,
+}: Props & {
+  compact?: boolean;
+  /** Prepare and Search tabs, for algorithms that prepare first. */
+  children?: ReactNode;
+  /** Says what is shown instead of how the search stands, such as "Preparing". */
+  status?: string;
+  /** Watching contraction: how far it has got, for the numbers under a phone's card. */
+  prepareStep?: number;
+}) {
   const { timeline, objective } = run;
+  const rounds = useRounds(run);
+  const status = searchStatus(timeline, step);
+  const replay = run.preparation?.hierarchy?.replay;
   // Phones have no room for "Bidirectional"; its badge's arrows say it.
+  const { bidirectional, advanced } = algorithms[run.algorithm];
   const name =
-    compact && algorithms[run.algorithm].bidirectional
+    compact && (bidirectional || (advanced && run.algorithm !== 'bellmanford'))
       ? ALGORITHM_STYLE[run.algorithm].short
       : algorithmName(run.algorithm, run.weight);
   return (
@@ -51,12 +95,65 @@ export function RunCard({ run, step, compact = false }: Props & { compact?: bool
       <div className={styles.cardHeader}>
         <AlgorithmBadge algorithm={run.algorithm} className={styles.badge} />
         <h2>{name}</h2>
+        {!compact && children}
         <span className={styles.status}>
           <span className={styles.dot} aria-hidden="true" />
-          {STATUS_LABEL[searchStatus(timeline, step)]}
+          {statusText ??
+            (rounds && status === 'searching'
+              ? `Round ${rounds.roundAt[step]}`
+              : STATUS_LABEL[status])}
         </span>
       </div>
-      {compact && (
+      {compact && children}
+      {compact && replay && prepareStep !== undefined && (
+        <dl className={styles.mini}>
+          <div>
+            <dt>Contracted</dt>
+            <dd>{Math.round((100 * prepareStep) / replay.steps)}%</dd>
+          </div>
+          <div>
+            <dt>Shortcuts so far</dt>
+            <dd>{formatCount(replay.shortcutsBy[prepareStep]!)}</dd>
+          </div>
+        </dl>
+      )}
+      {compact && prepareStep === undefined && rounds && (
+        <dl className={styles.mini}>
+          <div>
+            <dt>Expanded</dt>
+            <dd>{formatCount(step)}</dd>
+          </div>
+          <div>
+            <dt>Corrections</dt>
+            <dd>{formatCount(step - rounds.distinctBy[step]!)}</dd>
+          </div>
+          <div>
+            <dt>Best to B</dt>
+            <dd>
+              {Number.isFinite(rounds.targetCostAt[step]!)
+                ? formatCost(rounds.targetCostAt[step]!, objective)
+                : '—'}
+            </dd>
+          </div>
+        </dl>
+      )}
+      {compact && prepareStep === undefined && run.algorithm === 'alt' && (
+        <dl className={styles.mini}>
+          <div>
+            <dt>Expanded</dt>
+            <dd>{formatCount(step)}</dd>
+          </div>
+          <div>
+            <dt>So far</dt>
+            <dd>{formatCost(timeline.expandedCost[step]!, objective)}</dd>
+          </div>
+          <div>
+            <dt>Estimate</dt>
+            <dd>{formatCost(timeline.expandedEstimate[step]!, objective)}</dd>
+          </div>
+        </dl>
+      )}
+      {compact && prepareStep === undefined && !rounds && run.algorithm !== 'alt' && (
         <dl className={styles.mini}>
           <div>
             <dt>Expanded</dt>
@@ -97,9 +194,13 @@ export function Inspector({
   playing,
   compact = false,
   onHighlight,
+  onWatch,
 }: Props & InspectorProps) {
   const { timeline, objective } = run;
   const { name, informed, bidirectional } = algorithms[run.algorithm];
+  const rounds = useRounds(run);
+  const ch = run.algorithm === 'ch';
+  const alt = run.algorithm === 'alt';
   const [view, setView] = useState<View>('now');
   const views: { id: View; label: string }[] = [
     { id: 'now', label: 'Now' },
@@ -115,9 +216,26 @@ export function Inspector({
         <>
           <header>
             <p className={styles.eyebrow}>Inspector</p>
-            <h2 className={styles.title}>What {name} is doing right now</h2>
+            <h2 className={styles.title}>
+              {rounds
+                ? roundTitle(timeline, rounds, step)
+                : (alt || ch) && step >= timeline.steps
+                  ? `${name} ${timeline.route ? `found the ${objective} route` : 'found no route'}`
+                  : alt && step > 0
+                    ? `ALT is expanding ${labelOf(names, timeline.expandedNode[step]!)}`
+                    : ch && step > 0
+                      ? `Contraction hierarchies is climbing from ${timeline.expandedSide[step] ? 'B' : 'A'}`
+                      : `What ${name} is doing right now`}
+            </h2>
           </header>
-          {bidirectional ? (
+          {run.limit && <StepLimitNotice limit={run.limit} name={name} onWatch={onWatch} />}
+          {rounds ? (
+            <RoundTiles run={run} step={step} rounds={rounds} />
+          ) : alt ? (
+            <AltTiles run={run} step={step} />
+          ) : ch ? (
+            <ClimbTiles run={run} step={step} hierarchy={run.preparation?.hierarchy} />
+          ) : bidirectional ? (
             <BothWaysTiles run={run} step={step} />
           ) : (
             <dl className={styles.tiles}>
@@ -148,6 +266,8 @@ export function Inspector({
           )}
         </>
       )}
+
+      {compact && run.limit && <StepLimitNotice limit={run.limit} name={name} onWatch={onWatch} />}
 
       <div role="tablist" aria-label="Inspector views" className={styles.tabs}>
         {views.map((v) => (
@@ -189,7 +309,13 @@ export function Inspector({
           <CodeView key={step} run={run} step={step} names={names} playing={playing} />
         )}
         {view === 'now' &&
-          (bidirectional ? (
+          (rounds ? (
+            <RoundNow run={run} step={step} names={names} rounds={rounds} />
+          ) : alt ? (
+            <AltNow run={run} step={step} landmarks={run.preparation?.landmarks} />
+          ) : ch ? (
+            <ClimbNow run={run} step={step} names={names} hierarchy={run.preparation?.hierarchy} />
+          ) : bidirectional ? (
             <BothWaysNow run={run} step={step} names={names} />
           ) : (
             <NowView run={run} step={step} />

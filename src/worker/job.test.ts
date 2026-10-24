@@ -4,6 +4,7 @@ import { buildRoadNetwork, type OverpassResponse } from '../osm/network';
 import { NoRoadNearbyError } from '../osm/prepare';
 import { TrafficError, type TrafficReading } from '../traffic/types';
 import { runJob, transferablesOf, type JobRequest, type Stage } from './job';
+import { preparationCache, type PrepareProgress } from './preparations';
 
 const network = buildRoadNetwork(plazaDeMayo as unknown as OverpassResponse);
 const request: JobRequest = {
@@ -118,6 +119,8 @@ describe('runJob', () => {
   it('reports where A and B were snapped to', async () => {
     const result = await runJob(request, deps().deps);
     const { start, target } = result.snapped;
+    expect(result.runs[0]!.timeline.expandedNode[1]).toBe(start.node);
+    expect(result.runs[0]!.timeline.expandedNode.at(-1)).toBe(target.node);
     expect(Math.abs(start.lat - request.start.lat)).toBeLessThan(0.001);
     expect(Math.abs(target.lon - request.target.lon)).toBeLessThan(0.001);
   });
@@ -352,5 +355,115 @@ describe('runJob with live traffic', () => {
         deps({ fetchTraffic, signal: controller.signal }).deps,
       ),
     ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('runJob with the advanced algorithms', () => {
+  const advanced: JobRequest = {
+    ...request,
+    algorithms: ['dijkstra', 'bellmanford', 'alt', 'ch'],
+  };
+
+  it('prepares before searching, and finds the same best route as Dijkstra', async () => {
+    const { deps: d, stages } = deps();
+    const result = await runJob(advanced, d);
+    expect(stages).toEqual(['download', 'graph', 'prepare', 'search']);
+    const [dijkstra, bf, alt, ch] = result.runs;
+    for (const run of [bf, alt, ch]) {
+      expect(run!.timeline.route!.cost).toBeCloseTo(dijkstra!.timeline.route!.cost, 6);
+    }
+    expect(bf!.timeline.exhaustive).toBe(true);
+    expect(bf!.timeline.steps).toBeGreaterThan(dijkstra!.timeline.steps);
+    expect(ch!.timeline.bidirectional).toBe(true);
+    expect(ch!.timeline.steps).toBeLessThan(dijkstra!.timeline.steps);
+    expect(alt!.timeline.steps).toBeLessThan(dijkstra!.timeline.steps);
+    for (const run of result.runs) expect(run.searchMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('does not prepare for algorithms that need nothing', async () => {
+    const { deps: d, stages } = deps();
+    const result = await runJob({ ...request, algorithms: ['dijkstra', 'bellmanford'] }, d);
+    expect(stages).not.toContain('prepare');
+    expect(result.preparation).toEqual({});
+  });
+
+  it('sends the landmarks, and how ALT used them at every step', async () => {
+    const result = await runJob({ ...request, algorithms: ['alt'] }, deps().deps);
+    const { landmarks } = result.preparation;
+    expect(landmarks!.node).toHaveLength(8);
+    expect(landmarks!.reused).toBe(false);
+    const [alt] = result.runs;
+    expect(alt!.landmarkSteps!.best).toHaveLength(alt!.timeline.steps + 1);
+    // The estimate the inspector shows is the landmarks', not the straight line.
+    const step = 1;
+    const count = landmarks!.node.length;
+    const bounds = alt!.landmarkSteps!.bounds.subarray(step * count, (step + 1) * count);
+    expect(alt!.timeline.expandedEstimate[step]).toBeCloseTo(Math.max(0, ...bounds), 6);
+  });
+
+  it('sends how the map was contracted, and what the climbs took', async () => {
+    const result = await runJob({ ...request, algorithms: ['ch'] }, deps().deps);
+    const { hierarchy } = result.preparation;
+    expect(hierarchy!.replay.steps).toBeGreaterThan(100);
+    expect(hierarchy!.shortcuts).toBe(hierarchy!.replay.shortcutCount);
+    const [ch] = result.runs;
+    expect(ch!.climb!.roads).toBe(ch!.timeline.route!.positions.length / 2 - 1);
+    // For scale: what Dijkstra expands for the same route.
+    const plain = await runJob({ ...request, algorithms: ['dijkstra'] }, deps().deps);
+    expect(ch!.climb!.dijkstra).toBe(plain.runs[0]!.timeline.steps);
+  });
+
+  it('passes on how preparing is getting on', async () => {
+    const progress: PrepareProgress[] = [];
+    await runJob(advanced, deps({ onPrepare: (p) => progress.push(p) }).deps);
+    expect(progress.map((p) => p.kind)).toContain('landmarks');
+    expect(progress.at(-1)).toMatchObject({ kind: 'hierarchy' });
+    expect(progress.at(-1)!.done).toBe(progress.at(-1)!.total);
+  });
+
+  it('reuses what it prepared for the next run on the same roads, and only those', async () => {
+    const preparations = preparationCache();
+    const first = await runJob(advanced, deps({ preparations }).deps);
+    const again = await runJob(
+      { ...advanced, algorithms: ['ch', 'alt'] },
+      deps({ preparations }).deps,
+    );
+    expect(first.preparation.hierarchy!.reused).toBe(false);
+    expect(again.preparation.hierarchy!.reused).toBe(true);
+    expect(again.preparation.landmarks!.reused).toBe(true);
+    expect(again.preparation.hierarchy!.ms).toBe(first.preparation.hierarchy!.ms);
+    const shortest = await runJob(
+      { ...advanced, objective: 'shortest' },
+      deps({ preparations }).deps,
+    );
+    expect(shortest.preparation.hierarchy!.reused).toBe(false);
+  });
+
+  it('stops Bellman-Ford at the step limit, saying how many steps it would need', async () => {
+    const result = await runJob(
+      { ...request, algorithms: ['bellmanford'] },
+      deps({ stepLimit: 50 }).deps,
+    );
+    const [bf] = result.runs;
+    expect(bf!.timeline.steps).toBe(50);
+    expect(bf!.timeline.stopped).toBe(true);
+    expect(bf!.timeline.route).toBeNull();
+    const full = await runJob({ ...request, algorithms: ['bellmanford', 'dijkstra'] }, deps().deps);
+    expect(full.runs[0]!.limit).toBeUndefined();
+    expect(bf!.limit).toEqual({
+      steps: 50,
+      needed: full.runs[0]!.timeline.steps,
+      dijkstra: full.runs[1]!.timeline.steps,
+    });
+  });
+
+  it('moves every preparation buffer to the page rather than copying it', async () => {
+    const result = await runJob(advanced, deps().deps);
+    const buffers = transferablesOf(result);
+    const { landmarks, hierarchy } = result.preparation;
+    expect(buffers).toContain(landmarks!.position.buffer);
+    expect(buffers).toContain(hierarchy!.replay.shortcutPosition.buffer);
+    expect(buffers).toContain(result.runs[2]!.landmarkSteps!.bounds.buffer);
+    expect(new Set(buffers).size).toBe(buffers.length);
   });
 });

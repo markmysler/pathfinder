@@ -22,7 +22,7 @@ export interface DiagramState {
 }
 
 /** A diagram network as a graph, with its node ids in graph order. */
-function graphOf(network: DiagramNetwork) {
+export function graphOf(network: DiagramNetwork) {
   const ids = network.nodes.map((n) => n.id);
   const index = (id: string) => ids.indexOf(id);
   const graph = buildGraph({
@@ -113,6 +113,9 @@ const SPOKEN: Record<AlgorithmId, string> = {
   bibfs: 'Bidirectional BFS',
   bidijkstra: 'Bidirectional Dijkstra',
   biastar: 'Bidirectional A*',
+  bellmanford: 'Bellman-Ford',
+  alt: 'ALT',
+  ch: 'Contraction hierarchies',
 };
 
 /** "S", "S and A", "S, A and C". */

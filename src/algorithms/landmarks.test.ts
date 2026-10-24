@@ -7,7 +7,7 @@ import { graphFrom, grid } from '../test/fixtures';
 import { referenceDistances } from '../test/reference';
 import { aStar } from './astar';
 import { dijkstra } from './dijkstra';
-import { alt, chooseLandmarks, landmarkHeuristic } from './landmarks';
+import { alt, chooseLandmarks, landmarkHeuristic, landmarksAt } from './landmarks';
 import { runSearch, summarize } from './trace';
 
 describe('chooseLandmarks', () => {
@@ -50,6 +50,16 @@ describe('chooseLandmarks', () => {
     );
   });
 
+  it('records how far each landmark was from the nearest one before it, there and back', () => {
+    const graph = grid(5);
+    const { nodes, spread } = chooseLandmarks(graph, { count: 2, from: 0 });
+    // 24 is 8 streets from the start corner and back; 0 is then 8 there and 8 back from 24.
+    expect([...nodes]).toEqual([24, 0]);
+    const across = 2 * referenceDistances(graph, 0)[24]!;
+    expect(spread[0]).toBeCloseTo(across, 6);
+    expect(spread[1]).toBeCloseTo(across, 6);
+  });
+
   it('only picks nodes it can reach from where it starts', () => {
     // Node 3 has a road into 0 but none out of it, so from 0 there are only three nodes to pick.
     const graph = graphFrom([
@@ -60,6 +70,18 @@ describe('chooseLandmarks', () => {
       [3, 0, 1],
     ]);
     expect([...chooseLandmarks(graph, { count: 4, from: 0 }).nodes].sort()).toEqual([0, 1, 2]);
+  });
+});
+
+describe('landmarksAt', () => {
+  it('measures the same costs as chosen landmarks would, at the nodes given', () => {
+    const graph = grid(5);
+    const chosen = chooseLandmarks(graph, { count: 2, from: 0 });
+    const given = landmarksAt(graph, [...chosen.nodes]);
+    expect(given.from).toEqual(chosen.from);
+    expect(given.to).toEqual(chosen.to);
+    expect(given.spread[0]).toBe(0);
+    expect(given.spread[1]).toBeCloseTo(chosen.spread[1]!, 6);
   });
 });
 

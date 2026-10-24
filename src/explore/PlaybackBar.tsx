@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   formatSpeed,
   PRESET_SPEEDS,
@@ -15,6 +16,7 @@ import {
 } from '../playback/playback';
 import { formatCount } from '../ui/format';
 import {
+  ChevronRightIcon,
   JumpToEndIcon,
   PauseIcon,
   PlayIcon,
@@ -44,6 +46,12 @@ interface Props {
   marks?: readonly FinishMark[];
   /** The step where a bidirectional search's sides first met, marked on the scrubber. */
   meetAt?: number;
+  /** Bellman-Ford: step buttons move a whole round, and the label says which round. */
+  rounds?: { label: string; onBack(): void; onForward(): void };
+  /** Says what is counted instead of "Step x of y", as replaying contraction does. */
+  label?: ReactNode;
+  /** Replaces "Jump to end": leave this replay for the search. */
+  onSkip?(): void;
 }
 
 /** Marks too close to fit side by side alternate between two rows. */
@@ -71,6 +79,9 @@ export function PlaybackBar({
   note,
   marks = [],
   meetAt,
+  rounds,
+  label,
+  onSkip,
 }: Props) {
   const step = Math.floor(playback.position);
   const speedLabel = formatSpeed(playback.speed);
@@ -92,14 +103,26 @@ export function PlaybackBar({
         >
           <RestartIcon />
         </button>
-        <button
-          type="button"
-          className={styles.button}
-          aria-label="Step back"
-          onClick={() => onChange(stepBack)}
-        >
-          <StepBackIcon />
-        </button>
+        {rounds ? (
+          <button
+            type="button"
+            className={`${styles.button} ${styles.wordButton}`}
+            aria-label="Back one round"
+            onClick={rounds.onBack}
+          >
+            <StepBackIcon size={16} />
+            {!compact && 'Round'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.button}
+            aria-label="Step back"
+            onClick={() => onChange(stepBack)}
+          >
+            <StepBackIcon />
+          </button>
+        )}
         {playback.playing ? (
           <button
             type="button"
@@ -119,22 +142,46 @@ export function PlaybackBar({
             <PlayIcon size={20} />
           </button>
         )}
-        <button
-          type="button"
-          className={styles.button}
-          aria-label="Step forward"
-          onClick={() => onChange(stepForward)}
-        >
-          <StepForwardIcon />
-        </button>
-        <button
-          type="button"
-          className={styles.button}
-          aria-label="Jump to end"
-          onClick={() => onChange(jumpToEnd)}
-        >
-          <JumpToEndIcon />
-        </button>
+        {rounds ? (
+          <button
+            type="button"
+            className={`${styles.button} ${styles.wordButton}`}
+            aria-label="Forward one round"
+            onClick={rounds.onForward}
+          >
+            {!compact && 'Round'}
+            <StepForwardIcon size={16} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.button}
+            aria-label="Step forward"
+            onClick={() => onChange(stepForward)}
+          >
+            <StepForwardIcon />
+          </button>
+        )}
+        {onSkip ? (
+          <button
+            type="button"
+            className={`${styles.button} ${styles.wordButton}`}
+            aria-label="Skip to the search"
+            onClick={onSkip}
+          >
+            {compact ? 'Search' : <JumpToEndIcon size={16} />}
+            {compact ? <ChevronRightIcon size={16} /> : 'Skip to search'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.button}
+            aria-label="Jump to end"
+            onClick={() => onChange(jumpToEnd)}
+          >
+            <JumpToEndIcon />
+          </button>
+        )}
         {compact && (
           <button
             type="button"
@@ -150,7 +197,13 @@ export function PlaybackBar({
       <label className={styles.scrubber}>
         <span className={styles.labels}>
           <span>
-            Step <span className={styles.value}>{formatCount(step)}</span> of {formatCount(total)}
+            {label ?? (
+              <>
+                Step <span className={styles.value}>{formatCount(step)}</span> of{' '}
+                {formatCount(total)}
+              </>
+            )}
+            {rounds && !compact && ` · ${rounds.label}`}
             {note && !compact && ` · ${note}`}
           </span>
           {meetAt !== undefined ? (
@@ -160,9 +213,9 @@ export function PlaybackBar({
               <span className={styles.value}>{formatCount(meetAt)}</span>
             </span>
           ) : compact ? (
-            note && <span>{note}</span>
+            (rounds?.label ?? note) && <span>{rounds?.label ?? note}</span>
           ) : (
-            <span>Drag to scrub</span>
+            !label && <span>Drag to scrub</span>
           )}
         </span>
         <span className={styles.track}>

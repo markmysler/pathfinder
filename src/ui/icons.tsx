@@ -82,6 +82,14 @@ export const SearchIcon = stroke(
 export const ArrowRightIcon = stroke(<path d="M5 12h14M13 6l6 6-6 6" />);
 /** Two arrows, one each way: a search from both ends. */
 export const BothWaysIcon = stroke(<path d="M4 8h15l-4-4M20 16H5l4 4" />);
+/** A stopwatch: done before the clock starts, as preparing is. */
+export const TimerIcon = stroke(
+  <>
+    <circle cx="12" cy="13" r="8" />
+    <path d="M12 9v4l2.5 2.5M9 2h6" />
+  </>,
+);
+export const LevelsIcon = stroke(<path d="M3 20h18M6 20V10M12 20V4M18 20v-7" />);
 export const KeyIcon = stroke(
   <>
     <circle cx="8" cy="15" r="4" />

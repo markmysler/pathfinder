@@ -1,16 +1,18 @@
-import { algorithms, type AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId, type Preparation } from '../algorithms';
 import type { Place } from '../geo/nominatim';
 import type { LatLon } from '../osm/area';
 import type { Objective } from '../osm/network';
 import type { TravelMode } from '../osm/roads';
 import {
   initialPlayback,
+  pause,
   play,
   setSpeed,
   suggestedSpeed,
   type PlaybackState,
 } from '../playback/playback';
 import type { JobResult, ServerAttempt, Stage } from '../worker/job';
+import type { PrepareProgress } from '../worker/preparations';
 import type { JobError } from '../worker/protocol';
 import type { TrafficSettings } from '../traffic/settings';
 import type { TrafficFailure, TrafficProvider } from '../traffic/types';
@@ -26,6 +28,8 @@ export type RunState =
       server?: ServerAttempt;
       /** Pieces of live traffic arrived so far, when traffic is on. */
       traffic?: { done: number; total: number };
+      /** How preparing landmarks and shortcuts is getting on. */
+      prepare?: Partial<Record<Preparation, PrepareProgress>>;
     }
   | { status: 'failed'; error: JobError }
   | {
@@ -34,7 +38,13 @@ export type RunState =
       playback: PlaybackState;
       /** Maps shown when only a few fit (phones), the one picked longest ago first. */
       shown: AlgorithmId[];
+      /** Watching how the map was prepared, or the search. */
+      part: RunPart;
+      /** Contraction played back on its own clock; null when there is none to watch. */
+      preparePlayback: PlaybackState | null;
     };
+
+export type RunPart = 'prepare' | 'search';
 
 /** How many stacked maps fit on a phone. */
 export const MAX_SHOWN_MAPS = 3;
@@ -85,7 +95,13 @@ export type ExploreAction =
   | { type: 'trafficSaved'; settings: TrafficSettings }
   | { type: 'trafficSwitched'; on: boolean }
   | { type: 'trafficLayerToggled' }
-  | { type: 'trafficProgressed'; done: number; total: number };
+  | { type: 'trafficProgressed'; done: number; total: number }
+  | { type: 'prepareProgressed'; progress: PrepareProgress }
+  | { type: 'partChosen'; part: RunPart }
+  | {
+      type: 'preparePlayback';
+      apply: (playback: PlaybackState, total: number) => PlaybackState;
+    };
 
 export const initialExplore: ExploreState = {
   start: null,
@@ -190,11 +206,33 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
         ...state,
         run: { ...state.run, traffic: { done: action.done, total: action.total } },
       };
+    case 'prepareProgressed': {
+      if (state.run.status !== 'loading') return state;
+      const { progress } = action;
+      const prepare = { ...state.run.prepare, [progress.kind]: progress };
+      return { ...state, run: { ...state.run, prepare } };
+    }
     case 'runSucceeded': {
       if (state.run.status !== 'loading') return state;
       const { runs } = action.result;
       const steps = totalSteps(runs);
-      const playback = play(setSpeed(initialPlayback(), suggestedSpeed(steps)), steps);
+      // Contraction hierarchies on its own starts with how it prepared, then goes on to search.
+      const replay =
+        runs.length === 1 && runs[0]!.algorithm === 'ch'
+          ? action.result.preparation.hierarchy?.replay
+          : undefined;
+      const fresh = (total: number) =>
+        play(setSpeed(initialPlayback(), suggestedSpeed(total)), total);
+      // Reused shortcuts were watched last time: the search comes first, the replay stays.
+      const watchPrepare = replay && !action.result.preparation.hierarchy?.reused;
+      const preparePlayback = replay
+        ? watchPrepare
+          ? fresh(replay.steps)
+          : setSpeed(initialPlayback(), suggestedSpeed(replay.steps))
+        : null;
+      const playback = watchPrepare
+        ? setSpeed(initialPlayback(), suggestedSpeed(steps))
+        : fresh(steps);
       const shown = runs.slice(-MAX_SHOWN_MAPS).map((run) => run.algorithm);
       const traffic = action.result.traffic;
       const trafficProblem =
@@ -206,8 +244,49 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return {
         ...state,
         trafficProblem,
-        run: { status: 'ready', result: action.result, playback, shown },
+        run: {
+          status: 'ready',
+          result: action.result,
+          playback,
+          shown,
+          part: watchPrepare ? 'prepare' : 'search',
+          preparePlayback,
+        },
       };
+    }
+    case 'partChosen': {
+      if (state.run.status !== 'ready') return state;
+      const { playback, preparePlayback } = state.run;
+      return {
+        ...state,
+        run: {
+          ...state.run,
+          part: action.part,
+          playback: action.part === 'prepare' ? pause(playback) : playback,
+          preparePlayback:
+            action.part === 'search' && preparePlayback ? pause(preparePlayback) : preparePlayback,
+        },
+      };
+    }
+    case 'preparePlayback': {
+      if (state.run.status !== 'ready' || !state.run.preparePlayback) return state;
+      const total = state.run.result.preparation.hierarchy?.replay.steps ?? 0;
+      const before = state.run.preparePlayback;
+      const after = action.apply(before, total);
+      // Played to the end: the search picks up from there.
+      if (before.playing && !after.playing && after.position >= total) {
+        const steps = totalSteps(state.run.result.runs);
+        return {
+          ...state,
+          run: {
+            ...state.run,
+            part: 'search',
+            preparePlayback: after,
+            playback: play({ ...state.run.playback, position: 0 }, steps),
+          },
+        };
+      }
+      return { ...state, run: { ...state.run, preparePlayback: after } };
     }
     case 'runFailed':
       if (state.run.status !== 'loading') return state;

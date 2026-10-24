@@ -6,7 +6,11 @@ type EdgeList = readonly (readonly [from: number, to: number, weight: number])[]
 /** Builds a graph from `[from, to, weight]` triples. Nodes are placed on a line unless given. */
 export function graphFrom(
   edges: EdgeList,
-  options: { nodeCount?: number; coords?: readonly [lat: number, lon: number][] } = {},
+  options: {
+    nodeCount?: number;
+    coords?: readonly [lat: number, lon: number][];
+    allowNegative?: boolean;
+  } = {},
 ): Graph {
   const nodeCount =
     options.coords?.length ??
@@ -16,7 +20,10 @@ export function graphFrom(
     const [lat, lon] = options.coords?.[i] ?? [0, i * 0.001];
     return { lat, lon };
   });
-  return buildGraph({ nodes, edges: edges.map(([from, to, weight]) => ({ from, to, weight })) });
+  return buildGraph(
+    { nodes, edges: edges.map(([from, to, weight]) => ({ from, to, weight })) },
+    { allowNegative: options.allowNegative },
+  );
 }
 
 /** Same as `graphFrom`, but every edge goes both ways. */

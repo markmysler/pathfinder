@@ -1,9 +1,12 @@
 import { aStar } from './astar';
 import { bfs } from './bfs';
+import { bellmanFord } from './bellmanFord';
 import { bidirectionalAStar, bidirectionalBfs, bidirectionalDijkstra } from './bidirectional';
 import { dfs } from './dfs';
 import { dijkstra } from './dijkstra';
 import { greedy } from './greedy';
+import { contractionHierarchies } from './hierarchy';
+import { alt } from './landmarks';
 import type { SearchAlgorithm } from './types';
 
 export interface AlgorithmInfo {
@@ -22,7 +25,16 @@ export interface AlgorithmInfo {
   bidirectional: boolean;
   /** For a bidirectional search, the one-way search it runs from each end. */
   oneWay?: string;
+  /** Built for other jobs than one route on a map, and listed apart. */
+  advanced: boolean;
+  /** What it works out over the whole map before searching, if anything. */
+  prepares?: Preparation;
+  /** Keeps going after reaching B, until nothing improves. */
+  exhaustive?: boolean;
 }
+
+/** ALT's landmarks, or contraction hierarchies' order and shortcuts. */
+export type Preparation = 'landmarks' | 'hierarchy';
 
 export type FrontierRule = 'queue' | 'stack' | 'priority';
 
@@ -36,6 +48,7 @@ export const algorithms = {
     informed: false,
     frontier: 'queue',
     bidirectional: false,
+    advanced: false,
   },
   dfs: {
     id: 'dfs',
@@ -46,6 +59,7 @@ export const algorithms = {
     informed: false,
     frontier: 'stack',
     bidirectional: false,
+    advanced: false,
   },
   greedy: {
     id: 'greedy',
@@ -56,6 +70,7 @@ export const algorithms = {
     informed: true,
     frontier: 'priority',
     bidirectional: false,
+    advanced: false,
   },
   dijkstra: {
     id: 'dijkstra',
@@ -66,6 +81,7 @@ export const algorithms = {
     informed: false,
     frontier: 'priority',
     bidirectional: false,
+    advanced: false,
   },
   astar: {
     id: 'astar',
@@ -76,6 +92,7 @@ export const algorithms = {
     informed: true,
     frontier: 'priority',
     bidirectional: false,
+    advanced: false,
   },
   bibfs: {
     id: 'bibfs',
@@ -87,6 +104,7 @@ export const algorithms = {
     frontier: 'queue',
     bidirectional: true,
     oneWay: 'bfs',
+    advanced: false,
   },
   bidijkstra: {
     id: 'bidijkstra',
@@ -98,6 +116,7 @@ export const algorithms = {
     frontier: 'priority',
     bidirectional: true,
     oneWay: 'dijkstra',
+    advanced: false,
   },
   biastar: {
     id: 'biastar',
@@ -109,6 +128,43 @@ export const algorithms = {
     frontier: 'priority',
     bidirectional: true,
     oneWay: 'astar',
+    advanced: false,
+  },
+  bellmanford: {
+    id: 'bellmanford',
+    name: 'Bellman-Ford',
+    search: bellmanFord,
+    optimal: true,
+    weighted: true,
+    informed: false,
+    frontier: 'queue',
+    bidirectional: false,
+    advanced: true,
+    exhaustive: true,
+  },
+  alt: {
+    id: 'alt',
+    name: 'ALT (A* with landmarks)',
+    search: alt,
+    optimal: true,
+    weighted: true,
+    informed: true,
+    frontier: 'priority',
+    bidirectional: false,
+    advanced: true,
+    prepares: 'landmarks',
+  },
+  ch: {
+    id: 'ch',
+    name: 'Contraction hierarchies',
+    search: contractionHierarchies,
+    optimal: true,
+    weighted: true,
+    informed: false,
+    frontier: 'priority',
+    bidirectional: true,
+    advanced: true,
+    prepares: 'hierarchy',
   },
 } as const satisfies Record<string, AlgorithmInfo>;
 

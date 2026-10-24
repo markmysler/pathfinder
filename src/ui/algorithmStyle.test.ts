@@ -14,7 +14,7 @@ describe('ALGORITHM_STYLE', () => {
       expect(style.color).toMatch(/^#[0-9A-F]{6}$/);
       expect(style.badge.length).toBeLessThanOrEqual(3);
       expect(style.blurb.length).toBeGreaterThan(10);
-      expect(style.short.length).toBeLessThanOrEqual(11);
+      expect(style.short.length).toBeLessThanOrEqual(12);
     }
   });
 
@@ -40,6 +40,12 @@ describe('sideColors', () => {
       expect(b).toBe(ALGORITHM_STYLE[two].color);
       expect(lightness(b)).toBeGreaterThan(lightness(a));
     }
+  });
+
+  it('gives contraction hierarchies, which has no one-way version, its own pair', () => {
+    const [a, b] = sideColors('ch');
+    expect([a, b]).toEqual(['#E2C08D', '#F3E3C6']);
+    expect(lightness(b)).toBeGreaterThan(lightness(a));
   });
 });
 

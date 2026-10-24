@@ -1,4 +1,5 @@
-import { hopsVsCost } from '../test/fixtures';
+import { grid, hopsVsCost } from '../test/fixtures';
+import { bellmanFord } from './bellmanFord';
 import { bfs } from './bfs';
 import type { SearchEvent } from './types';
 import { runSearch, summarize } from './trace';
@@ -8,6 +9,28 @@ describe('runSearch', () => {
     const trace = runSearch(bfs, { graph: hopsVsCost(), source: 0, target: 3 });
     expect(trace.events.length).toBeGreaterThan(0);
     expect(trace.result).toEqual({ found: true, path: [0, 3], edges: [0], cost: 10 });
+    expect(trace.stopped).toBeUndefined();
+  });
+
+  it('stops recording after a number of steps, but still counts how many the search needed', () => {
+    const problem = { graph: grid(6), source: 0, target: 35 };
+    const full = runSearch(bellmanFord, problem);
+    const steps = summarize(full.events).expanded;
+    const cut = runSearch(bellmanFord, problem, { maxSteps: 10 });
+    expect(summarize(cut.events).expanded).toBe(10);
+    expect(cut.events).toEqual(full.events.slice(0, cut.events.length));
+    // The cut ends where the eleventh step would begin.
+    const next = full.events[cut.events.length]!;
+    expect(next.type === 'pop' || next.type === 'skip').toBe(true);
+    expect(cut.stopped).toEqual({ needed: steps });
+    expect(cut.result).toEqual(full.result);
+  });
+
+  it('does not stop a search that fits in the limit', () => {
+    const problem = { graph: grid(3), source: 0, target: 8 };
+    expect(runSearch(bellmanFord, problem, { maxSteps: 1000 })).toEqual(
+      runSearch(bellmanFord, problem),
+    );
   });
 });
 

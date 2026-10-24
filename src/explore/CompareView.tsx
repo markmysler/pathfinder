@@ -24,7 +24,10 @@ import { ResultsTable } from './ResultsTable';
 import { PROVIDER_NAME } from './trafficText';
 import { fetchedTime } from './trafficText';
 import { TrafficKey, TrafficNotice } from './TrafficViews';
-import type { TrafficOutcome } from '../worker/job';
+import type { PreparationView, TrafficOutcome } from '../worker/job';
+import { algorithms } from '../algorithms';
+import { StepLimitNotice } from './AdvancedViews';
+import { advancedView } from './advancedRun';
 
 type Ready = Extract<RunState, { status: 'ready' }>;
 
@@ -67,8 +70,16 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
       phone={phone}
       objective={objective}
       traffic={traffic}
+      preparation={result.preparation}
+      targetNode={result.snapped.target.node}
     />
   );
+  const limits = runs.flatMap((r) =>
+    r.limit
+      ? [<StepLimitNotice key={r.algorithm} limit={r.limit} name={algorithms[r.algorithm].name} />]
+      : [],
+  );
+  const prepared = Boolean(result.preparation.landmarks || result.preparation.hierarchy);
 
   if (phone) {
     const hidden = runs.map((r) => r.algorithm).filter((id) => !shown.includes(id));
@@ -138,6 +149,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
         </section>
 
         <section className={styles.panel} aria-label="Results">
+          {limits}
           {trafficParts}
           <ResultsTable
             runs={runs}
@@ -167,7 +179,9 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           playback={playback}
           total={total}
           onChange={onPlayback}
-          note="one clock for every map"
+          note={
+            prepared ? 'one clock for every search, after preparing' : 'one clock for every map'
+          }
           marks={marks}
         />
       </section>
@@ -177,8 +191,14 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           <h2 id="results-title">Results</h2>
           <p>Fills in as each search reaches B.</p>
         </div>
+        {limits}
         {trafficParts}
-        <ResultsTable runs={runs} objective={objective} step={step} />
+        <ResultsTable
+          runs={runs}
+          objective={objective}
+          step={step}
+          preparation={result.preparation}
+        />
         <WithoutTraffic traffic={result.traffic} objective={objective} />
       </section>
     </main>
@@ -276,6 +296,9 @@ interface MapProps {
   sync: CameraSync;
   phone: boolean;
   traffic: { live: LiveTraffic; bands: boolean } | null;
+  preparation: PreparationView;
+  /** The node B snapped to. */
+  targetNode: number;
 }
 
 // Room for the A and B markers (about 30 px across) and, on phones, the label over the map.
@@ -292,6 +315,8 @@ function ComparisonMap({
   phone,
   objective,
   traffic,
+  preparation,
+  targetNode,
 }: MapProps) {
   const { algorithm, timeline } = run;
   const { short } = ALGORITHM_STYLE[algorithm];
@@ -307,8 +332,9 @@ function ComparisonMap({
       snaps,
       meetLabel: (m: number) => `Met · best ${formatCost(timeline.meetCost[m]!, objective)}`,
       traffic,
+      advanced: advancedView(run, preparation, targetNode),
     }),
-    [timeline, at, colors, snaps, objective, traffic],
+    [timeline, at, colors, snaps, objective, traffic, run, preparation, targetNode],
   );
   const status = searchStatus(timeline, step);
 
@@ -335,7 +361,14 @@ function ComparisonMap({
           <AlgorithmBadge algorithm={algorithm} className={styles.badge} />
           <span className={styles.labelName}>{short}</span>
           <span className={styles.labelStatus}>
-            · {status === 'searching' ? 'Searching' : status === 'found' ? 'Done' : 'No route'}
+            ·{' '}
+            {status === 'searching'
+              ? 'Searching'
+              : status === 'found'
+                ? 'Done'
+                : status === 'stopped'
+                  ? 'Stopped'
+                  : 'No route'}
           </span>
         </div>
       </article>
@@ -355,7 +388,7 @@ function ComparisonMap({
             </>
           ) : (
             <>
-              {status === 'found' ? 'Done' : 'No route'} at step{' '}
+              {status === 'found' ? 'Done' : status === 'stopped' ? 'Stopped' : 'No route'} at step{' '}
               <span className={styles.mono}>{formatCount(timeline.steps)}</span>
             </>
           )}

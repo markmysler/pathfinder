@@ -3,6 +3,7 @@ import { loadRoadNetwork } from '../osm/load';
 import type { RoadNetwork } from '../osm/network';
 import { fetchTraffic, recentTraffic } from '../traffic/fetch';
 import { runJob, transferablesOf } from './job';
+import { preparationCache } from './preparations';
 import { describeError, type WorkerReply, type WorkerRequest } from './protocol';
 
 // The worker's global scope; the DOM and WebWorker typings disagree about `self`.
@@ -15,6 +16,8 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const cache = indexedDbCache<RoadNetwork>({ name: 'pathfinder-roads', ttlMs: WEEK_MS });
 // Traffic changes by the minute, but re-running moments later should not cost the user's quota.
 const recent = recentTraffic({ ttlMs: 2 * 60 * 1000 });
+// Landmarks and shortcuts for the last roads used, so the next route on them starts at once.
+const preparations = preparationCache();
 const running = new Map<number, AbortController>();
 
 scope.onmessage = async ({ data }) => {
@@ -34,6 +37,8 @@ scope.onmessage = async ({ data }) => {
         fetchTraffic(source, area, { cache: recent, ...options }),
       onProgress: (stage, server) => scope.postMessage({ type: 'progress', id, stage, server }),
       onTrafficProgress: (done, total) => scope.postMessage({ type: 'traffic', id, done, total }),
+      onPrepare: (progress) => scope.postMessage({ type: 'prepare', id, progress }),
+      preparations,
       signal: controller.signal,
     });
     if (!controller.signal.aborted) {

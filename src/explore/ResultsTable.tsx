@@ -2,8 +2,10 @@ import type { AlgorithmId } from '../algorithms';
 import { AlgorithmBadge } from '../ui/AlgorithmBadge';
 import type { Objective } from '../osm/network';
 import { algoColor, algorithmName, ALGORITHM_STYLE } from '../ui/algorithmStyle';
-import { formatCost, formatCount, formatDistance } from '../ui/format';
-import type { AlgorithmRun } from '../worker/job';
+import { algorithms, type AlgorithmInfo } from '../algorithms';
+import { formatCost, formatCount, formatDistance, formatMs } from '../ui/format';
+import { InfoIcon } from '../ui/icons';
+import type { AlgorithmRun, PreparationView } from '../worker/job';
 import { compareRuns, type ComparisonRow } from './comparison';
 import styles from './ResultsTable.module.css';
 
@@ -16,6 +18,8 @@ interface Props {
   variant?: 'full' | 'compact';
   /** Algorithms whose maps are not on screen (compact only). */
   hidden?: readonly AlgorithmId[];
+  /** What was prepared before searching; adds timing columns when anything was. */
+  preparation?: PreparationView;
 }
 
 const percent = (fraction: number, digits: number) => `+${(100 * fraction).toFixed(digits)}%`;
@@ -28,11 +32,50 @@ const None = () => <span className={styles.none}>—</span>;
 
 function status(row: ComparisonRow) {
   if (row.status === 'searching') return 'Searching…';
+  if (row.status === 'stopped') return 'Stopped · too long';
   return `${row.status === 'found' ? 'Done' : 'No route'} · step ${formatCount(row.expanded)}`;
 }
 
+/** What an algorithm prepared before its search, and how long that took. */
+function preparing(id: AlgorithmId, preparation: PreparationView) {
+  const { prepares } = algorithms[id] as AlgorithmInfo;
+  const { landmarks, hierarchy } = preparation;
+  if (prepares === 'landmarks' && landmarks) {
+    return landmarks.reused
+      ? '0 ms · reused'
+      : `${formatMs(landmarks.ms)} · ${landmarks.node.length} landmarks`;
+  }
+  if (prepares === 'hierarchy' && hierarchy) {
+    return hierarchy.reused
+      ? '0 ms · reused'
+      : `${formatMs(hierarchy.ms)} · ${formatCount(hierarchy.shortcuts)} shortcuts`;
+  }
+  return 'none';
+}
+
+/**
+ * How many routes on these roads contraction hierarchies needs before its preparing pays off
+ * against Dijkstra, from the times measured here; null if it never does or can't be told.
+ */
+function breakEven(runs: readonly AlgorithmRun[], preparation?: PreparationView) {
+  const dijkstra = runs.find((r) => r.algorithm === 'dijkstra');
+  const ch = runs.find((r) => r.algorithm === 'ch');
+  const made = preparation?.hierarchy;
+  if (!dijkstra || !ch || !made || made.reused) return null;
+  const saved = dijkstra.searchMs - ch.searchMs;
+  if (saved <= 0 || made.ms <= dijkstra.searchMs) return null;
+  return Math.ceil(made.ms / saved);
+}
+
 /** How each search compares, filling in as each one reaches B. */
-export function ResultsTable({ runs, objective, step, variant = 'full', hidden = [] }: Props) {
+export function ResultsTable({
+  runs,
+  objective,
+  step,
+  variant = 'full',
+  hidden = [],
+  preparation,
+}: Props) {
   const rows = compareRuns(runs, step);
   const weightOf = (id: AlgorithmId) => runs.find((r) => r.algorithm === id)?.weight ?? 1;
   const costLabel = objective === 'fastest' ? 'Route time' : 'Distance';
@@ -86,6 +129,10 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
     );
   }
 
+  const timed = Boolean(preparation?.landmarks || preparation?.hierarchy);
+  const runOf = (id: AlgorithmId) => runs.find((r) => r.algorithm === id)!;
+  const routes = breakEven(runs, preparation);
+  const allDone = rows.every((row) => row.status !== 'searching');
   return (
     <div className={styles.scroll}>
       <table className={styles.table}>
@@ -98,6 +145,8 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
             <th scope="col">vs. best</th>
             <th scope="col">Nodes expanded</th>
             <th scope="col">Peak frontier</th>
+            {timed && <th scope="col">Search took</th>}
+            {timed && <th scope="col">Preparing, once</th>}
           </tr>
         </thead>
         <tbody>
@@ -140,6 +189,7 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
               <td className={styles.number}>
                 <span className={row.fewest ? styles.strong : undefined}>
                   {formatCount(row.expanded)}
+                  {row.status === 'stopped' && '+'}
                 </span>
                 {row.fewest && (
                   <>
@@ -150,10 +200,24 @@ export function ResultsTable({ runs, objective, step, variant = 'full', hidden =
                 {row.status === 'searching' && <span className={styles.soFar}> so far</span>}
               </td>
               <td className={styles.number}>{formatCount(row.peakFrontier)}</td>
+              {timed && (
+                <td className={styles.number}>{formatMs(runOf(row.algorithm).searchMs)}</td>
+              )}
+              {timed && <td className={styles.word}>{preparing(row.algorithm, preparation!)}</td>}
             </tr>
           ))}
         </tbody>
       </table>
+      {routes !== null && allDone && (
+        <p className={styles.payoff}>
+          <InfoIcon size={16} />
+          <span>
+            For this one route, Dijkstra is done before CH has finished preparing. CH wins once
+            these roads answer about <b>{formatCount(routes)} routes</b>: that's why map apps
+            prepare overnight and answer in a millisecond. Times are from your browser.
+          </span>
+        </p>
+      )}
     </div>
   );
 }

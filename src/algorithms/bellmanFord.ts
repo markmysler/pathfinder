@@ -11,6 +11,9 @@ import type { SearchEvent, SearchProblem, SearchResult } from './types';
  *
  * A push's priority is its round: one more road than the expansion that pushed it. The queue
  * hands entries out in the order they joined, so rounds come one after another.
+ *
+ * No cheapest route needs as many roads as there are nodes, so a node still getting cheaper in
+ * that round must be on, or past, a loop costing less than nothing: there is no cheapest route.
  */
 export function* bellmanFord(problem: SearchProblem): Generator<SearchEvent, SearchResult> {
   checkProblem(problem);
@@ -36,6 +39,7 @@ export function* bellmanFord(problem: SearchProblem): Generator<SearchEvent, Sea
       const next = graph.edgeTarget[edge]!;
       const nextCost = cost + graph.edgeWeight[edge]!;
       if (nextCost >= bestCost[next]!) continue;
+      if (round + 1 >= graph.nodeCount) return { found: false, negativeLoop: true };
       bestCost[next] = nextCost;
       parentEdge[next] = edge;
       queue.push({ node: next, cost: nextCost, round: round + 1 });

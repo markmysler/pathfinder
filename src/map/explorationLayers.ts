@@ -4,17 +4,15 @@ import { IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from '@d
 import type { AlgorithmId } from '../algorithms';
 import { meetingAt, NEVER, type Timeline } from '../playback/timeline';
 import { sideColors } from '../ui/algorithmStyle';
+import { importantLayer, landmarkLayers, roundLayers, type AdvancedView } from './advancedLayers';
+import { hexToRgb, type Rgb } from './hexToRgb';
 
-export type Rgb = [number, number, number];
+export { hexToRgb, type Rgb };
+export type { AdvancedView };
 
 /** The colours to draw an algorithm's search in: one per side, the same twice if one-way. */
 export const explorationColors = (algorithm: AlgorithmId) =>
   sideColors(algorithm).map(hexToRgb) as [Rgb, Rgb];
-
-export function hexToRgb(hex: string): Rgb {
-  const value = Number.parseInt(hex.slice(1), 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
 
 interface BinaryData {
   length: number;
@@ -133,8 +131,12 @@ export function explorationLayers(
   highlight?: readonly [number, number] | null,
   /** Labels the best meeting point of a bidirectional search, given its index. */
   meetLabel?: (meeting: number) => string,
+  /** What an advanced algorithm adds: rounds, landmarks or the most important nodes. */
+  advanced?: AdvancedView,
 ): Layer[] {
   const { roads, frontier, route } = buffersFor(timeline);
+  // Bellman-Ford dims earlier rounds, so the current one stands out.
+  const rounds = advanced?.kind === 'rounds' ? advanced.rounds : null;
   const [color, colorB] = (Array.isArray(colors[0]) ? colors : [colors, colors]) as [Rgb, Rgb];
   const both = timeline.bidirectional;
   // Entered by this step, and leaves after it.
@@ -146,13 +148,15 @@ export function explorationLayers(
     new LineLayer({
       id: 'explored-roads',
       data: roads[0],
-      getColor: [...color, 170],
+      getColor: [...color, rounds ? 90 : 170],
       getWidth: 2,
       widthUnits: 'pixels',
       extensions: [filterByStep],
       filterRange: [0, step],
     } as never),
   ];
+  if (rounds) layers.push(...roundLayers(timeline, step, rounds, roads[0], color));
+  if (advanced?.kind === 'hierarchy') layers.push(importantLayer(advanced));
   if (both) {
     layers.push(
       new LineLayer({
@@ -194,6 +198,8 @@ export function explorationLayers(
       } as never),
     );
   }
+
+  if (advanced?.kind === 'landmarks') layers.push(...landmarkLayers(timeline, step, advanced));
 
   if (snaps) {
     layers.push(

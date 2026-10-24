@@ -3,7 +3,7 @@ import { pseudocode, type PartLines } from '../algorithms/pseudocode';
 import { labelOf, type NodeLabels } from '../osm/places';
 import { algorithms } from '../algorithms';
 import { frontierAt, partsOfStep, type StepPart } from '../playback/frontier';
-import { stopCheck } from '../playback/sides';
+import { climbStopCheck, stopCheck } from '../playback/sides';
 import type { Timeline } from '../playback/timeline';
 import { formatCost, formatCount } from '../ui/format';
 import { ChevronLeftIcon, ChevronRightIcon } from '../ui/icons';
@@ -27,6 +27,8 @@ const RULE = {
   greedy: 'Greedy takes the lowest h first.',
   dijkstra: 'Dijkstra takes the lowest g first.',
   astar: 'A* takes the lowest f first.',
+  alt: 'ALT takes the lowest f first, its h from the landmarks.',
+  bellmanford: 'Bellman-Ford takes the oldest first, so one round after another.',
 };
 
 /** Where each frontier node is on the map, from the positions the timeline already holds. */
@@ -60,6 +62,10 @@ export function FrontierView({
     const g = t.entryCost[entry]!;
     const h = t.entryEstimate[entry]!;
     switch (algorithm) {
+      case 'alt':
+        return { key: cost(g + h), detail: `g ${cost(g)} + h ${cost(h)}` };
+      case 'bellmanford':
+        return { key: `round ${t.entryPriority[entry]}`, detail: `cost so far ${cost(g)}` };
       case 'astar':
         return {
           key: cost(g + weight * h),
@@ -144,7 +150,7 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
   const [chosen, setChosen] = useState(taken);
   const at = playing ? taken : chosen;
   const part: StepPart | undefined = parts[at];
-  const lines = part ? code.parts[part.kind]! : startLines(code.lines);
+  const lines = part ? code.parts[part.kind]! : (code.start ?? startLines(code.lines));
   const cost = (value: number) => formatCost(value, objective);
   const { bidirectional, weighted } = algorithms[algorithm];
   // A bidirectional BFS measures routes in roads.
@@ -163,6 +169,13 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
         return `${length(t.meetLength[part.meeting]!)} < ${before} ✓`;
       }
       case 'stop': {
+        if (algorithm === 'ch') {
+          const { next, best } = climbStopCheck(t, step);
+          const lowest = Math.min(...next);
+          return Number.isFinite(best) && Number.isFinite(lowest)
+            ? `${length(lowest)} ≥ ${length(best)} ✓`
+            : '✓';
+        }
         const { sum, best } = stopCheck(t, step);
         return Number.isFinite(best) ? `${length(sum)} ≥ ${length(best)} ✓` : '✓';
       }
@@ -211,6 +224,10 @@ export function CodeView({ run, step, names, playing }: ViewProps & { playing: b
       <p className={styles.footnote}>
         While playing, the highlight stays on line {code.parts.take!.focus}, the node each step
         takes. Pause to go through the lines of a step one by one.
+        {algorithm === 'bellmanford' &&
+          ' There is no "if node = goal" line: that is the difference from Dijkstra.'}
+        {algorithm === 'ch' &&
+          ' Contraction ran before the search; its lines are here for reference.'}
       </p>
     </div>
   );

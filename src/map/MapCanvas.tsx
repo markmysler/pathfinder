@@ -7,7 +7,9 @@ import type { Role } from '../explore/exploreState';
 import type { BBox, LatLon } from '../osm/area';
 import type { Timeline } from '../playback/timeline';
 import type { Camera, CameraSync, SyncedMap } from './cameraSync';
-import { explorationLayers, type Rgb, type SnapLink } from './explorationLayers';
+import { contractionLayers } from './advancedLayers';
+import { explorationLayers, type AdvancedView, type Rgb, type SnapLink } from './explorationLayers';
+import type { ContractionReplay } from '../worker/preparations';
 import { trafficLayers, type LiveTraffic } from './trafficLayers';
 import styles from './MapCanvas.module.css';
 
@@ -38,6 +40,10 @@ interface Props {
     highlight?: readonly [number, number] | null;
     /** Live traffic the search ran with, and whether to draw its slow roads. */
     traffic?: { live: LiveTraffic; bands: boolean } | null;
+    /** What an advanced algorithm adds to its search. */
+    advanced?: AdvancedView;
+    /** Watching contraction hierarchies prepare, at this step, instead of its search. */
+    contraction?: { replay: ContractionReplay; step: number } | null;
   } | null;
   /** Space covered by panels, kept clear when fitting A and B into view. */
   padding: Padding;
@@ -227,26 +233,33 @@ export function MapCanvas(props: Props) {
   }, [area, loaded]);
 
   useEffect(() => {
+    const contraction = exploration?.contraction;
     overlay.current?.setProps({
-      layers: exploration
+      layers: contraction
         ? [
-            // Traffic goes underneath, so the search stays readable on top of it.
-            ...(exploration.traffic
-              ? trafficLayers(exploration.traffic.live, {
-                  bands: exploration.traffic.bands,
-                  finished: exploration.step >= exploration.timeline.steps,
-                })
-              : []),
-            ...explorationLayers(
-              exploration.timeline,
-              exploration.step,
-              exploration.colors,
-              exploration.snaps,
-              exploration.highlight,
-              exploration.meetLabel,
-            ),
+            ...contractionLayers(contraction.replay, contraction.step),
+            ...explorationLayers(exploration.timeline, 0, exploration.colors, exploration.snaps),
           ]
-        : [],
+        : exploration
+          ? [
+              // Traffic goes underneath, so the search stays readable on top of it.
+              ...(exploration.traffic
+                ? trafficLayers(exploration.traffic.live, {
+                    bands: exploration.traffic.bands,
+                    finished: exploration.step >= exploration.timeline.steps,
+                  })
+                : []),
+              ...explorationLayers(
+                exploration.timeline,
+                exploration.step,
+                exploration.colors,
+                exploration.snaps,
+                exploration.highlight,
+                exploration.meetLabel,
+                exploration.advanced,
+              ),
+            ]
+          : [],
     });
   }, [exploration]);
 

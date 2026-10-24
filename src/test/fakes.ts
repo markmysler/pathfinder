@@ -1,10 +1,9 @@
 import type { Geocoder, Place } from '../geo/nominatim';
-import { algorithms, type AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId, type AlgorithmInfo, type Preparation } from '../algorithms';
 import { straightLineHeuristic } from '../algorithms/heuristics';
-import { runSearch, summarize } from '../algorithms/trace';
-import { buildTimeline } from '../playback/timeline';
 import type { TrafficService, TrafficSettings } from '../traffic/settings';
-import type { JobResult } from '../worker/job';
+import { preparationView, searchRun, type JobResult } from '../worker/job';
+import { prepareGraph } from '../worker/preparations';
 import { grid } from './fixtures';
 
 export const casaRosada: Place = {
@@ -29,44 +28,34 @@ export function fakeGeocoder(places: Place[] = [casaRosada, cabildo]) {
   } satisfies Geocoder;
 }
 
-/** Real search results on a small grid, shaped like the worker's. */
+/** Real search results on a small grid, made the way the worker makes them. */
 export function fakeJobResult(...chosen: AlgorithmId[]): JobResult {
   const graph = grid(5);
-  const heuristic = straightLineHeuristic(graph, 24);
-  const backwardHeuristic = straightLineHeuristic(graph, 0);
-  const runs = (chosen.length ? chosen : (['astar'] as const)).map((algorithm) => {
-    const trace = runSearch(algorithms[algorithm].search, {
-      graph,
-      source: 0,
-      target: 24,
-      heuristic,
-      backwardHeuristic,
-    });
-    return {
-      algorithm,
-      weight: 1,
-      timeline: buildTimeline(
-        graph,
-        trace,
-        heuristic,
-        algorithms[algorithm].frontier,
-        backwardHeuristic,
-      ),
-      stats: summarize(trace.events),
-    };
-  });
+  const setup = {
+    graph,
+    source: 0,
+    target: 24,
+    heuristic: straightLineHeuristic(graph, 24),
+    backwardHeuristic: straightLineHeuristic(graph, 0),
+    maxSpeed: 1,
+  };
+  const ids = chosen.length ? chosen : (['astar'] as const);
+  const needs = ids.flatMap((id) => (algorithms[id] as AlgorithmInfo).prepares ?? []);
+  const made = prepareGraph(graph, [...new Set<Preparation>(needs)], { source: 0 });
+  const runs = ids.map((algorithm) => searchRun(algorithm, setup, made));
   return {
     mode: 'car',
     objective: 'shortest',
     area: { south: -0.005, west: -0.005, north: 0.009, east: 0.009 },
     fromCache: false,
     snapped: {
-      start: { lat: 0, lon: 0, meters: 3 },
-      target: { lat: 0.004, lon: 0.004, meters: 4 },
+      start: { lat: 0, lon: 0, meters: 3, node: 0 },
+      target: { lat: 0.004, lon: 0.004, meters: 4, node: 24 },
     },
     runs,
     places: { labels: ['Perú & Bolívar'], nodeLabel: new Int32Array(graph.nodeCount).fill(0) },
     traffic: { status: 'off' },
+    preparation: preparationView(graph, made),
   };
 }
 

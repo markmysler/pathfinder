@@ -2,7 +2,13 @@ import { algorithms, oneWayOf as oneWay, type AlgorithmId } from '../algorithms'
 import type { Objective } from '../osm/network';
 import { labelOf, type NodeLabels } from '../osm/places';
 import type { StepPart } from '../playback/frontier';
-import { meetingSplit, sideNext, type StopCheck } from '../playback/sides';
+import {
+  climbStopCheck,
+  meetingSplit,
+  sideNext,
+  type ClimbStopCheck,
+  type StopCheck,
+} from '../playback/sides';
 import { meetingAt, type Timeline } from '../playback/timeline';
 import { JAMMED_BELOW, SLOWED_BELOW } from '../traffic/match';
 import { formatCost, formatCostsApart } from '../ui/format';
@@ -10,21 +16,28 @@ import { formatCost, formatCostsApart } from '../ui/format';
 type NarratedTimeline = Pick<
   Timeline,
   'steps' | 'expandedCost' | 'expandedEstimate' | 'pushesAt' | 'expandedDegree' | 'route'
->;
+> &
+  Partial<Pick<Timeline, 'stopped'>>;
 
-type OneWayId = 'bfs' | 'dfs' | 'greedy' | 'dijkstra' | 'astar';
+type OneWayId = 'bfs' | 'dfs' | 'greedy' | 'dijkstra' | 'astar' | 'bellmanford' | 'ch';
 
-const oneWayOf = (algorithm: AlgorithmId) => oneWay(algorithm) as OneWayId;
+/**
+ * The search whose words an algorithm borrows: a bidirectional search speaks like its one-way
+ * version, ALT like A* (only its estimate differs).
+ */
+const oneWayOf = (algorithm: AlgorithmId) =>
+  (algorithm === 'alt' ? 'astar' : oneWay(algorithm)) as OneWayId;
 
 const SIDE = ['A', 'B'] as const;
 
-export type SearchStatus = 'searching' | 'found' | 'no-route';
+export type SearchStatus = 'searching' | 'found' | 'no-route' | 'stopped';
 
 export function searchStatus(
-  timeline: Pick<Timeline, 'steps' | 'route'>,
+  timeline: Pick<Timeline, 'steps' | 'route'> & Partial<Pick<Timeline, 'stopped'>>,
   position: number,
 ): SearchStatus {
   if (position < timeline.steps) return 'searching';
+  if (timeline.stopped) return 'stopped';
   return timeline.route ? 'found' : 'no-route';
 }
 
@@ -55,13 +68,32 @@ const ROADS: Record<OneWayId, { some: string; none: string; onlyNot: string }> =
     none: 'reached a neighbour more cheaply',
     onlyNot: 'did not reach a neighbour more cheaply',
   },
+  bellmanford: {
+    some: 'made a neighbour cheaper',
+    none: 'made a neighbour cheaper',
+    onlyNot: 'did not make a neighbour cheaper',
+  },
+  ch: {
+    some: 'up reached a node more cheaply',
+    none: 'up reached a node more cheaply',
+    onlyNot: 'up did not reach a node more cheaply',
+  },
 };
 
 function describeRoads(algorithm: AlgorithmId, pushes: number, degree: number): string {
   const phrases = ROADS[oneWayOf(algorithm)];
-  if (degree === 0) return 'It is a dead end.';
+  if (degree === 0) {
+    return algorithm === 'ch'
+      ? 'No road goes up from it: nothing it touches is more important.'
+      : 'It is a dead end.';
+  }
+  const frontier = algorithm === 'bellmanford' ? 'queue' : 'frontier';
   const joined =
-    pushes === 0 ? '' : pushes === 1 ? ' It joined the frontier.' : ' They joined the frontier.';
+    pushes === 0
+      ? ''
+      : pushes === 1
+        ? ` It joined the ${frontier}.`
+        : ` They joined the ${frontier}.`;
   if (degree === 1)
     return pushes ? `Its only road ${phrases.some}.${joined}` : `Its only road ${phrases.onlyNot}.`;
   if (pushes === 0) return `None of its ${degree} roads ${phrases.none}.`;
@@ -80,7 +112,11 @@ export function describeStep(
   if (algorithms[algorithm].bidirectional) {
     return describeBothWaysStep(timeline as Timeline, step, algorithm, objective);
   }
+  if (algorithm === 'bellmanford') {
+    return describeRoundStep(timeline as Timeline, step, objective);
+  }
   if (step <= 0) return 'Start: A is the only node in the frontier.';
+  if (timeline.stopped && step >= timeline.steps) return stoppedEarly(timeline.steps, algorithm);
   if (step >= timeline.steps) {
     const route = timeline.route;
     if (!route) return 'The frontier is empty: there is no route to B.';
@@ -102,10 +138,36 @@ export function describeStep(
       weight === 1
         ? `Took the frontier node with the lowest f = g + h: ${cost(g)} + ${cost(h)} = ${cost(g + h)}.`
         : `Took the frontier node with the lowest f = g + ${w} × h: ${cost(g)} + ${w} × ${cost(h)} = ${cost(g + weight * h)}.`,
-  }[oneWayOf(algorithm)];
+    // Bellman-Ford and contraction hierarchies are told apart above.
+  }[oneWayOf(algorithm) as 'bfs' | 'dfs' | 'greedy' | 'dijkstra' | 'astar'];
 
   const roads = describeRoads(algorithm, timeline.pushesAt[step]!, timeline.expandedDegree[step]!);
   return `${choice} ${roads}`;
+}
+
+const stoppedEarly = (steps: number, algorithm: AlgorithmId) =>
+  `Stopped after ${steps.toLocaleString('en-US')} steps, before ${algorithms[algorithm].name} finished: the rest is too long to replay.`;
+
+/** "takes 4:43" or "is 3.6 km long". */
+const routeLength = (cost: number, objective: Objective) =>
+  objective === 'fastest'
+    ? `takes ${formatCost(cost, objective)}`
+    : `is ${formatCost(cost, objective)} long`;
+
+/** Bellman-Ford's step: its round, and whether its roads made anything cheaper. */
+function describeRoundStep(t: Timeline, step: number, objective: Objective): string {
+  if (step <= 0) return 'Start: A is the only node in the queue.';
+  if (step >= t.steps) {
+    if (t.stopped) return stoppedEarly(t.steps, 'bellmanford');
+    const last = t.entryPriority[t.expandedEntry[t.steps]!]!;
+    const settled = `Nothing got cheaper after round ${last}, so every cost is final.`;
+    return t.route
+      ? `${settled} The route to B ${routeLength(t.route.cost, objective)}.`
+      : `${settled} B can't be reached: there is no route.`;
+  }
+  const round = t.entryPriority[t.expandedEntry[step]!]!;
+  const roads = describeRoads('bellmanford', t.pushesAt[step]!, t.expandedDegree[step]!);
+  return `Round ${round}: took the oldest node in the queue, at ${formatCost(t.expandedCost[step]!, objective)}. ${roads}`;
 }
 
 /** What a step's roads led to, in words, like "2 of 3 roads led somewhere new." */
@@ -136,19 +198,19 @@ function describeBothWaysStep(
     if (!t.route) {
       return 'A side ran out of roads without meeting the other: there is no route to B.';
     }
-    const length =
-      objective === 'fastest'
-        ? `takes ${formatCost(t.route.cost, objective)}`
-        : `is ${formatCost(t.route.cost, objective)} long`;
-    return `The sides met and nothing cheaper is left. The route ${length}.`;
+    const length = routeLength(t.route.cost, objective);
+    return algorithm === 'ch'
+      ? `Neither side can reach anything cheaper than the best route found. The route ${length}.`
+      : `The sides met and nothing cheaper is left. The route ${length}.`;
   }
   const side = SIDE[sideOfStep(t, step)];
   const value = t.entryPriority[t.expandedEntry[step]!]!;
   const which = {
     bfs: `the node fewest roads from ${side} (${value})`,
     dijkstra: `the node nearest ${side} (${formatCost(value, objective)})`,
+    ch: `the node nearest ${side} (${formatCost(value, objective)})`,
     astar: `the node with the lowest priority (${formatCost(value, objective)})`,
-  }[oneWayOf(algorithm) as 'bfs' | 'dijkstra' | 'astar'];
+  }[oneWayOf(algorithm) as 'bfs' | 'dijkstra' | 'ch' | 'astar'];
   const roads = describeRoads(algorithm, t.pushesAt[step]!, t.expandedDegree[step]!);
   const meeting = meetingAt(t, step);
   const best = (i: number) => formatCost(t.meetCost[i]!, objective);
@@ -186,11 +248,13 @@ export function describeTurn(
       ? `Both sides' next priorities were ${value}. A goes first on a tie, so it took ${name}.`
       : `Both sides' next nodes were ${oneWayOf(algorithm) === 'bfs' ? `${value} roads` : value} from their ends. A goes first on a tie, so it took ${name}.`;
   }
+  const nearer = `was nearer to ${me} (${value}) than ${other}'s next was to ${other} (${otherValue})`;
   const comparison = {
     bfs: `was fewer roads from ${me} (${value}) than ${other}'s next was from ${other} (${otherValue})`,
-    dijkstra: `was nearer to ${me} (${value}) than ${other}'s next was to ${other} (${otherValue})`,
+    dijkstra: nearer,
+    ch: nearer,
     astar: `had a lower priority (${value}) than ${other}'s next (${otherValue})`,
-  }[oneWayOf(algorithm) as 'bfs' | 'dijkstra' | 'astar'];
+  }[oneWayOf(algorithm) as 'bfs' | 'dijkstra' | 'ch' | 'astar'];
   return `${me}'s next node, ${name}, ${comparison}, so ${me} took this step.`;
 }
 
@@ -223,12 +287,28 @@ export function describeStopCheck(
   return `Not quite. A route through roads neither side has explored yet would ${verb} at least ${sum}${roads}, which could still beat ${best}${roads}.`;
 }
 
+/** Whether contraction hierarchies can stop yet, in words. */
+export function describeClimbStop(check: ClimbStopCheck, objective: Objective): string {
+  const cost = (value: number) => formatCost(value, objective);
+  if (!Number.isFinite(check.best)) {
+    return check.canStop
+      ? 'Yes: the sides ran out of roads up without meeting, so there is no route.'
+      : 'Not yet: the sides have not met, so there is no route to beat.';
+  }
+  if (check.canStop) {
+    return `Yes. Neither side's next node costs less than the best route, ${cost(check.best)}: nothing either side reaches could do better.`;
+  }
+  const side = check.next[1] < check.next[0] ? 1 : 0;
+  const [next, best] = formatCostsApart([check.next[side]!, check.best], objective);
+  return `Not yet. ${SIDE[side]}'s next node costs ${next}, under the best route, ${best}: a cheaper meeting could still lie beyond it.`;
+}
+
 export interface PartContext {
   timeline: Pick<
     Timeline,
     'entryNode' | 'entryCost' | 'entryEstimate' | 'entryPrevious' | 'expandedEntry' | 'pushesAt'
   > &
-    Partial<Pick<Timeline, 'entryShare' | 'entryMeters'>>;
+    Partial<Pick<Timeline, 'entryShare' | 'entryMeters' | 'entryPriority'>>;
   step: number;
   algorithm: AlgorithmId;
   objective: Objective;
@@ -236,7 +316,7 @@ export interface PartContext {
   names: NodeLabels;
 }
 
-const BEST_FIRST: readonly AlgorithmId[] = ['dijkstra', 'astar'];
+const BEST_FIRST: readonly AlgorithmId[] = ['dijkstra', 'astar', 'alt', 'bellmanford'];
 
 /** Seconds on one road: tenths of a second when short, so they never read as zero. */
 const roadTime = (seconds: number, objective: Objective) =>
@@ -289,7 +369,8 @@ export function describePart(part: StepPart, context: PartContext): string {
           weight === 1
             ? `the frontier node with the lowest f = g + h: ${sum(g, h)}.`
             : `the frontier node with the lowest f = g + ${w} × h: ${sum(g, h)}.`,
-      }[oneWayOf(algorithm)];
+        bellmanford: `the oldest node in the queue: round ${t.entryPriority?.[part.entry]}, at ${cost(g)}.`,
+      }[oneWayOf(algorithm) as Exclude<OneWayId, 'ch'>];
       return `Took ${name(part.entry)}, ${why}`;
     }
     case 'skip':
@@ -316,8 +397,11 @@ export function describePart(part: StepPart, context: PartContext): string {
       const verdict = Number.isFinite(previous)
         ? `beats the best known way there, ${cost(previous)}`
         : 'is the first way found there';
-      const joins = algorithm === 'dijkstra' ? `g = ${cost(g)}` : `f = ${sum(g, h)}`;
-      return `Road to ${to}, ${length}: ${cost(from)} + ${road} = ${cost(g)} ${verdict}, so it joins the frontier with ${joins}.${trafficNote(t, part.entry, c, objective)}`;
+      const joins =
+        algorithm === 'bellmanford'
+          ? `the queue for round ${t.entryPriority?.[part.entry]}`
+          : `the frontier with ${algorithm === 'dijkstra' ? `g = ${cost(g)}` : `f = ${sum(g, h)}`}`;
+      return `Road to ${to}, ${length}: ${cost(from)} + ${road} = ${cost(g)} ${verdict}, so it joins ${joins}.${trafficNote(t, part.entry, c, objective)}`;
     }
     case 'rejected': {
       const others = t.pushesAt[step]! > 0;
@@ -358,7 +442,11 @@ function describeBothWaysPart(part: StepPart, context: PartContext): string {
     case 'road': {
       const entry = part.entry;
       const backward = t.entrySide[entry] === 1;
-      const road = `Road ${backward ? 'from' : 'to'} ${name(entry)}`;
+      // Contraction hierarchies climb along roads and shortcuts alike, on both sides.
+      const road =
+        algorithm === 'ch'
+          ? `Up to ${name(entry)}`
+          : `Road ${backward ? 'from' : 'to'} ${name(entry)}`;
       if (bfs) {
         const roads = t.entryPriority[entry]!;
         return `${road}: not seen by ${side(entry)}'s side before, so it joins ${side(entry)}'s queue, ${roads} ${roads === 1 ? 'road' : 'roads'} ${toEnd(entry)}.`;
@@ -366,11 +454,13 @@ function describeBothWaysPart(part: StepPart, context: PartContext): string {
       const g = t.entryCost[entry]!;
       const from = t.entryCost[t.expandedEntry[step]!]!;
       const c = g - from;
-      const length =
-        objective === 'fastest'
-          ? `taking ${c < 10 ? `${c.toFixed(1)} s` : cost(c)}`
-          : `${cost(c)} long`;
       const roadCost = objective === 'fastest' && c < 10 ? `${c.toFixed(1)} s` : cost(c);
+      const length =
+        algorithm === 'ch'
+          ? roadCost
+          : objective === 'fastest'
+            ? `taking ${roadCost}`
+            : `${cost(c)} long`;
       const previous = t.entryPrevious[entry]!;
       const verdict = Number.isFinite(previous)
         ? `beats the best known way there, ${cost(previous)}`
@@ -400,6 +490,11 @@ function describeBothWaysPart(part: StepPart, context: PartContext): string {
       const meeting = meetingAt(t, step);
       if (meeting < 0 || !t.route) {
         return 'A side ran out of roads without meeting the other, so the search stops: there is no route.';
+      }
+      if (algorithm === 'ch') {
+        const check = climbStopCheck(t, step);
+        const left = (v: number) => (Number.isFinite(v) ? cost(v) : 'none left');
+        return `Next from A: ${left(check.next[0])}; from B: ${left(check.next[1])}. Neither is under the best route, ${cost(check.best)}, so the search stops.`;
       }
       const label =
         oneWayOf(algorithm) === 'astar' ? 'Next priorities' : 'Next from A + next from B';

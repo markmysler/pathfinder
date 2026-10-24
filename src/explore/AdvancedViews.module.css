@@ -1,0 +1,445 @@
+.sub {
+  margin: 2px 0 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* A tile's values are large and monospaced; its sub-line is neither. */
+dl dd.sub {
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.text b {
+  color: var(--text);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--raised);
+  border-radius: 12px;
+}
+
+.card h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.card p.muted {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.note {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.note a {
+  color: var(--text-2);
+}
+
+.reused {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+/* "here → landmark 3 … time left ≥": the estimate worked out as a sum. */
+.sum {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.sum .mono {
+  text-align: right;
+}
+
+.total {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.diamond {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background: var(--algo);
+  border: 1.5px solid #fff;
+  box-sizing: border-box;
+}
+
+.meet {
+  width: 11px;
+  height: 11px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.ring {
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.bars {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.bars li[data-best] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--faint);
+}
+
+[data-best] .bar > span {
+  background: var(--algo);
+}
+
+.landmarks,
+.shortcuts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landmarks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.number {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--algo);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.place {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.place .muted {
+  font-size: 12.5px;
+}
+
+.shortcuts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.shortcut {
+  flex: none;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--algo-a);
+}
+
+.formula {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* Prepare and Search. */
+.partTabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.partTab {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.partTab[aria-selected='true'] {
+  background: var(--border);
+  color: #fff;
+  font-weight: 600;
+}
+
+.partNumber {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.partTab[aria-selected='true'] .partNumber {
+  color: var(--algo-a);
+}
+
+.pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--raised);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* Bellman-Ford stopped at the step limit. */
+.limit {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--notice-border);
+  border-radius: 12px;
+  color: var(--text-2);
+}
+
+.limit > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.limitBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.limitBody p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.limitBody b {
+  color: var(--text);
+}
+
+.button {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* The map key under the card over the map. */
+.mapKey {
+  align-self: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  max-width: 520px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.mapKey li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keyLine {
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--algo);
+}
+
+.keyLine[data-dim] {
+  opacity: 0.45;
+}
+
+.keyLine[data-gold] {
+  background: var(--algo-a);
+}
+
+.keyDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--algo);
+}
+
+.keyDot[data-grey] {
+  width: 6px;
+  height: 6px;
+  background: #5c6b7a;
+}
+
+.keyDot[data-gold],
+.keyDot[data-big] {
+  background: var(--algo-a);
+}
+
+.keyDot[data-big] {
+  width: 9px;
+  height: 9px;
+}
+
+.keyRing {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--algo);
+  background: var(--map-land);
+}
+
+.keyRing[data-white] {
+  width: 10px;
+  height: 10px;
+  border-color: #fff;
+  background: none;
+}
+
+.keyDiamond,
+.keyDiamondPlain {
+  width: 10px;
+  height: 10px;
+  margin: 0 2px;
+  box-sizing: border-box;
+  transform: rotate(45deg);
+  border: 2px solid var(--algo);
+  background: var(--panel);
+}
+
+.keyDiamond[data-best] {
+  background: var(--algo);
+  border-color: #fff;
+}
+
+.keyDiamondPlain {
+  border-color: #090c10;
+  background: #fff;
+}
+
+.keyRoute {
+  width: 18px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--algo-a);
+  box-shadow: 0 0 0 1.5px #090c10;
+}

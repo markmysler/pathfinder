@@ -12,6 +12,10 @@ async function choosePlaces(page: Page) {
 
 /** Leaves only the named algorithm ticked. */
 async function chooseOnly(page: Page, name: string) {
+  const bothEnds = page.getByRole('button', { name: /From both ends/ });
+  if (name.startsWith('bi') && (await bothEnds.getAttribute('aria-expanded')) === 'false') {
+    await bothEnds.click();
+  }
   for (const box of await page.getByRole('checkbox').all()) {
     const wanted = (await box.getAttribute('aria-labelledby')) === `algorithm-${name}`;
     if ((await box.isChecked()) !== wanted) await box.click();
@@ -185,6 +189,61 @@ test('runs a search from both ends, marking where the sides met', async ({
     await expect(page.getByRole('region', { name: /^From A/ })).toBeVisible();
     await expect(page.getByRole('region', { name: /^From B/ })).toBeVisible();
   }
+});
+
+test('watches contraction hierarchies prepare the map, then climb from both ends', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  await fakeTheInternet(context);
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'ch');
+  await page.getByRole('button', { name: 'Run Contraction hierarchies' }).click();
+  await expect(page.getByRole('tab', { name: /Prepare/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText(/^Contracted [\d,]+ of [\d,]+ nodes/)).toBeVisible();
+  await page.getByRole('button', { name: 'Skip to the search' }).click();
+  await expect(page.getByRole('tab', { name: /Search/ })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByText('Found route')).toBeVisible();
+  if (isMobile) await page.getByRole('button', { name: /Details/ }).click();
+  await expect(page.getByRole('heading', { name: /^They met at / })).toBeVisible();
+});
+
+test('steps Bellman-Ford a round at a time', async ({ page, context }) => {
+  await fakeTheInternet(context);
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'bellmanford');
+  await page.getByRole('button', { name: 'Run Bellman-Ford' }).click();
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('slider', { name: 'Step' }).fill('0');
+  await page.getByRole('button', { name: 'Forward one round' }).click();
+  await page.getByRole('button', { name: 'Forward one round' }).click();
+  await expect(page.getByText('Round 1', { exact: true })).toBeVisible();
+});
+
+test('compares ALT and contraction hierarchies with what preparing cost', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'The phone results table keeps three columns.');
+  await fakeTheInternet(context);
+  await page.goto('/');
+  await choosePlaces(page);
+  for (const id of ['astar', 'alt', 'ch']) {
+    const box = page.locator(`input[aria-labelledby="algorithm-${id}"]`);
+    if (!(await box.isChecked())) await box.click();
+  }
+  await page.getByRole('button', { name: /^Run \d algorithms/ }).click();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByRole('columnheader', { name: 'Preparing, once' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /ALT/ })).toContainText('8 landmarks');
+  await expect(page.getByRole('row', { name: /Contraction hierarchies/ })).toContainText(
+    'shortcuts',
+  );
 });
 
 async function addTomTomKey(page: Page) {

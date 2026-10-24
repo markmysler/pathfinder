@@ -8,6 +8,8 @@ export interface AlgorithmStyle {
   /** Name for compact chips on phones. */
   short: string;
   blurb: string;
+  /** The side from A, for a search from both ends with no one-way version to take it from. */
+  colorA?: string;
 }
 
 export const ALGORITHM_STYLE: Record<AlgorithmId, AlgorithmStyle> = {
@@ -61,14 +63,35 @@ export const ALGORITHM_STYLE: Record<AlgorithmId, AlgorithmStyle> = {
     badge: 'A*',
     blurb: 'A* from both ends, sharing one estimate. Same best route.',
   },
+  bellmanford: {
+    short: 'Bellman-Ford',
+    color: '#A3D95B',
+    badge: 'BF',
+    blurb:
+      'Corrects itself round after round until nothing improves. Slow, but copes with negative costs.',
+  },
+  alt: {
+    short: 'ALT',
+    color: '#D57BF0',
+    badge: 'ALT',
+    blurb: 'A* with a sharper estimate, worked out from 8 landmarks. Same best route.',
+  },
+  ch: {
+    short: 'CH',
+    color: '#F3E3C6',
+    colorA: '#E2C08D',
+    badge: 'CH',
+    blurb:
+      'Adds shortcuts first, then searches only uphill from both ends. Same best route, tiny search.',
+  },
 };
 
 /** The colours of a search's two sides: from A, and from B. One-way searches only have one. */
 export function sideColors(algorithm: AlgorithmId): [string, string] {
   const info: AlgorithmInfo = algorithms[algorithm];
-  const own = ALGORITHM_STYLE[algorithm].color;
+  const { color: own, colorA } = ALGORITHM_STYLE[algorithm];
   const oneWay = info.oneWay as AlgorithmId | undefined;
-  return [oneWay ? ALGORITHM_STYLE[oneWay].color : own, own];
+  return [colorA ?? (oneWay ? ALGORITHM_STYLE[oneWay].color : own), own];
 }
 
 /**

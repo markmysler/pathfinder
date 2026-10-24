@@ -169,3 +169,13 @@
   height: 12px;
   background: currentColor;
 }
+
+/* Buttons with a word: Bellman-Ford's round steps, and skipping a replay. */
+.wordButton {
+  width: auto;
+  min-width: var(--touch);
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+}

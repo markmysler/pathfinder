@@ -1,4 +1,4 @@
-import { initialPlayback, play, setSpeed, suggestedSpeed } from '../playback/playback';
+import { initialPlayback, play, setSpeed, suggestedSpeed, tick } from '../playback/playback';
 import type { AlgorithmId } from '../algorithms';
 import type { JobResult } from '../worker/job';
 import {
@@ -11,9 +11,10 @@ import {
 
 const casaRosada = { name: 'Casa Rosada', detail: 'Buenos Aires', lat: -34.608, lon: -58.3703 };
 const cabildo = { name: 'Cabildo', detail: 'Buenos Aires', lat: -34.6087, lon: -58.3738 };
-const resultOf = (steps: Partial<Record<AlgorithmId, number>>) =>
+const resultOf = (steps: Partial<Record<AlgorithmId, number>>, preparation = {}) =>
   ({
     runs: Object.entries(steps).map(([algorithm, n]) => ({ algorithm, timeline: { steps: n } })),
+    preparation,
   }) as unknown as JobResult;
 const result = resultOf({ astar: 100 });
 
@@ -133,6 +134,82 @@ describe('exploreReducer', () => {
       result,
       playback: play(setSpeed(initialPlayback(), suggestedSpeed(100)), 100),
       shown: ['astar'],
+      part: 'search',
+      preparePlayback: null,
+    });
+  });
+
+  it('counts how preparing is getting on, each kind apart', () => {
+    let state = exploreReducer(withPlaces(), { type: 'runRequested' });
+    state = exploreReducer(state, { type: 'runProgressed', stage: 'prepare' });
+    const landmarks = { kind: 'landmarks', done: 8, total: 8, nodes: 900, ms: 3 } as const;
+    const hierarchy = {
+      kind: 'hierarchy',
+      done: 256,
+      total: 900,
+      nodes: 900,
+      shortcuts: 40,
+    } as const;
+    state = exploreReducer(state, { type: 'prepareProgressed', progress: landmarks });
+    state = exploreReducer(state, { type: 'prepareProgressed', progress: hierarchy });
+    expect(state.run).toEqual({
+      status: 'loading',
+      stage: 'prepare',
+      prepare: { landmarks, hierarchy },
+    });
+    expect(exploreReducer(initialExplore, { type: 'prepareProgressed', progress: hierarchy })).toBe(
+      initialExplore,
+    );
+  });
+
+  describe('contraction hierarchies on its own', () => {
+    const replay = { steps: 900 };
+    const ch = resultOf({ ch: 40 }, { hierarchy: { replay } });
+
+    it('starts by playing how the map was prepared, the search waiting at its start', () => {
+      const state = ready(ch);
+      expect(state.run).toMatchObject({
+        status: 'ready',
+        part: 'prepare',
+        preparePlayback: { position: 0, playing: true, speed: suggestedSpeed(900) },
+        playback: { position: 0, playing: false },
+      });
+    });
+
+    it('goes on to the search once preparing has played to the end', () => {
+      let state = ready(ch);
+      state = exploreReducer(state, {
+        type: 'preparePlayback',
+        apply: (p, total) => tick(p, 1e9, total),
+      });
+      expect(state.run).toMatchObject({
+        part: 'search',
+        preparePlayback: { position: 900, playing: false },
+        playback: { position: 0, playing: true },
+      });
+    });
+
+    it('switches between the two parts, pausing the one left', () => {
+      let state = ready(ch);
+      state = exploreReducer(state, { type: 'partChosen', part: 'search' });
+      expect(state.run).toMatchObject({ part: 'search', preparePlayback: { playing: false } });
+      state = exploreReducer(state, { type: 'playback', apply: (p, total) => play(p, total) });
+      state = exploreReducer(state, { type: 'partChosen', part: 'prepare' });
+      expect(state.run).toMatchObject({ part: 'prepare', playback: { playing: false } });
+    });
+
+    it('goes straight to the search when the shortcuts were reused, keeping the replay', () => {
+      const state = ready(resultOf({ ch: 40 }, { hierarchy: { replay, reused: true } }));
+      expect(state.run).toMatchObject({
+        part: 'search',
+        preparePlayback: { position: 0, playing: false },
+        playback: { position: 0, playing: true },
+      });
+    });
+
+    it('compares on the search alone when run with others', () => {
+      const state = ready(resultOf({ dijkstra: 300, ch: 40 }, { hierarchy: { replay } }));
+      expect(state.run).toMatchObject({ part: 'search', preparePlayback: null });
     });
   });
 

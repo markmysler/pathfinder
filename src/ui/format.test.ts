@@ -4,6 +4,7 @@ import {
   formatCount,
   formatDistance,
   formatDuration,
+  formatMs,
 } from './format';
 
 describe('formatDuration', () => {
@@ -58,5 +59,14 @@ describe('formatCount', () => {
   it('groups thousands', () => {
     expect(formatCount(48_210)).toBe('48,210');
     expect(formatCount(7)).toBe('7');
+  });
+});
+
+describe('formatMs', () => {
+  it('gives milliseconds, or seconds from one up', () => {
+    expect(formatMs(33.6)).toBe('34 ms');
+    expect(formatMs(228)).toBe('228 ms');
+    expect(formatMs(1_480)).toBe('1.5 s');
+    expect(formatMs(0.2)).toBe('<1 ms');
   });
 });

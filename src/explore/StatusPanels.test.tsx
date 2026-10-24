@@ -43,6 +43,64 @@ describe('LoadingPanel', () => {
     expect(screen.getByText('0:42 so far')).toBeInTheDocument();
   });
 
+  describe('when algorithms prepare the map first', () => {
+    const landmarks = { kind: 'landmarks', done: 8, total: 8, nodes: 23_307, ms: 34 } as const;
+    const contracting = {
+      kind: 'hierarchy',
+      done: 13_984,
+      total: 23_307,
+      nodes: 23_307,
+      shortcuts: 9_812,
+    } as const;
+
+    it('lists preparing as steps of its own, with how far contracting has got', () => {
+      render(
+        <LoadingPanel
+          stage="prepare"
+          running="4 algorithms"
+          needs={['landmarks', 'hierarchy']}
+          prepare={{ landmarks, hierarchy: contracting }}
+          onCancel={() => {}}
+        />,
+      );
+      const status = screen.getByRole('status');
+      expect(status).toHaveTextContent('Getting ready to search');
+      const steps = screen.getAllByRole('listitem').map((item) => item.textContent);
+      expect(steps).toEqual([
+        'Streets downloaded',
+        'Graph built23,307 nodes',
+        'ALT: 8 landmarks chosen34 ms',
+        'CH: contracting the map60%13,984 of 23,307 nodes, 9,812 shortcuts',
+        'Search 4 algorithms',
+      ]);
+      expect(screen.getAllByRole('img', { name: 'done' })).toHaveLength(3);
+    });
+
+    it('says when it reused what it made for the same roads', () => {
+      render(
+        <LoadingPanel
+          stage="search"
+          running="CH"
+          needs={['hierarchy']}
+          prepare={{
+            hierarchy: { ...contracting, done: 23_307, ms: 228, reused: true },
+          }}
+          onCancel={() => {}}
+        />,
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'CH: shortcuts reused from your last run',
+      );
+    });
+
+    it('keeps the usual message while the streets download', () => {
+      render(
+        <LoadingPanel stage="download" running="CH" needs={['hierarchy']} onCancel={() => {}} />,
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(/Downloading streets/);
+    });
+  });
+
   describe('with live traffic on', () => {
     it('downloads streets and traffic at once, counting the tiles', () => {
       render(

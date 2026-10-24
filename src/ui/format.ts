@@ -50,3 +50,7 @@ export function formatCostsApart(costs: readonly number[], objective: Objective)
 }
 
 export const formatCount = (n: number) => n.toLocaleString('en-US');
+
+/** A time spent working, in milliseconds or, from a second up, seconds. */
+export const formatMs = (ms: number) =>
+  ms < 0.5 ? '<1 ms' : ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;

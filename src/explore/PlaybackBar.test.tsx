@@ -105,3 +105,45 @@ describe('PlaybackBar', () => {
     expect(applied().speed).toBe(30);
   });
 });
+
+describe('PlaybackBar for Bellman-Ford', () => {
+  it('steps a whole round at a time, and says which round it is in', async () => {
+    const onChange = vi.fn();
+    const back = vi.fn();
+    const forward = vi.fn();
+    render(
+      <PlaybackBar
+        playback={midway}
+        total={total}
+        onChange={onChange}
+        rounds={{ label: 'round 41 of 97', onBack: back, onForward: forward }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Step back' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Back one round' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Forward one round' }));
+    expect([back.mock.calls.length, forward.mock.calls.length]).toEqual([1, 1]);
+    expect(screen.getByText(/Step/).closest('label')).toHaveTextContent('round 41 of 97');
+  });
+});
+
+describe('PlaybackBar for preparing', () => {
+  it('counts what it is replaying in its own words, and can skip to the search', async () => {
+    const onSkip = vi.fn();
+    render(
+      <PlaybackBar
+        playback={midway}
+        total={total}
+        onChange={() => {}}
+        label="Contracted 4,812 of 9,874 nodes · 3,100 shortcuts so far"
+        onSkip={onSkip}
+      />,
+    );
+    expect(screen.getByText(/^Contracted/).closest('label')).toHaveTextContent(
+      'Contracted 4,812 of 9,874 nodes · 3,100 shortcuts so far',
+    );
+    expect(screen.queryByRole('button', { name: 'Jump to end' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Skip to the search' }));
+    expect(onSkip).toHaveBeenCalled();
+  });
+});

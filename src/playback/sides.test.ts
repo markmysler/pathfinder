@@ -1,20 +1,16 @@
 import fc from 'fast-check';
-import { algorithms } from '../algorithms';
-import { straightLineHeuristic } from '../algorithms/heuristics';
+import { algorithms, type AlgorithmInfo } from '../algorithms';
 import { runSearch } from '../algorithms/trace';
 import { randomGeoProblem, type RandomProblem } from '../test/arbitraries';
 import { undirectedGraphFrom } from '../test/fixtures';
-import { meetingSplit, sideNext, stopCheck } from './sides';
+import { solve as solveWith } from '../test/timelines';
+import { climbStopCheck, meetingSplit, sideNext, stopCheck } from './sides';
 import { buildTimeline, meetingAt } from './timeline';
 
 const twoWay = fc.constantFrom(algorithms.bibfs, algorithms.bidijkstra, algorithms.biastar);
 
-function solve(problem: RandomProblem, algorithm: (typeof algorithms)[keyof typeof algorithms]) {
-  const heuristic = straightLineHeuristic(problem.graph, problem.target);
-  const backwardHeuristic = straightLineHeuristic(problem.graph, problem.source);
-  const trace = runSearch(algorithm.search, { ...problem, heuristic, backwardHeuristic });
-  return buildTimeline(problem.graph, trace, heuristic, algorithm.frontier, backwardHeuristic);
-}
+const solve = (problem: RandomProblem, algorithm: AlgorithmInfo) =>
+  solveWith(problem, algorithm).timeline;
 
 describe('sideNext', () => {
   it("is each side's lowest-priority waiting entry, oldest first on a tie, or -1", () => {
@@ -93,6 +89,39 @@ describe('meetingSplit', () => {
         }
         const last = meetingAt(t, t.steps);
         if (t.route && last >= 0) expect(t.meetCost[last]).toBeCloseTo(t.route.cost, 6);
+      }),
+    );
+  });
+});
+
+describe('climbStopCheck', () => {
+  it('stops contraction hierarchies once neither side’s next node can beat the best route', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), (problem) => {
+        const t = solve(problem, algorithms.ch);
+        for (let step = 0; step < t.steps; step++) {
+          const check = climbStopCheck(t, step);
+          expect(check.canStop).toBe(false);
+          expect(Math.min(...check.next)).toBeLessThan(check.best);
+        }
+        const last = climbStopCheck(t, t.steps);
+        expect(last.canStop).toBe(true);
+        expect(Math.min(...last.next)).toBeGreaterThanOrEqual(last.best);
+      }),
+    );
+  });
+
+  it('only counts entries still worth taking: outdated ones would be skipped', () => {
+    fc.assert(
+      fc.property(randomGeoProblem(), (problem) => {
+        const t = solve(problem, algorithms.ch);
+        for (let step = 0; step <= t.steps; step++) {
+          climbStopCheck(t, step).entries.forEach((entry) => {
+            if (entry < 0) return;
+            expect(t.entryEnter[entry]).toBeLessThanOrEqual(step);
+            expect(t.entryStale[entry]).toBeGreaterThan(step);
+          });
+        }
       }),
     );
   });

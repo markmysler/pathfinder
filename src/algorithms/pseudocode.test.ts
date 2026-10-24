@@ -1,17 +1,15 @@
 import fc from 'fast-check';
 import { partsOfStep } from '../playback/frontier';
-import { buildTimeline } from '../playback/timeline';
 import { randomGeoProblem } from '../test/arbitraries';
-import { straightLineHeuristic } from './heuristics';
+import { solve } from '../test/timelines';
 import { algorithms, type AlgorithmId } from './index';
 import { pseudocode } from './pseudocode';
-import { runSearch } from './trace';
 
 const ids = Object.keys(algorithms) as AlgorithmId[];
 
 // What the line a part points at must say, whatever the algorithm.
 const FOCUS: Record<string, RegExp> = {
-  take: /← (frontier|side)\.(take|pop)/,
+  take: /← (frontier|side|queue)\.(take|pop)/,
   skip: /skip it/,
   goal: /= goal/,
   road: /^\s*if /,
@@ -25,20 +23,7 @@ describe('pseudocode', () => {
     const code = pseudocode(id);
     fc.assert(
       fc.property(randomGeoProblem(), (problem) => {
-        const heuristic = straightLineHeuristic(problem.graph, problem.target);
-        const backwardHeuristic = straightLineHeuristic(problem.graph, problem.source);
-        const trace = runSearch(algorithms[id].search, {
-          ...problem,
-          heuristic,
-          backwardHeuristic,
-        });
-        const t = buildTimeline(
-          problem.graph,
-          trace,
-          heuristic,
-          algorithms[id].frontier,
-          backwardHeuristic,
-        );
+        const t = solve(problem, algorithms[id]).timeline;
         for (let step = 1; step <= t.steps; step++) {
           for (const part of partsOfStep(t, step)) {
             const lines = code.parts[part.kind];
@@ -64,6 +49,31 @@ describe('pseudocode', () => {
     expect(pseudocode('bibfs').lines.join('\n')).toMatch(/frontier B ← queue/);
     expect(pseudocode('bidijkstra').lines.join('\n')).toMatch(/ordered by gB\b/);
     expect(pseudocode('biastar').lines.join('\n')).toMatch(/ordered by gB − p\b/);
+    expect(pseudocode('bellmanford').lines.join('\n')).toMatch(/queue\.takeOldest/);
+    expect(pseudocode('alt').lines.join('\n')).toMatch(/ordered by g \+ h/);
+    expect(pseudocode('ch').lines.join('\n')).toMatch(/ordered by gB, holding goal/);
+  });
+
+  it('has no goal check for Bellman-Ford, which runs until nothing improves', () => {
+    const code = pseudocode('bellmanford');
+    expect(code.lines.join('\n')).not.toMatch(/= goal/);
+    expect(code.parts.goal).toBeUndefined();
+  });
+
+  it('works out ALT’s estimate from the landmarks before running A*', () => {
+    const code = pseudocode('alt').lines;
+    expect(code.slice(1, 4).join('\n')).toMatch(/largest, over landmarks L/);
+    expect(code.join('\n')).toMatch(/if node = goal/);
+  });
+
+  it('lists contraction before the search, and starts the search at its own set-up lines', () => {
+    const code = pseudocode('ch');
+    expect(code.lines[0]).toMatch(/^function contract/);
+    const search = code.lines.findIndex((line) => /^function chSearch/.test(line)) + 1;
+    expect(search).toBeGreaterThan(1);
+    expect(Math.min(...code.start!.lines)).toBe(search + 1);
+    expect(code.lines[code.start!.focus - 1]).toMatch(/frontier B/);
+    expect(code.lines.join('\n')).toMatch(/up to next/);
   });
 
   it("pushes a two-sided A*'s nodes with the shared estimate, added from A and taken off from B", () => {

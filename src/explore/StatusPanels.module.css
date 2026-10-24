@@ -107,3 +107,106 @@
   border-top-color: var(--text);
   animation: spin 0.9s linear infinite;
 }
+
+/* Getting ready to search, once preparing is one of the steps. */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.checklistTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.current {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  color: var(--text);
+}
+
+.stepLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepName {
+  font-weight: 600;
+}
+
+.stepValue {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.current .stepValue {
+  color: var(--text);
+}
+
+.stepDetail {
+  margin-left: 28px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.bar {
+  height: 6px;
+  margin-left: 28px;
+  border-radius: 3px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.working,
+.notYet {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+.working {
+  border: 2.5px solid var(--accent, var(--text));
+  border-right-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+
+.notYet {
+  border: 2px solid var(--border-strong);
+}
+
+.waiting {
+  color: var(--faint);
+}

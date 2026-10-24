@@ -1,7 +1,8 @@
+import { useId, useState } from 'react';
 import { AlgorithmBadge } from '../ui/AlgorithmBadge';
-import { algorithms, type AlgorithmId } from '../algorithms';
+import { algorithms, type AlgorithmId, type AlgorithmInfo } from '../algorithms';
 import { algoColor, ALGORITHM_STYLE, formatWeight } from '../ui/algorithmStyle';
-import { BothWaysIcon, CheckIcon } from '../ui/icons';
+import { BothWaysIcon, CheckIcon, ChevronDownIcon, LevelsIcon, TimerIcon } from '../ui/icons';
 import styles from './AlgorithmPicker.module.css';
 import { MAX_ALGORITHMS, MAX_WEIGHT, MIN_WEIGHT } from './exploreState';
 
@@ -25,8 +26,16 @@ function weightAdvice(weight: number) {
 }
 
 const ALL = Object.keys(algorithms) as AlgorithmId[];
-const ONE_WAY = ALL.filter((id) => !algorithms[id].bidirectional);
-const BOTH_WAYS = ALL.filter((id) => algorithms[id].bidirectional);
+const info = (id: AlgorithmId): AlgorithmInfo => algorithms[id];
+const ONE_WAY = ALL.filter((id) => !info(id).bidirectional && !info(id).advanced);
+const BOTH_WAYS = ALL.filter((id) => info(id).bidirectional && !info(id).advanced);
+const ADVANCED = ALL.filter((id) => info(id).advanced);
+
+/** "none selected", or "2 of 3 selected". */
+const chosenOf = (group: readonly AlgorithmId[], value: readonly AlgorithmId[]) => {
+  const chosen = group.filter((id) => value.includes(id)).length;
+  return chosen ? `${chosen} of ${group.length} selected` : 'none selected';
+};
 
 /** Choose one algorithm to study, or several to compare side by side. */
 export function AlgorithmPicker({
@@ -37,8 +46,11 @@ export function AlgorithmPicker({
   onWeight,
 }: Props) {
   const full = value.length >= limit;
+  const [bothOpen, setBothOpen] = useState(() => BOTH_WAYS.some((id) => value.includes(id)));
+  const bothId = useId();
+  const preparing = value.some((id) => info(id).prepares);
   const item = (id: AlgorithmId) => {
-    const { name } = algorithms[id];
+    const { name, prepares } = info(id);
     const style = ALGORITHM_STYLE[id];
     const checked = value.includes(id);
     const card = (
@@ -66,7 +78,14 @@ export function AlgorithmPicker({
           <span id={`algorithm-${id}-blurb`} className={styles.blurb}>
             {style.blurb}
           </span>
+          {prepares && (
+            <span className={styles.prepares}>
+              <TimerIcon size={12} strokeWidth={2.2} />
+              Prepares first
+            </span>
+          )}
         </span>
+        {prepares && <TimerIcon className={styles.preparesIcon} size={13} strokeWidth={2.2} />}
       </label>
     );
     const color = algoColor(id);
@@ -121,19 +140,59 @@ export function AlgorithmPicker({
         </span>
       </legend>
       {ONE_WAY.map(item)}
-      <div role="group" aria-labelledby="algorithms-both-ways" className={styles.both}>
+      <div className={styles.both}>
+        <button
+          type="button"
+          className={styles.fold}
+          aria-expanded={bothOpen}
+          aria-controls={bothId}
+          onClick={() => setBothOpen((open) => !open)}
+        >
+          <BothWaysIcon size={16} />
+          <span className={styles.foldTitle}>From both ends</span>
+          <span className={styles.groupCount}>
+            {BOTH_WAYS.length} searches · {chosenOf(BOTH_WAYS, value)}
+          </span>
+          <ChevronDownIcon size={16} className={styles.chevron} />
+        </button>
+        {bothOpen && (
+          <div
+            id={bothId}
+            role="group"
+            aria-labelledby="algorithms-both-ways"
+            className={styles.items}
+          >
+            <p id="algorithms-both-ways" className={styles.bothIntro}>
+              <span className={styles.visuallyHidden}>From both ends</span>
+              <span aria-hidden="true">
+                Search forward from A and backward from B at once. Same route as the one-way search,
+                usually with less exploring.
+              </span>
+            </p>
+            {BOTH_WAYS.map(item)}
+          </div>
+        )}
+      </div>
+      <div role="group" aria-labelledby="algorithms-advanced" className={styles.both}>
         <div className={styles.bothHeader}>
-          <h3 id="algorithms-both-ways" className={styles.bothTitle}>
-            <BothWaysIcon size={15} />
-            From both ends
+          <h3 id="algorithms-advanced" className={styles.bothTitle}>
+            <LevelsIcon size={16} />
+            <span className={styles.foldTitle}>Advanced</span>
+            <span className={styles.groupCount}>{chosenOf(ADVANCED, value)}</span>
           </h3>
           <p className={styles.bothIntro}>
-            Search forward from A and backward from B at once. Same route as the one-way search,
-            usually with less exploring.
+            Built for other jobs: roads that cost less than nothing, or one map answering many
+            routes. Two of them prepare the whole map before searching.
           </p>
         </div>
-        {BOTH_WAYS.map(item)}
+        {ADVANCED.map(item)}
       </div>
+      {preparing && (
+        <p className={styles.note}>
+          <TimerIcon size={14} />
+          ALT and CH prepare these roads once, then reuse it for every route you run here.
+        </p>
+      )}
       {full && <p className={styles.limit}>Up to {limit} at once. Untick one to pick another.</p>}
     </fieldset>
   );

@@ -1,7 +1,7 @@
 import { zeroHeuristic, type Heuristic } from '../algorithms/heuristics';
 import type { FrontierRule } from '../algorithms';
 import type { Trace } from '../algorithms/trace';
-import type { SearchEvent } from '../algorithms/types';
+import type { SearchEdges, SearchEvent } from '../algorithms/types';
 import { edgeRange, type Graph } from '../graph/graph';
 import { haversineMeters } from '../graph/geo';
 import { incomingRange, reverseIndex } from '../graph/reverse';
@@ -22,6 +22,10 @@ export interface Timeline extends FrontierEntries, Meetings {
   steps: number;
   /** Searched from both ends at once. */
   bidirectional: boolean;
+  /** Kept going after reaching B, until nothing improved: its last step need not be B. */
+  exhaustive: boolean;
+  /** Stopped at a step limit before it finished; there is no route to show. */
+  stopped: boolean;
 
   /** Per step (index 0 is the start): the node expanded and what the search knew about it. */
   expandedNode: Uint32Array;
@@ -243,6 +247,26 @@ function buildEntries(
   };
 }
 
+export interface TimelineOptions {
+  /** The edges the events name, if not the graph's own. */
+  edges?: SearchEdges;
+  exhaustive?: boolean;
+  stopped?: boolean;
+}
+
+/** The graph's own edges, looked along forward out of a node and backward into it. */
+function graphEdges(graph: Graph, bidirectional: boolean): SearchEdges {
+  const reverse = bidirectional ? reverseIndex(graph) : null;
+  return {
+    from: graph.edgeSource,
+    to: graph.edgeTarget,
+    degree(node, side) {
+      const [start, end] = side ? incomingRange(reverse!, node) : edgeRange(graph, node);
+      return end - start;
+    },
+  };
+}
+
 /**
  * `heuristic` is the forward estimate, to the target; `backwardHeuristic` is a bidirectional
  * search's estimate from the source.
@@ -253,6 +277,7 @@ export function buildTimeline(
   heuristic: Heuristic = zeroHeuristic,
   frontierRule: FrontierRule = 'priority',
   backwardHeuristic: Heuristic = zeroHeuristic,
+  { edges: given, exhaustive = false, stopped = false }: TimelineOptions = {},
 ): Timeline {
   let steps = 0;
   let roadCount = 0;
@@ -265,7 +290,7 @@ export function buildTimeline(
     if (event.type !== 'meet' && event.side === 'backward') bidirectional = true;
   }
   const heuristics = [heuristic, backwardHeuristic] as const;
-  const reverse = bidirectional ? reverseIndex(graph) : null;
+  const edges = given ?? graphEdges(graph, bidirectional);
 
   const expandedNode = new Uint32Array(steps + 1);
   const expandedSide = new Uint8Array(steps + 1);
@@ -308,23 +333,20 @@ export function buildTimeline(
     const key = side * graph.nodeCount + event.node;
     if (event.type === 'pop') {
       step++;
-      const [start, end] = side
-        ? incomingRange(reverse!, event.node)
-        : edgeRange(graph, event.node);
       expandedNode[step] = event.node;
       expandedSide[step] = side;
       expandedPosition[2 * step] = graph.lon[event.node]!;
       expandedPosition[2 * step + 1] = graph.lat[event.node]!;
       expandedCost[step] = event.cost;
       expandedEstimate[step] = heuristics[side]!(event.node);
-      expandedDegree[step] = end - start;
+      expandedDegree[step] = edges.degree(event.node, side);
       if (!leave.has(key)) leave.set(key, step);
     } else if (event.type === 'push') {
       pushes++;
       if (!enter.has(key)) enter.set(key, step);
       if (event.edge === null) continue;
       // Going backward the edge leads out of the new node, so it was explored from its far end.
-      const from = side ? graph.edgeTarget[event.edge]! : graph.edgeSource[event.edge]!;
+      const from = side ? edges.to[event.edge]! : edges.from[event.edge]!;
       roadFrom[2 * road] = graph.lon[from]!;
       roadFrom[2 * road + 1] = graph.lat[from]!;
       roadTo[2 * road] = graph.lon[event.node]!;
@@ -373,6 +395,8 @@ export function buildTimeline(
   return {
     steps,
     bidirectional,
+    exhaustive,
+    stopped,
     expandedNode,
     expandedSide,
     expandedPosition,
@@ -401,7 +425,7 @@ export function buildTimeline(
     meetPosition,
     meetCost,
     meetLength,
-    route: result.found ? describeRoute(graph, result.path, result.cost) : null,
+    route: result.found && !stopped ? describeRoute(graph, result.path, result.cost) : null,
     ...buildEntries(events, heuristics, frontierRule, steps, graph.nodeCount),
   };
 }

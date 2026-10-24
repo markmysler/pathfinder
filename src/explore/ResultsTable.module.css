@@ -166,3 +166,22 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+/* When preparing pays off. */
+.payoff {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.payoff svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.payoff b {
+  color: var(--text);
+}

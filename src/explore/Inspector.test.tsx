@@ -2,7 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { partsOfStep, frontierAt } from '../playback/frontier';
 import type { AlgorithmId } from '../algorithms';
+import { bellmanFordRounds } from '../playback/rounds';
 import { fakeJobResult } from '../test/fakes';
+import { ContractionInspector } from './AdvancedViews';
 import { Inspector, RunCard, type RunView } from './Inspector';
 
 const resultFor = (algorithm: AlgorithmId): RunView => ({
@@ -253,5 +255,148 @@ describe('Inspector for a search from both ends', () => {
       'while lowest(A) + lowest(B) < best',
     );
     expect(panel).toHaveTextContent(/Nothing left can beat it, so the search stops\./);
+  });
+});
+
+describe('Inspector for the advanced algorithms', () => {
+  const advanced = (algorithm: AlgorithmId): RunView => {
+    const result = fakeJobResult(algorithm);
+    return {
+      ...result.runs[0]!,
+      objective: 'shortest',
+      preparation: result.preparation,
+      target: result.snapped.target.node,
+    };
+  };
+
+  describe('Bellman-Ford', () => {
+    const run = advanced('bellmanford');
+    const t = run.timeline;
+    const rounds = bellmanFordRounds(t, run.target!);
+    const reached = rounds.targetFirst!.step;
+
+    it('heads each step with its round and shows corrections and the best time to B', () => {
+      render(<Inspector {...base} run={run} step={reached + 1} />);
+      expect(
+        screen.getByText(
+          `Round ${rounds.roundAt[reached + 1]}: checking roads out of nodes that just got cheaper`,
+        ),
+      ).toBeInTheDocument();
+      expect(tile('Corrections')).toBeTruthy();
+      expect(
+        tile('Waiting').getByText(`for round ${rounds.roundAt[reached + 1]! + 1}`),
+      ).toBeInTheDocument();
+      expect(tile('Best to B so far').getByText('may still improve')).toBeInTheDocument();
+    });
+
+    it('explains why reaching B is not the end', () => {
+      render(<Inspector {...base} run={run} step={reached + 1} />);
+      expect(screen.getByRole('region', { name: "Why it can't stop at B" })).toHaveTextContent(
+        `B was first reached in round ${rounds.targetFirst!.round}`,
+      );
+    });
+
+    it('says when it stopped at the step limit, and how many steps it would need', () => {
+      const stopped = {
+        ...run,
+        timeline: { ...t, stopped: true, route: null },
+        limit: { steps: t.steps, needed: 1_563_896, dijkstra: 30_478 },
+      };
+      render(<Inspector {...base} run={stopped} step={t.steps} />);
+      expect(screen.getByRole('status')).toHaveTextContent(
+        `Bellman-Ford stopped at ${t.steps} steps. To finish on these roads it needs 1,563,896, 51 times Dijkstra's whole search`,
+      );
+    });
+  });
+
+  describe('ALT', () => {
+    const run = advanced('alt');
+    const step = [...run.landmarkSteps!.best].findIndex((b, s) => s > 0 && b >= 0);
+
+    it('says which landmark the estimate came from, and works it out', () => {
+      render(<Inspector {...base} run={run} step={step} />);
+      const landmark = run.landmarkSteps!.best[step]! + 1;
+      expect(tile('Estimate left · h').getByText(`from landmark ${landmark}`)).toBeInTheDocument();
+      const how = screen.getByRole('region', { name: 'How the estimate was worked out' });
+      expect(how).toHaveTextContent(`Landmark ${landmark} lies`);
+      expect(how).toHaveTextContent('distance left ≥');
+    });
+
+    it('lists the best landmarks against the straight line', () => {
+      render(<Inspector {...base} run={run} step={step} />);
+      const best = screen.getByRole('region', { name: /^Best of the \d landmarks/ });
+      expect(within(best).getAllByRole('listitem').length).toBeGreaterThanOrEqual(3);
+      expect(best).toHaveTextContent('Straight line');
+    });
+  });
+
+  describe('contraction hierarchies', () => {
+    const run = advanced('ch');
+    const t = run.timeline;
+
+    it('sums up the climb at the end: where the sides met, why it stopped, the shortcuts', () => {
+      render(<Inspector {...base} run={run} step={t.steps} />);
+      expect(screen.getByRole('heading', { name: /^They met at / })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Why it stopped' })).toHaveTextContent(
+        'meeting isn’t enough',
+      );
+      expect(tile('Preparing')).toBeTruthy();
+      expect(
+        tile('Shortcuts on the route').getByText(`unpacked into ${run.climb!.roads} roads`),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(new RegExp(`Dijkstra, which expanded ${run.climb!.dijkstra}`)),
+      ).toBeInTheDocument();
+    });
+
+    it('checks its own stop rule while climbing', () => {
+      render(<Inspector {...base} run={run} step={1} />);
+      expect(screen.getByRole('region', { name: 'Can it stop yet?' })).toHaveTextContent(
+        /^Can it stop yet\?Not yet/,
+      );
+    });
+  });
+});
+
+describe('ContractionInspector', () => {
+  const result = fakeJobResult('ch');
+  const hierarchy = result.preparation.hierarchy!;
+  const { replay } = hierarchy;
+  const step =
+    [...replay.ways].findIndex(
+      (w, i) => w > 0 && replay.shortcutsBy[i + 1]! > replay.shortcutsBy[i]!,
+    ) + 1;
+
+  it('shows how far contraction has got', () => {
+    render(
+      <ContractionInspector hierarchy={hierarchy} step={step} names={names} objective="shortest" />,
+    );
+    expect(tile('Contracted').getByText(`${step} of ${replay.steps}`)).toBeInTheDocument();
+    expect(
+      tile('Shortcuts added').getByText(`on top of ${replay.roads} roads`),
+    ).toBeInTheDocument();
+  });
+
+  it('explains the node being contracted: its ways through, witnesses and shortcuts', () => {
+    render(
+      <ContractionInspector hierarchy={hierarchy} step={step} names={names} objective="shortest" />,
+    );
+    const now = screen.getByRole('region', { name: /^Contracting / });
+    const ways = replay.ways[step - 1]!;
+    expect(now).toHaveTextContent(
+      `Taking it out would cut ${ways} ${ways === 1 ? 'way' : 'ways'} through it.`,
+    );
+    const made = replay.shortcutsBy[step]! - replay.shortcutsBy[step - 1]!;
+    expect(within(now).getAllByRole('listitem')).toHaveLength(Math.min(made, 4));
+    expect(screen.getByRole('region', { name: 'Why this node now' })).toHaveTextContent(
+      `importance = ${made} − ${replay.degree[step - 1]} + ${replay.gone[step - 1]}`,
+    );
+  });
+
+  it('says how long preparing really took', () => {
+    render(
+      <ContractionInspector hierarchy={hierarchy} step={step} names={names} objective="shortest" />,
+    );
+    expect(screen.getByText(/Your browser contracted all \d+ nodes in/)).toBeInTheDocument();
   });
 });

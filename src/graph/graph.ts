@@ -26,8 +26,15 @@ export function edgeRange(graph: Graph, node: number): [number, number] {
   return [graph.firstEdge[node]!, graph.firstEdge[node + 1]!];
 }
 
-/** Builds a CSR graph. Edges of the same source node keep their input order. */
-export function buildGraph({ nodes, edges }: GraphInput): Graph {
+/**
+ * Builds a CSR graph. Edges of the same source node keep their input order. Roads never cost
+ * less than nothing, so negative weights are refused unless asked for, as Learn's Bellman-Ford
+ * examples do.
+ */
+export function buildGraph(
+  { nodes, edges }: GraphInput,
+  { allowNegative = false }: { allowNegative?: boolean } = {},
+): Graph {
   const nodeCount = nodes.length;
   const edgeCount = edges.length;
 
@@ -44,7 +51,7 @@ export function buildGraph({ nodes, edges }: GraphInput): Graph {
     if (!isNode(from) || !isNode(to)) {
       throw new RangeError(`Edge ${from} -> ${to} references a node outside 0..${nodeCount - 1}`);
     }
-    if (!Number.isFinite(weight) || weight < 0) {
+    if (!Number.isFinite(weight) || (weight < 0 && !allowNegative)) {
       throw new RangeError(`Edge ${from} -> ${to} has invalid weight ${weight}`);
     }
     firstEdge[from + 1]!++;

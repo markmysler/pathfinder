@@ -48,9 +48,9 @@ scope.onmessage = async ({ data }) => {
   try {
     const result = await runJob(data.request, {
       loadRoadNetwork: async (area, options) => {
-        // Routes inside the bundled Plaza de Mayo streets (the sample route among them) need no
-        // download at all.
-        const sample = options.ends && (await sampleStreetsFor(options.ends));
+        // The sample route runs on the Plaza de Mayo streets bundled with the app: no download.
+        const sample =
+          data.request.sample && options.ends && (await sampleStreetsFor(options.ends));
         if (sample) return { network: sample.network, fromCache: true, box: sample.box };
         return loadRoadNetwork(area, { cache, saved, offline: !navigator.onLine, ...options });
       },

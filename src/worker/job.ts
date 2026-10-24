@@ -44,6 +44,8 @@ export interface JobRequest {
   astarWeight?: number;
   /** The user's own traffic key, if they gave one. Used for driving only. */
   traffic?: TrafficSource;
+  /** "Try a sample route": run on the streets bundled with the app instead of downloading. */
+  sample?: boolean;
 }
 
 export type Stage = 'download' | 'traffic' | 'graph' | 'prepare' | 'search';

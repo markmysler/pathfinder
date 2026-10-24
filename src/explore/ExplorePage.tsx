@@ -49,6 +49,7 @@ import { PROVIDER_NAME } from './trafficText';
 import { fetchedTime, trafficSummary } from './trafficText';
 import { SlowDrawingNotice } from './SlowDrawingNotice';
 import { TrafficKey, TrafficNotice } from './TrafficViews';
+import { isSampleRoute } from '../osm/sampleRoute';
 
 const MODE_LABEL = { car: 'Car', bike: 'Bike', walk: 'Walk' };
 const OBJECTIVE_LABEL = { fastest: 'Fastest', shortest: 'Shortest' };
@@ -146,6 +147,7 @@ export function ExplorePage() {
         objective: state.objective,
         algorithms,
         astarWeight: state.astarWeight,
+        sample: isSampleRoute(start, target),
         traffic: trafficSource,
       },
       (stage, server) => {

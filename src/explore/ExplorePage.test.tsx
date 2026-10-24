@@ -163,6 +163,15 @@ describe('ExplorePage', () => {
       target: { name: SAMPLE_ROUTE.target.name },
     });
     expect(request.algorithms.length).toBeGreaterThan(0);
+    expect(request.sample).toBe(true);
+  });
+
+  it('downloads a searched route near Plaza de Mayo like any other', async () => {
+    const { client } = setup();
+    await choosePlaces();
+    await chooseOnly('A* search');
+    await userEvent.click(screen.getByRole('button', { name: 'Run A* search' }));
+    expect(client.run.mock.calls[0]![0].sample).toBe(false);
   });
 
   it('explains failures and can try again', async () => {

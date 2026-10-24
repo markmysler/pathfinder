@@ -1,6 +1,7 @@
 export interface Cache<T> {
   get(key: string): Promise<T | undefined>;
   set(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<void>;
 }
 
 interface CacheOptions {
@@ -68,6 +69,15 @@ export function indexedDbCache<T>(options: CacheOptions): Cache<T> {
         await settle(db.transaction(STORE, 'readwrite').objectStore(STORE).put(entry, key));
       } catch {
         // A full or unavailable cache only costs a re-download next time.
+      }
+    },
+    async delete(key) {
+      try {
+        const db = await open();
+        if (!db) return;
+        await settle(db.transaction(STORE, 'readwrite').objectStore(STORE).delete(key));
+      } catch {
+        // Whatever stays behind expires anyway.
       }
     },
   };

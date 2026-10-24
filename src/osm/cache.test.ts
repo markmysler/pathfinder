@@ -39,10 +39,20 @@ describe('indexedDbCache', () => {
     await expect(cache.get('area')).resolves.toBeUndefined();
   });
 
+  it('deletes an entry on request, leaving the others', async () => {
+    const cache = indexedDbCache({ name: 'test', ttlMs: day, indexedDB });
+    await cache.set('one', 1);
+    await cache.set('two', 2);
+    await cache.delete('one');
+    await expect(cache.get('one')).resolves.toBeUndefined();
+    await expect(cache.get('two')).resolves.toBe(2);
+  });
+
   it('quietly does nothing when IndexedDB is unavailable', async () => {
     const cache = indexedDbCache({ name: 'test', ttlMs: day, indexedDB: undefined });
     await expect(cache.set('area', 1)).resolves.toBeUndefined();
     await expect(cache.get('area')).resolves.toBeUndefined();
+    await expect(cache.delete('area')).resolves.toBeUndefined();
   });
 
   it('quietly does nothing when opening the database fails', async () => {

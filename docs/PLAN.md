@@ -146,3 +146,11 @@ Work, each test-first:
 6. **Docs.** README for users (what it is, keys and privacy, offline) and contributors; `docs/ARCHITECTURE.md` (worker, event traces, timelines, playback, map layers); `docs/CONTRIBUTING.md` (TDD, design first, recording fixtures).
 
 Boards: on the canvas under "Phase 10".
+
+Phase 10 progress (2026-10-24):
+
+- Done: axe on every page and state, desktop and phone, with its fixes; skip links; the map loads after the page and deck.gl with the first search (shared start 76 KB gzipped, from 629); fonts preloaded (no layout shift); meta description and robots.txt; Lighthouse budgets as their own Playwright project (Explore 71–73, Learn 93–94; accessibility, best practices and SEO 100); the slow-drawing notice and "the map stopped drawing" with Redraw; manifest, icons and service worker (Explore and Learn load offline after one visit; tiles of places seen are cached); the update prompt, which waits while a run is open.
+- Fixed along the way: a lost WebGL context blanked the page; deck.gl leaked its context and, through a resolution listener, its layers' data; a map removed while its deck.gl overlay was still starting leaked the device deck.gl created afterwards.
+- Started: saved areas (`src/osm/saved.ts`) and the loader's fallback to them when streets can't be downloaded (`loadRoadNetwork` with `saved`, `route`, `offline`, and `NotSavedError`), tested but not yet wired in.
+- Still to do: wire saved areas into the worker (route names in the job request, `offline` from `navigator.onLine`, `NotSavedError` as a `not-saved` job error, messages to list and forget saved areas, roads cache kept longer than the index's week); the "Saved on this device" list on desktop and phone; the Offline chip and "Back online" note; "Searching needs a connection"; the "These streets aren't on this device" panel; offline traffic row; README, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`.
+- Watch in CI: Explore's Lighthouse performance (71–73 here, budget 70) may score lower on a slower runner, since Lighthouse scales the CPU time it observes.

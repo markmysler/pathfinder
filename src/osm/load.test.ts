@@ -1,5 +1,6 @@
 import type { Cache } from './cache';
-import { loadRoadNetwork } from './load';
+import { loadRoadNetwork, NotSavedError } from './load';
+import { savedAreas } from './saved';
 import type { OverpassResponse, RoadNetwork } from './network';
 import { overpassQuery } from './overpass';
 
@@ -18,6 +19,7 @@ function memoryCache(): Cache<RoadNetwork> & { entries: Map<string, RoadNetwork>
     entries,
     get: async (key) => entries.get(key),
     set: async (key, value) => void entries.set(key, value),
+    delete: async (key) => void entries.delete(key),
   };
 }
 
@@ -44,6 +46,7 @@ describe('loadRoadNetwork', () => {
 
   it('still returns the network when it cannot be cached', async () => {
     const cache: Cache<RoadNetwork> = {
+      delete: async () => undefined,
       get: async () => undefined,
       set: async () => {
         throw new Error('quota exceeded');
@@ -66,5 +69,68 @@ describe('loadRoadNetwork', () => {
       'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
       1,
     );
+  });
+});
+
+describe('loadRoadNetwork with saved areas', () => {
+  const route = {
+    start: { name: 'Casa Rosada', lat: 0.002, lon: 0.002 },
+    target: { name: 'Cabildo', lat: 0.008, lon: 0.008 },
+  };
+  const setup = () => {
+    const cache = memoryCache();
+    const index = new Map<string, unknown>();
+    const saved = savedAreas({
+      index: {
+        get: async (key) => index.get(key) as never,
+        set: async (key, value) => void index.set(key, value),
+        delete: async (key) => void index.delete(key),
+      },
+      roads: cache,
+      keepMs: 7 * 24 * 60 * 60 * 1000,
+    });
+    return { cache, saved };
+  };
+
+  it('records each area it downloads, with the route that asked for it', async () => {
+    const { cache, saved } = setup();
+    await loadRoadNetwork(box, { fetchOverpass: async () => response, cache, saved, route });
+    expect(await saved.list()).toEqual([
+      expect.objectContaining({ box, start: route.start, target: route.target }),
+    ]);
+  });
+
+  it('offline, runs inside a saved area on its streets', async () => {
+    const { cache, saved } = setup();
+    await loadRoadNetwork(box, { fetchOverpass: async () => response, cache, saved, route });
+    const inside = { south: 0.002, west: 0.002, north: 0.008, east: 0.008 };
+    const fetchOverpass = vi.fn(async () => response);
+    const { network, fromCache } = await loadRoadNetwork(inside, {
+      fetchOverpass,
+      cache,
+      saved,
+      offline: true,
+    });
+    expect(fromCache).toBe(true);
+    expect(network.segmentCount).toBe(1);
+    expect(fetchOverpass).not.toHaveBeenCalled();
+  });
+
+  it('falls back on a saved area when the download fails', async () => {
+    const { cache, saved } = setup();
+    await loadRoadNetwork(box, { fetchOverpass: async () => response, cache, saved, route });
+    const inside = { south: 0.002, west: 0.002, north: 0.008, east: 0.008 };
+    const failing = async () => {
+      throw new Error('Overpass is down');
+    };
+    const { fromCache } = await loadRoadNetwork(inside, { fetchOverpass: failing, cache, saved });
+    expect(fromCache).toBe(true);
+  });
+
+  it('offline, with no saved area around, says these streets are not on the device', async () => {
+    const { cache, saved } = setup();
+    await expect(
+      loadRoadNetwork(box, { fetchOverpass: async () => response, cache, saved, offline: true }),
+    ).rejects.toBeInstanceOf(NotSavedError);
   });
 });

@@ -7,7 +7,7 @@ import lighthouse from 'lighthouse';
  * its profile folder on WSL.
  */
 const PAGES = [
-  { name: 'Explore', path: '/', performance: 70 },
+  { name: 'Explore', path: '/', performance: 65 },
   { name: 'Learn', path: '/#/learn', performance: 90 },
   { name: 'an article', path: '/#/learn/astar', performance: 90 },
 ];

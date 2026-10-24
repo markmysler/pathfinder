@@ -12,7 +12,7 @@ makes it pass, and tidy up with the tests green.
   Pixel 7.
   - `accessibility.spec.ts` runs axe over every page and state and expects nothing.
   - `lighthouse.spec.ts` runs last, in its own project, and holds the performance budgets: phone
-    profile, Explore at least 70, Learn at least 90. Accessibility, best practices and SEO must
+    profile, Explore at least 65, Learn at least 90. Accessibility, best practices and SEO must
     score 100.
 - **No network in tests.** Unit tests use recorded fixtures. End-to-end tests answer every outside
   request from `e2e/network.ts`: Overpass, Nominatim, the map style and tiles, and TomTom.

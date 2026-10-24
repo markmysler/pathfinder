@@ -155,10 +155,10 @@ async function trackGraphicsContexts(page: Page) {
   });
 }
 
-/** WebGL contexts still holding the GPU although their canvas has left the page. */
-const leftBehind = (page: Page) =>
+/** WebGL contexts whose canvas has left the page; `holding` keeps only those not yet lost. */
+const leftBehind = (page: Page, holding: boolean) =>
   page.evaluate(
-    () =>
+    (holding) =>
       (
         window as unknown as { graphicsContexts: WeakRef<WebGL2RenderingContext>[] }
       ).graphicsContexts
@@ -166,12 +166,13 @@ const leftBehind = (page: Page) =>
         .filter(
           (context) =>
             context &&
-            !context.isContextLost() &&
+            !(holding && context.isContextLost()) &&
             !(context.canvas instanceof HTMLCanvasElement && context.canvas.isConnected),
         ).length,
+    holding,
   );
 
-test('lets go of the graphics of maps it no longer shows', async ({ page, context }) => {
+test('lets go of the maps it no longer shows', async ({ page, context }) => {
   await fakeTheInternet(context);
   await trackGraphicsContexts(page);
   await page.goto('/');
@@ -183,7 +184,10 @@ test('lets go of the graphics of maps it no longer shows', async ({ page, contex
     await page.getByRole('button', { name: 'Edit setup' }).filter({ visible: true }).click();
     await expect(page.getByRole('button', { name: 'Run 3 algorithms' })).toBeVisible();
   }
-  expect(await leftBehind(page)).toBe(0);
+  expect(await leftBehind(page, true)).toBe(0);
+  // Nor may anything keep a gone map reachable, with the search data its layers were drawing.
+  await (await context.newCDPSession(page)).send('HeapProfiler.collectGarbage');
+  expect(await leftBehind(page, false)).toBe(0);
 });
 
 test('keeps the downloaded streets for the next run', async ({ page, context }) => {

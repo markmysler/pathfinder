@@ -96,12 +96,22 @@ function markerElement(role: Role) {
 }
 
 /**
- * Takes deck.gl's overlay off the map and frees its WebGL context. deck.gl never does: its
- * context would hold on to the GPU, and browsers only allow about 16 at once.
+ * Takes deck.gl's overlay off the map and lets go of everything it held. deck.gl leaves both
+ * behind: its WebGL context, which would hold on to the GPU (browsers allow about 16), and a
+ * listener for screen-resolution changes, which keeps the whole overlay and its layers' data
+ * reachable. So the layers go first, then the listener with the canvas context, then the context.
  */
 function removeOverlay(map: maplibregl.Map, overlay: MapboxOverlay) {
+  overlay.setProps({ layers: [] });
   const canvas = overlay.getCanvas();
+  // The overlay keeps its Deck, and the Deck its device, to itself; reach in, but only as far as
+  // they are there.
+  const { _deck: deck } = overlay as unknown as {
+    _deck?: { device?: { canvasContext?: { destroy(): void } | null } | null };
+  };
+  const canvasContext = deck?.device?.canvasContext;
   map.removeControl(overlay);
+  canvasContext?.destroy();
   canvas?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
 }
 

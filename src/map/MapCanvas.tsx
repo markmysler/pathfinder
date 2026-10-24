@@ -95,6 +95,16 @@ function markerElement(role: Role) {
   return element;
 }
 
+/**
+ * Takes deck.gl's overlay off the map and frees its WebGL context. deck.gl never does: its
+ * context would hold on to the GPU, and browsers only allow about 16 at once.
+ */
+function removeOverlay(map: maplibregl.Map, overlay: MapboxOverlay) {
+  const canvas = overlay.getCanvas();
+  map.removeControl(overlay);
+  canvas?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+}
+
 /** The MapLibre basemap with A and B markers and a deck.gl overlay for the search. */
 export function MapCanvas(props: Props) {
   const { start, target, area, exploration, draggable } = props;
@@ -152,7 +162,7 @@ export function MapCanvas(props: Props) {
     // deck.gl can't get a lost context back, so the search moves to a fresh overlay.
     instance.on('webglcontextlost', () => setDrawable(false));
     instance.on('webglcontextrestored', () => {
-      if (overlay.current) instance.removeControl(overlay.current);
+      if (overlay.current) removeOverlay(instance, overlay.current);
       addOverlay();
       setDrawable(true);
     });
@@ -186,6 +196,7 @@ export function MapCanvas(props: Props) {
     return () => {
       sync?.leave(member);
       Object.values(placed).forEach((marker) => marker.remove());
+      if (overlay.current) removeOverlay(instance, overlay.current);
       instance.remove();
       map.current = null;
       overlay.current = null;

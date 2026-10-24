@@ -131,6 +131,61 @@ test('survives losing the graphics context, and draws the search again once it i
   expect(errors).toEqual([]);
 });
 
+/** Keeps track of every WebGL context the page creates, without keeping any alive. */
+async function trackGraphicsContexts(page: Page) {
+  await page.addInitScript(() => {
+    const created: WeakRef<WebGL2RenderingContext>[] = [];
+    (window as unknown as { graphicsContexts: typeof created }).graphicsContexts = created;
+    const getContext = HTMLCanvasElement.prototype.getContext as (
+      this: HTMLCanvasElement,
+      ...args: unknown[]
+    ) => RenderingContext | null;
+    const seen = new WeakSet<HTMLCanvasElement>();
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      ...args: unknown[]
+    ) {
+      const context = getContext.apply(this, args);
+      if (String(args[0]).startsWith('webgl') && context && !seen.has(this)) {
+        seen.add(this);
+        created.push(new WeakRef(context as WebGL2RenderingContext));
+      }
+      return context;
+    } as typeof HTMLCanvasElement.prototype.getContext;
+  });
+}
+
+/** WebGL contexts still holding the GPU although their canvas has left the page. */
+const leftBehind = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as { graphicsContexts: WeakRef<WebGL2RenderingContext>[] }
+      ).graphicsContexts
+        .map((ref) => ref.deref())
+        .filter(
+          (context) =>
+            context &&
+            !context.isContextLost() &&
+            !(context.canvas instanceof HTMLCanvasElement && context.canvas.isConnected),
+        ).length,
+  );
+
+test('lets go of the graphics of maps it no longer shows', async ({ page, context }) => {
+  await fakeTheInternet(context);
+  await trackGraphicsContexts(page);
+  await page.goto('/');
+  await choosePlaces(page);
+  // Browsers allow about 16 contexts, and each map takes two: going back and forth must not pile up.
+  for (let round = 0; round < 2; round++) {
+    await page.getByRole('button', { name: 'Run 3 algorithms' }).click();
+    await expect(page.getByRole('article', { name: 'Dijkstra' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit setup' }).filter({ visible: true }).click();
+    await expect(page.getByRole('button', { name: 'Run 3 algorithms' })).toBeVisible();
+  }
+  expect(await leftBehind(page)).toBe(0);
+});
+
 test('keeps the downloaded streets for the next run', async ({ page, context }) => {
   const { overpassRequests } = await fakeTheInternet(context);
   await page.goto('/');

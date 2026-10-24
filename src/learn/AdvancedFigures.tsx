@@ -14,6 +14,7 @@ import styles from './AdvancedFigures.module.css';
 import { SIX, type DiagramNetwork } from './networks';
 import diagram from './StepDiagram.module.css';
 import article from './Article.module.css';
+import { OsmCredit } from './kit';
 import { streetLandmarks } from './streets';
 
 const R = 16;
@@ -595,7 +596,7 @@ export function LandmarkMap() {
       <figcaption className={article.mapCaption}>
         The {map.points.length} landmarks for a drive across the recorded Plaza de Mayo streets,
         numbered in the order they were picked. Number {map.mostUsed + 1} gave the most estimates on
-        the way from A to B.
+        the way from A to B. <OsmCredit />
       </figcaption>
     </figure>
   );

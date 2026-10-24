@@ -4,7 +4,7 @@ import { learnHref } from '../../app/routes';
 import { algoColor } from '../../ui/algorithmStyle';
 import { formatCost, formatCount } from '../../ui/format';
 import styles from '../Article.module.css';
-import { ArticleHeader, ArticleNav, Section, WideTable } from '../kit';
+import { ArticleHeader, ArticleNav, OsmCredit, Section, WideTable } from '../kit';
 import { topic } from '../topics';
 import { streetSearch } from '../streets';
 import { WhichTable } from '../WhichTable';
@@ -106,6 +106,9 @@ export default function WhichArticle() {
           between the same two corners:
         </p>
         <StreetResults />
+        <p className={styles.small}>
+          <OsmCredit />
+        </p>
         <p className={styles.small}>
           A small area keeps the differences small. Run them on a whole city in Explore to see the
           gaps grow.

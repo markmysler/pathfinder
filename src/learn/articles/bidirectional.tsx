@@ -13,6 +13,7 @@ import {
   FrontierStrip,
   Glance,
   M,
+  OsmCredit,
   Section,
   WideTable,
 } from '../kit';
@@ -378,6 +379,9 @@ export default function BidirectionalArticle() {
           between the same two corners:
         </p>
         <StreetResults />
+        <p className={styles.small}>
+          <OsmCredit />
+        </p>
       </Section>
 
       <Section id="used" title="Where it is used">

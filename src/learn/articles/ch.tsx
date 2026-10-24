@@ -1,7 +1,15 @@
 import { formatCount, formatMs } from '../../ui/format';
 import { ClimbFigure, ContractionFigure } from '../AdvancedFigures';
 import styles from '../Article.module.css';
-import { ArticleHeader, ArticleNav, CodeBlock, Glance, Section, StreetsCompare } from '../kit';
+import {
+  ArticleHeader,
+  ArticleNav,
+  CodeBlock,
+  Glance,
+  Section,
+  StreetsCompare,
+  WideTable,
+} from '../kit';
 import { MEASURED } from '../measured';
 import { topic } from '../topics';
 
@@ -86,7 +94,7 @@ export default function ContractionHierarchiesArticle() {
 
       <Section id="pays" title="When preparing pays">
         <p>Measured on Buenos Aires streets, driving, fastest route:</p>
-        <div className={styles.table}>
+        <WideTable label="When preparing pays, by route">
           <table>
             <thead>
               <tr>
@@ -111,7 +119,7 @@ export default function ContractionHierarchiesArticle() {
               ))}
             </tbody>
           </table>
-        </div>
+        </WideTable>
         {largest && (
           <p>
             The bigger the map, the bigger the win: on the {largest.route} route the search expands{' '}

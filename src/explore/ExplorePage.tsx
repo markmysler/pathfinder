@@ -290,6 +290,7 @@ export function ExplorePage() {
           )}
 
           <main className={styles.mapArea} aria-label="Map">
+            <h1 className="visually-hidden">Explore</h1>
             {map}
             {!watching && (
               <p className={styles.hint}>

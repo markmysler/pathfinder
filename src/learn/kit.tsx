@@ -131,6 +131,15 @@ export function Formula({
   );
 }
 
+/** A table that scrolls sideways on narrow screens; focusable, so the keyboard can scroll it. */
+export function WideTable({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className={styles.table} role="region" aria-label={label} tabIndex={0}>
+      {children}
+    </div>
+  );
+}
+
 export function Callout({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className={styles.callout}>

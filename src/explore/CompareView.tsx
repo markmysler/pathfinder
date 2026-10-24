@@ -84,7 +84,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
   if (phone) {
     const hidden = runs.map((r) => r.algorithm).filter((id) => !shown.includes(id));
     return (
-      <div className={styles.phone}>
+      <main className={styles.phone} aria-label="Comparison">
         <header className={styles.phoneHeader}>
           <button
             type="button"
@@ -160,7 +160,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           />
           <WithoutTraffic traffic={result.traffic} objective={objective} />
         </section>
-      </div>
+      </main>
     );
   }
 
@@ -172,6 +172,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
 
   return (
     <main className={styles.desktop} aria-label="Comparison">
+      <h1 className="visually-hidden">Comparing {runs.length}</h1>
       <div className={styles.grid}>{runs.map(mapFor)}</div>
 
       <section className={styles.panel} aria-label="Playback for all maps">
@@ -350,6 +351,7 @@ function ComparisonMap({
       onPinMoved={ignore}
       sync={sync}
       card={phone ? 'bare' : 'framed'}
+      name={`Map: ${name}`}
     />
   );
 

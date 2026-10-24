@@ -74,14 +74,14 @@ export function TrafficDialog({ settings, onSave, onClose, check }: Props) {
         }}
       >
         <span className={styles.grabber} aria-hidden="true" />
-        <header className={styles.header}>
+        <div className={styles.header}>
           <h2 id={titleId} className={styles.title}>
             Live traffic
           </h2>
           <button type="button" className={styles.close} aria-label="Close" onClick={onClose}>
             <CloseIcon size={20} />
           </button>
-        </header>
+        </div>
         <p className={styles.lede}>
           Route cars with the traffic right now instead of speed limits. Bring your own key from
           TomTom or HERE; both have a free tier.

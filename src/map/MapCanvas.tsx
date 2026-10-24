@@ -54,6 +54,8 @@ interface Props {
   sync?: CameraSync;
   /** A small map in a grid or stack: compact attribution, and no zoom buttons if `bare`. */
   card?: 'framed' | 'bare';
+  /** What screen readers call the map; maps side by side each need their own name. */
+  name?: string;
 }
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
@@ -139,6 +141,7 @@ export function MapCanvas(props: Props) {
       center: [0, 20],
       zoom: 1.5,
       attributionControl: false,
+      locale: { 'Map.Title': latest.current.name ?? 'Map' },
     });
     const { card, sync } = latest.current;
     // Bottom sheets cover the bottom of the map on phones, so the attribution moves up there.

@@ -125,7 +125,7 @@ Follow-ups noted during phase 9:
 - CH's road-by-road traffic notes are left out: its events name shortcuts, which have no single road's traffic.
 - Fixed: the property test "stopCheck is only sure of the route at the last step" failed about one run in seventeen (seed -1531813667). The tiny weights were only fast-check shrinking; the cause was outdated entries a search throws away after its last expansion. They had no step to belong to, so the last step still counted them as waiting: the stop line could show a sum below the best route, and the final frontier listed entries already gone. They now leave at the last step, after its roads.
 
-## Phase 10 plan (boards waiting for approval)
+## Phase 10 plan (boards approved 2026-10-24)
 
 Measured on 2026-10-24 before starting, on the production build:
 

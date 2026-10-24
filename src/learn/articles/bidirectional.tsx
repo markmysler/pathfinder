@@ -14,6 +14,7 @@ import {
   Glance,
   M,
   Section,
+  WideTable,
 } from '../kit';
 import { TRAP } from '../networks';
 import { StepDiagram } from '../StepDiagram';
@@ -147,7 +148,7 @@ function StreetResults() {
   const [bfs, dijkstra, astar] = rows;
   return (
     <>
-      <div className={styles.table}>
+      <WideTable label="One way and both ways, nodes expanded">
         <table aria-label="On the same streets">
           <thead>
             <tr>
@@ -182,7 +183,7 @@ function StreetResults() {
             )}
           </tbody>
         </table>
-      </div>
+      </WideTable>
       <p>
         Every bidirectional search found a route as good as its one-way version. Going both ways cut
         Dijkstra&rsquo;s work by {saved(dijkstra!.oneRun.expanded, dijkstra!.twoRun.expanded)},

@@ -1,7 +1,16 @@
 import { formatCount } from '../../ui/format';
 import { NegativeCostFigure } from '../AdvancedFigures';
 import styles from '../Article.module.css';
-import { ArticleHeader, ArticleNav, Callout, CodeBlock, Glance, M, Section } from '../kit';
+import {
+  ArticleHeader,
+  ArticleNav,
+  Callout,
+  CodeBlock,
+  Glance,
+  M,
+  Section,
+  WideTable,
+} from '../kit';
 import { MEASURED } from '../measured';
 import { topic } from '../topics';
 
@@ -70,7 +79,7 @@ export default function BellmanFordArticle() {
           Streets never cost less than nothing, so Dijkstra is right and Bellman-Ford&rsquo;s
           corrections are wasted effort. Measured on Buenos Aires streets, driving:
         </p>
-        <div className={styles.table}>
+        <WideTable label="Bellman-Ford and Dijkstra on real streets">
           <table>
             <thead>
               <tr>
@@ -93,7 +102,7 @@ export default function BellmanFordArticle() {
               ))}
             </tbody>
           </table>
-        </div>
+        </WideTable>
         <p>
           It also can&rsquo;t stop at B: it explores the whole map, since a later round might still
           find a cheaper way. In Explore it stops after 400,000 steps and says so.

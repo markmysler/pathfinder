@@ -4,7 +4,7 @@ import { learnHref } from '../../app/routes';
 import { algoColor } from '../../ui/algorithmStyle';
 import { formatCost, formatCount } from '../../ui/format';
 import styles from '../Article.module.css';
-import { ArticleHeader, ArticleNav, Section } from '../kit';
+import { ArticleHeader, ArticleNav, Section, WideTable } from '../kit';
 import { topic } from '../topics';
 import { streetSearch } from '../streets';
 import { WhichTable } from '../WhichTable';
@@ -16,7 +16,7 @@ function StreetResults() {
   const rows = useMemo(() => IDS.map((id) => ({ id, run: streetSearch(id) })), []);
   const best = Math.min(...rows.map((r) => r.run.route?.cost ?? Infinity));
   return (
-    <div className={styles.table}>
+    <WideTable label="Every algorithm on the same streets">
       <table>
         <thead>
           <tr>
@@ -46,7 +46,7 @@ function StreetResults() {
           })}
         </tbody>
       </table>
-    </div>
+    </WideTable>
   );
 }
 

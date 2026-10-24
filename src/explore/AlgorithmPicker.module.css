@@ -371,8 +371,15 @@
     background: var(--algo-fill);
   }
 
+  /* Chips show the short name; the full name and blurb stay for screen readers, which the
+     checkbox is labelled and described by. */
   .text {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   /* A ring in the algorithm's colour when off, a tick when on. */

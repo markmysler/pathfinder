@@ -1,7 +1,16 @@
 import { formatCount, formatMs } from '../../ui/format';
 import { LandmarkFigure, LandmarkMap } from '../AdvancedFigures';
 import styles from '../Article.module.css';
-import { ArticleHeader, ArticleNav, CodeBlock, Glance, M, Section, StreetsCompare } from '../kit';
+import {
+  ArticleHeader,
+  ArticleNav,
+  CodeBlock,
+  Glance,
+  M,
+  Section,
+  StreetsCompare,
+  WideTable,
+} from '../kit';
 import { MEASURED } from '../measured';
 import { topic } from '../topics';
 
@@ -72,7 +81,7 @@ export default function AltArticle() {
           the top speed limit everywhere, so it guesses low on slow streets. Landmarks know the real
           times.
         </p>
-        <div className={styles.table}>
+        <WideTable label="How much ALT saves, by route">
           <table>
             <thead>
               <tr>
@@ -95,7 +104,7 @@ export default function AltArticle() {
               ))}
             </tbody>
           </table>
-        </div>
+        </WideTable>
         <p>
           Preparing means two Dijkstra searches over the whole map per landmark, 16 in all. And each
           estimate takes 16 lookups instead of one distance. So ALT shines on big maps, where the

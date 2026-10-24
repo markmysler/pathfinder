@@ -175,11 +175,11 @@ export function AlgorithmPicker({
       </div>
       <div role="group" aria-labelledby="algorithms-advanced" className={styles.both}>
         <div className={styles.bothHeader}>
-          <h3 id="algorithms-advanced" className={styles.bothTitle}>
+          <h2 id="algorithms-advanced" className={styles.bothTitle}>
             <LevelsIcon size={16} />
             <span className={styles.foldTitle}>Advanced</span>
             <span className={styles.groupCount}>{chosenOf(ADVANCED, value)}</span>
-          </h3>
+          </h2>
           <p className={styles.bothIntro}>
             Built for other jobs: roads that cost less than nothing, or one map answering many
             routes. Two of them prepare the whole map before searching.

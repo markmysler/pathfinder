@@ -3,10 +3,11 @@ import { topicFor } from './topics';
 import { WHICH } from './which';
 import { algoColor } from '../ui/algorithmStyle';
 import styles from './Article.module.css';
+import { WideTable } from './kit';
 
 export function WhichTable() {
   return (
-    <div className={styles.table}>
+    <WideTable label="Which algorithm does what">
       <table>
         <thead>
           <tr>
@@ -32,6 +33,6 @@ export function WhichTable() {
           ))}
         </tbody>
       </table>
-    </div>
+    </WideTable>
   );
 }

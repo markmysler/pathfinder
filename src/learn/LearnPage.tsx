@@ -27,12 +27,14 @@ export function LearnPage() {
   const content = !slug ? (
     <LearnHome />
   ) : Article && topic ? (
-    <article
+    <main
       className={articleStyles.article}
       style={topic.algorithm ? algoColor(topic.algorithm) : ({} as CSSProperties)}
     >
-      <Article />
-    </article>
+      <article>
+        <Article />
+      </article>
+    </main>
   ) : (
     <main className={articleStyles.article}>
       <h1 className={articleStyles.title}>No such topic</h1>

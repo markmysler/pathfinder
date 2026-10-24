@@ -1,5 +1,7 @@
 import type { Graph } from '../graph/graph';
 import type { Heuristic } from './heuristics';
+import type { Hierarchy } from './hierarchy';
+import type { Landmarks } from './landmarks';
 
 export interface SearchProblem {
   graph: Graph;
@@ -9,6 +11,10 @@ export interface SearchProblem {
   heuristic?: Heuristic;
   /** Estimated cost from the source to a node, for informed searches that also run backwards. */
   backwardHeuristic?: Heuristic;
+  /** Worked out ahead for ALT; it chooses its own if left out. */
+  landmarks?: Landmarks;
+  /** Worked out ahead for contraction hierarchies; it contracts the graph itself if left out. */
+  hierarchy?: Hierarchy;
 }
 
 /**

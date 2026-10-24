@@ -3,12 +3,31 @@ import { randomGeoProblem, type RandomProblem } from '../test/arbitraries';
 import { binaryTree } from '../test/fixtures';
 import { referenceHops } from '../test/reference';
 import { straightLineHeuristic } from './heuristics';
+import { bellmanFord } from './bellmanFord';
+import { contractionHierarchies } from './hierarchy';
 import { algorithms } from './index';
+import { alt } from './landmarks';
 import { runSearch } from './trace';
+import type { SearchAlgorithm } from './types';
+
+interface Entry {
+  name: string;
+  search: SearchAlgorithm;
+  bidirectional: boolean;
+  /** Runs until nothing improves instead of stopping at the target. */
+  exhaustive?: boolean;
+}
+
+// Built and tested, waiting for their UI before they join the registry.
+const PENDING: Entry[] = [
+  { name: 'Bellman-Ford', search: bellmanFord, bidirectional: false, exhaustive: true },
+  { name: 'ALT', search: alt, bidirectional: false },
+  { name: 'Contraction hierarchies', search: contractionHierarchies, bidirectional: true },
+];
 
 // Every algorithm, present and future, must honour these rules. Adding an algorithm to the
 // registry is enough to put it under test here.
-describe.each(Object.values(algorithms))('$name', (algorithm) => {
+describe.each<Entry>([...Object.values(algorithms), ...PENDING])('$name', (algorithm) => {
   const solve = ({ graph, source, target }: RandomProblem) =>
     runSearch(algorithm.search, {
       graph,
@@ -60,15 +79,18 @@ describe.each(Object.values(algorithms))('$name', (algorithm) => {
     );
   });
 
-  it.runIf(!algorithm.bidirectional)('ends by expanding the target', () => {
-    fc.assert(
-      fc.property(randomGeoProblem(), (problem) => {
-        const { events, result } = solve(problem);
-        if (result.found)
-          expect(events.at(-1)).toMatchObject({ type: 'pop', node: problem.target });
-      }),
-    );
-  });
+  it.runIf(!algorithm.bidirectional && !algorithm.exhaustive)(
+    'ends by expanding the target',
+    () => {
+      fc.assert(
+        fc.property(randomGeoProblem(), (problem) => {
+          const { events, result } = solve(problem);
+          if (result.found)
+            expect(events.at(-1)).toMatchObject({ type: 'pop', node: problem.target });
+        }),
+      );
+    },
+  );
 
   it(`works ${algorithm.bidirectional ? 'from both ends' : 'forward only'}`, () => {
     fc.assert(

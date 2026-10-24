@@ -113,6 +113,12 @@ export const EyeOffIcon = stroke(
 );
 export const CloseIcon = stroke(<path d="M6 6l12 12M18 6L6 18" />);
 export const WarningIcon = stroke(<path d="M12 3l10 18H2zM12 10v5M12 18v.5" />);
+export const GaugeIcon = stroke(<path d="M3.5 18a9 9 0 1 1 17 0M12 14l4-4" />);
+export const CloudOffIcon = stroke(
+  <path d="M3 3l18 18M8.6 7.5A6 6 0 0 1 17.9 11h.6a3.5 3.5 0 0 1 2.4 6M17 19H7a4 4 0 0 1-1.4-7.75" />,
+);
+export const RefreshIcon = stroke(<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5" />);
+export const TrashIcon = stroke(<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />);
 export const InfoIcon = stroke(
   <>
     <circle cx="12" cy="12" r="9" />

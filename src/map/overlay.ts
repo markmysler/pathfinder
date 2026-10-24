@@ -37,7 +37,9 @@ export function whenStarted(overlay: MapboxOverlay, timeoutMs = 5000): Promise<v
  * reachable. So the layers go first, then the listener with the canvas context, then the context.
  */
 export function removeOverlay(map: maplibregl.Map, overlay: MapboxOverlay) {
-  overlay.setProps({ layers: [] });
+  // A map whose context is lost has no style, which deck.gl would read to set its props; that
+  // overlay's layers go with its context anyway.
+  if (map.style) overlay.setProps({ layers: [] });
   // The overlay keeps its Deck, and the Deck its device, to itself; reach in, but only as far as
   // they are there.
   const { _deck: deck } = overlay as unknown as {

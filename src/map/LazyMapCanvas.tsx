@@ -23,6 +23,8 @@ function whenIdle(callback: () => void) {
  */
 export function LazyMapCanvas(props: MapCanvasProps) {
   const [wanted, setWanted] = useState(false);
+  /** Bumped to replace a map whose graphics are gone for good with a fresh one. */
+  const [generation, setGeneration] = useState(0);
   useEffect(() => whenIdle(() => setWanted(true)), []);
   const loading = (
     <div role="status" className={styles.loading}>
@@ -32,7 +34,7 @@ export function LazyMapCanvas(props: MapCanvasProps) {
   );
   return wanted ? (
     <Suspense fallback={loading}>
-      <MapCanvas {...props} />
+      <MapCanvas key={generation} {...props} onRedraw={() => setGeneration((n) => n + 1)} />
     </Suspense>
   ) : (
     loading

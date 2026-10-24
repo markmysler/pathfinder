@@ -60,7 +60,12 @@ export interface MapCanvasProps {
   card?: 'framed' | 'bare';
   /** What screen readers call the map; maps side by side each need their own name. */
   name?: string;
+  /** Makes a fresh map in this one's place, when its graphics are gone for good. */
+  onRedraw?(): void;
 }
+
+/** How long a lost WebGL context may take to come back before the map offers to redraw. */
+const STUCK_MS = 3000;
 
 maplibregl.setWorkerUrl(mapWorkerUrl);
 
@@ -117,6 +122,8 @@ export function MapCanvas(props: MapCanvasProps) {
   const [loaded, setLoaded] = useState(false);
   /** False while the browser has taken the map's WebGL context away, as a GPU reset does. */
   const [drawable, setDrawable] = useState(true);
+  /** The context hasn't come back, or there was none to begin with. */
+  const [stuck, setStuck] = useState(false);
   /** Set when the map joined a shared view, which then takes the place of the first framing. */
   const adopted = useRef(false);
   const latest = useRef(props);
@@ -125,14 +132,21 @@ export function MapCanvas(props: MapCanvasProps) {
   });
 
   useEffect(() => {
-    const instance = new maplibregl.Map({
-      container: container.current!,
-      style: MAP_STYLE_URL,
-      center: [0, 20],
-      zoom: 1.5,
-      attributionControl: false,
-      locale: { 'Map.Title': latest.current.name ?? 'Map' },
-    });
+    let instance: maplibregl.Map;
+    try {
+      instance = new maplibregl.Map({
+        container: container.current!,
+        style: MAP_STYLE_URL,
+        center: [0, 20],
+        zoom: 1.5,
+        attributionControl: false,
+        locale: { 'Map.Title': latest.current.name ?? 'Map' },
+      });
+    } catch {
+      // No WebGL to be had, for now: offer to try again.
+      const offer = setTimeout(() => setStuck(true));
+      return () => clearTimeout(offer);
+    }
     const { card, sync } = latest.current;
     // Bottom sheets cover the bottom of the map on phones, so the attribution moves up there.
     const phone = window.matchMedia?.('(max-width: 720px)').matches ?? false;
@@ -155,8 +169,14 @@ export function MapCanvas(props: MapCanvasProps) {
     // While the context is lost MapLibre drops its style, and anything that reads it throws. It
     // puts the style back once the context returns; the search is drawn again from there.
     // deck.gl can't get a lost context back, so the search moves to a fresh overlay.
-    instance.on('webglcontextlost', () => setDrawable(false));
+    let stuckTimer: ReturnType<typeof setTimeout> | undefined;
+    instance.on('webglcontextlost', () => {
+      setDrawable(false);
+      stuckTimer = setTimeout(() => setStuck(true), STUCK_MS);
+    });
     instance.on('webglcontextrestored', () => {
+      clearTimeout(stuckTimer);
+      setStuck(false);
       if (deck.current && overlay.current) {
         deck.current.removeOverlay(instance, overlay.current);
         overlay.current = deck.current.addOverlay(instance);
@@ -191,6 +211,7 @@ export function MapCanvas(props: MapCanvasProps) {
     map.current = instance;
     const placed = markers.current;
     return () => {
+      clearTimeout(stuckTimer);
       sync?.leave(member);
       Object.values(placed).forEach((marker) => marker.remove());
       const [module, drawn] = [deck.current, overlay.current];
@@ -277,5 +298,25 @@ export function MapCanvas(props: MapCanvasProps) {
     };
   }, [exploration, drawable]);
 
-  return <div ref={container} className={styles.map} data-testid="map" />;
+  return (
+    <>
+      <div ref={container} className={styles.map} data-testid="map" />
+      {stuck && (
+        <div className={styles.stuckArea}>
+          <div role="alert" className={styles.stuck}>
+            <p className={styles.stuckTitle}>The map stopped drawing</p>
+            <p>
+              The browser took its graphics away, as it does after a graphics driver restarts or
+              when memory runs low. Playback carries on.
+            </p>
+            {props.onRedraw && (
+              <button type="button" className={styles.redraw} onClick={props.onRedraw}>
+                Redraw the map
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

@@ -24,6 +24,7 @@ import { PlaybackBar, type PlaybackChange } from './PlaybackBar';
 import { ResultsTable } from './ResultsTable';
 import { PROVIDER_NAME } from './trafficText';
 import { fetchedTime } from './trafficText';
+import { SlowDrawingNotice } from './SlowDrawingNotice';
 import { TrafficKey, TrafficNotice } from './TrafficViews';
 import type { PreparationView, TrafficOutcome } from '../worker/job';
 import { algorithms } from '../algorithms';
@@ -155,6 +156,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
         </section>
 
         <section className={styles.panel} aria-label="Results">
+          <SlowDrawingNotice />
           {limits}
           {trafficParts}
           <ResultsTable
@@ -203,6 +205,7 @@ export function CompareView({ state, run, phone, sync, step, dispatch, onEdit }:
           <h2 id="results-title">Results</h2>
           <p>Fills in as each search reaches B.</p>
         </div>
+        <SlowDrawingNotice />
         {limits}
         {trafficParts}
         <ResultsTable

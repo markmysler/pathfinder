@@ -59,8 +59,11 @@
   z-index: 2;
   top: 16px;
   left: 16px;
+  /* Clear of the zoom buttons; each card keeps its own width, notices wrap. */
+  max-width: min(520px, calc(100% - 92px));
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
 }
 

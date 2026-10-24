@@ -111,6 +111,65 @@ test('survives losing the graphics context, and draws the search again once it i
   expect(errors).toEqual([]);
 });
 
+test('offers to redraw the map when its graphics do not come back', async ({ page, context }) => {
+  await fakeTheInternet(context);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByText('Found route')).toBeVisible();
+  await page.waitForTimeout(500);
+  const before = await lavenderPixels(page);
+
+  // Lost, and this time the browser never gives the context back.
+  await graphicsContexts(page, 'lose');
+  const alert = page.getByRole('alert').filter({ hasText: 'The map stopped drawing' });
+  await expect(alert).toBeVisible({ timeout: 6_000 });
+  await alert.getByRole('button', { name: 'Redraw the map' }).click();
+  await expect(alert).toBeHidden();
+  await expect.poll(() => lavenderPixels(page)).toBeGreaterThan(before * 0.8);
+  expect(errors).toEqual([]);
+});
+
+test('says once, in this browser, when the map is drawn without graphics acceleration', async ({
+  page,
+  context,
+}) => {
+  await fakeTheInternet(context);
+  await page.goto('/');
+  // The browser's own word on it: refused with a performance caveat, or a software renderer.
+  // Headless Chromium, as in CI, draws with SwiftShader, so there the notice is what's tested.
+  const software = await page.evaluate(() => {
+    const gl = document.createElement('canvas').getContext('webgl2', {
+      failIfMajorPerformanceCaveat: true,
+    });
+    if (!gl) return true;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    return /swiftshader|llvmpipe|softpipe|software/i.test(renderer);
+  });
+  const notice = page.getByRole('status').filter({ hasText: 'without graphics acceleration' });
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await page.getByRole('button', { name: 'Pause' }).click();
+  if (!software) {
+    await expect(notice).toBeHidden();
+    return;
+  }
+  await notice.getByRole('button', { name: 'Got it' }).click();
+  await expect(notice).toBeHidden();
+  await page.reload();
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await expect(notice).toBeHidden();
+});
+
 /** Keeps track of every WebGL context the page creates, without keeping any alive. */
 async function trackGraphicsContexts(page: Page) {
   await page.addInitScript(() => {

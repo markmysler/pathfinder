@@ -28,3 +28,50 @@
   color: #f4f6f8;
   border: 3px solid #f4f6f8;
 }
+
+/* Over the map when its graphics are gone for good. */
+.stuckArea {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--map-land);
+}
+
+.stuck {
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--notice-border);
+  border-radius: 12px;
+}
+
+.stuck p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.stuck .stuckTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.redraw {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 16px;
+  background: var(--primary-bg);
+  color: var(--bg);
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}

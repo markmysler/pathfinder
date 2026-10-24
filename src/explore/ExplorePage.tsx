@@ -44,6 +44,7 @@ import type { TrafficOutcome } from '../worker/job';
 import { TrafficDialog } from './TrafficDialog';
 import { PROVIDER_NAME } from './trafficText';
 import { fetchedTime, trafficSummary } from './trafficText';
+import { SlowDrawingNotice } from './SlowDrawingNotice';
 import { TrafficKey, TrafficNotice } from './TrafficViews';
 
 const MODE_LABEL = { car: 'Car', bike: 'Bike', walk: 'Walk' };
@@ -341,6 +342,7 @@ export function ExplorePage() {
                   {single.traffic && (
                     <TrafficNotice outcome={single.traffic} onCheckKey={checkKey} />
                   )}
+                  <SlowDrawingNotice />
                 </div>
                 <section
                   id="playback"
@@ -584,6 +586,7 @@ function PhoneRun({
       <section id="playback" tabIndex={-1} className={styles.sheet} aria-label="Playback">
         <span className={styles.grabber} aria-hidden="true" />
         {run.traffic && !details && <TrafficNotice outcome={run.traffic} onCheckKey={onCheckKey} />}
+        {!details && <SlowDrawingNotice />}
         <button
           type="button"
           className={styles.narration}

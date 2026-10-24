@@ -5,6 +5,15 @@ import { App } from './App';
 
 vi.mock('../map/LazyMapCanvas', () => ({ LazyMapCanvas: () => <div>map</div> }));
 
+// The service worker, as vite-plugin-pwa reports it: whether a new version is waiting.
+const worker = { needRefresh: false, updateServiceWorker: vi.fn() };
+vi.mock('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({
+    needRefresh: [worker.needRefresh, () => {}],
+    updateServiceWorker: worker.updateServiceWorker,
+  }),
+}));
+
 // Explore loads lazily; the first test to show it waits for its modules to be compiled.
 const lazily = { timeout: 10_000 };
 
@@ -36,10 +45,23 @@ describe('App', () => {
     expect(ticked).toEqual(['dijkstra', 'astar']);
   });
 
+  it('offers a new version once it is ready, and reloads into it', async () => {
+    worker.needRefresh = true;
+    render(<App services={services} />);
+    await screen.findByRole('textbox', { name: 'Start' }, lazily);
+    const prompt = screen.getByRole('status');
+    expect(prompt).toHaveTextContent('Pathfinder has been updated.');
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(worker.updateServiceWorker).toHaveBeenCalledWith(true);
+    worker.needRefresh = false;
+  });
+
   it('switches to Learn', async () => {
     render(<App services={services} />);
     await userEvent.click((await screen.findAllByRole('link', { name: 'Learn' }, lazily))[0]!);
-    expect(await screen.findByRole('heading', { name: 'Learn', level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Learn', level: 1 }, lazily),
+    ).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Learn' })[0]).toHaveAttribute(
       'aria-current',
       'page',

@@ -5,6 +5,7 @@ import { algorithms } from '../algorithms';
 import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
 import { parseHash } from '../app/routes';
 import { useServices } from '../app/services';
+import { useRunOpen } from '../app/pwa';
 import { TopBar } from '../app/TopBar';
 import { SkipLink } from '../ui/SkipLink';
 import type { Place } from '../geo/nominatim';
@@ -95,6 +96,7 @@ export function ExplorePage() {
   const planSheetHeight = useElementHeight(planSheet);
   const run = state.run;
   const watching = run.status === 'ready';
+  useRunOpen(watching);
   const comparing = watching && run.result.runs.length > 1;
   const [sync] = useState(createCameraSync);
   useEffect(() => sync.setLinked(state.mapsLinked), [sync, state.mapsLinked]);

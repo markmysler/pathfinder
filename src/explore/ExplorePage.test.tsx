@@ -1,5 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { RunOpenContext } from '../app/pwa';
 import { ServicesProvider } from '../app/services';
 import { fakeGeocoder, fakeJobResult, fakeTraffic } from '../test/fakes';
 import type { AlgorithmId } from '../algorithms';
@@ -50,12 +51,14 @@ function fakeSearchClient() {
   };
 }
 
-function setup(traffic = fakeTraffic()) {
+function setup(traffic = fakeTraffic(), onRunOpen: (open: boolean) => void = () => {}) {
   const geocoder = fakeGeocoder();
   const search = fakeSearchClient();
   render(
     <ServicesProvider value={{ geocoder, searchClient: search.client, traffic }}>
-      <ExplorePage />
+      <RunOpenContext.Provider value={onRunOpen}>
+        <ExplorePage />
+      </RunOpenContext.Provider>
     </ServicesProvider>,
   );
   return { geocoder, traffic, ...search };
@@ -114,6 +117,19 @@ describe('ExplorePage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Jump to end' }));
     expect(screen.getByText('Found route')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Route' })).toBeInTheDocument();
+  });
+
+  it('says while a run is open, so an update waits for it', async () => {
+    const onRunOpen = vi.fn();
+    const { jobs } = setup(fakeTraffic(), onRunOpen);
+    await choosePlaces();
+    await chooseOnly('Dijkstra');
+    await userEvent.click(screen.getByRole('button', { name: 'Run Dijkstra' }));
+    jobs[0]!.succeed(fakeJobResult('dijkstra'));
+    await screen.findByRole('heading', { name: 'Dijkstra' });
+    expect(onRunOpen).toHaveBeenLastCalledWith(true);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Edit setup' })[0]!);
+    expect(onRunOpen).toHaveBeenLastCalledWith(false);
   });
 
   it('goes back to planning with everything kept', async () => {

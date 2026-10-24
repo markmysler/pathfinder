@@ -7,7 +7,7 @@ import { incomingRange, reverseIndex } from '../graph/reverse';
 import { haversineMeters } from '../graph/geo';
 import { randomGeoProblem } from '../test/arbitraries';
 import { solve } from '../test/timelines';
-import { binaryTree, grid, undirectedGraphFrom } from '../test/fixtures';
+import { binaryTree, graphFrom, grid, undirectedGraphFrom } from '../test/fixtures';
 import { contract, hierarchyEdges } from '../algorithms/hierarchy';
 import { buildTimeline, entryTraffic, meetingAt, NEVER, roadsExploredBy } from './timeline';
 
@@ -75,6 +75,22 @@ describe('buildTimeline', () => {
       expect(timeline.frontierEnter[i]).toBe(entered.get(node));
       expect(timeline.frontierLeave[i]).toBe(left.get(node) ?? NEVER);
     }
+  });
+
+  it('takes entries skipped after the last expansion off the frontier by the last step', () => {
+    // 0 reaches 1 twice; the dearer entry is skipped after 1 is expanded, and then nothing is left.
+    const twice = graphFrom(
+      [
+        [0, 1, 2],
+        [0, 1, 1],
+      ],
+      { nodeCount: 3 },
+    );
+    const trace = runSearch(algorithms.dijkstra.search, { graph: twice, source: 0, target: 2 });
+    expect(trace.events.at(-1)?.type).toBe('skip');
+    const t = buildTimeline(twice, trace);
+    expect(t.leftBy[t.steps]).toBe(t.entryCount);
+    expect(t.outdatedAt[t.steps]).toBe(0);
   });
 
   it('counts the frontier after every step, starting with just the source', () => {

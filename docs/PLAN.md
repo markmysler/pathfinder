@@ -123,4 +123,4 @@ Follow-ups noted during phase 9:
 
 - The playback speed tops out at 100×; Bellman-Ford's 400,000 steps then take about 20 s. The boards showed 300×.
 - CH's road-by-road traffic notes are left out: its events name shortcuts, which have no single road's traffic.
-- An existing property test, "stopCheck is only sure of the route at the last step", fails now and then for bidirectional A* on graphs with weights near 1e-155 (seed -1531813667); it fails the same way on the commit before phase 9.
+- Fixed: the property test "stopCheck is only sure of the route at the last step" failed about one run in seventeen (seed -1531813667). The tiny weights were only fast-check shrinking; the cause was outdated entries a search throws away after its last expansion. They had no step to belong to, so the last step still counted them as waiting: the stop line could show a sum below the best route, and the final frontier listed entries already gone. They now leave at the last step, after its roads.

@@ -24,6 +24,7 @@ interface Replayed {
  */
 function replay({ events }: Trace) {
   const entries: Replayed[] = [];
+  const steps = events.filter((event) => event.type === 'pop').length;
   const same = (old: Replayed, node: number, side: number) =>
     old.node === node && old.side === side && old.leave === NEVER && old.stale === NEVER;
   let step = 0;
@@ -47,8 +48,9 @@ function replay({ events }: Trace) {
         for (const old of entries) if (same(old, event.node, side)) old.stale = step;
         entries[event.entry]!.stale = NEVER;
       }
-      // A skip happens while the next step looks for its node, so it belongs to that step.
-      entries[event.entry]!.leave = event.type === 'pop' ? step : step + 1;
+      // A skip happens while the next step looks for its node, so it belongs to that step; after
+      // the last expansion, to the last step, as the search stops.
+      entries[event.entry]!.leave = event.type === 'pop' ? step : Math.min(step + 1, steps);
     }
   }
   return entries;
@@ -158,9 +160,10 @@ describe('partsOfStep', () => {
               ? `meet ${e.node}`
               : `${e.type} ${e.entry}`,
         );
-        // Rebuild the trace's events from the parts of every step, after the start (the source,
-        // and the target too when searching from both ends).
-        const rebuilt = actual.slice(0, algorithm.bidirectional ? 2 : 1);
+        // Rebuild the trace's events from the parts of every step, after the start: the source,
+        // and the target too when searching from both ends, met at once when they are the same.
+        const firstPop = trace.events.findIndex((e) => e.type === 'pop');
+        const rebuilt = actual.slice(0, firstPop < 0 ? actual.length : firstPop);
         for (let step = 1; step <= t.steps; step++) {
           let rejected = 0;
           let goal = false;
@@ -181,8 +184,8 @@ describe('partsOfStep', () => {
           // A bidirectional search stops after its last step, once it is sure of the route.
           expect(stop).toBe(algorithm.bidirectional && step === t.steps);
         }
-        // A search that ends without reaching B can still have skips after its last expansion.
-        expect(rebuilt).toEqual(actual.slice(0, rebuilt.length));
+        // Skips after the last expansion belong to the last step, after its roads.
+        expect(rebuilt).toEqual(actual);
       }),
     );
   });

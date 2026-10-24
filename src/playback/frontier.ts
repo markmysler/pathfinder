@@ -91,9 +91,13 @@ export function partsOfStep(timeline: Steps, step: number): StepPart[] {
   if (step < 1 || step > timeline.steps) return [];
   const parts: StepPart[] = [];
   const taken = timeline.expandedEntry[step]!;
-  for (let i = timeline.leftBy[step - 1]!; i < timeline.leftBy[step]!; i++) {
+  // Entries leave in the order the search let them go: skips before the node taken belong to
+  // looking for it; any after it come only at the last step, as the search stops.
+  const after: StepPart[] = [];
+  for (let i = timeline.leftBy[step - 1]!, seen = false; i < timeline.leftBy[step]!; i++) {
     const entry = timeline.leaveOrder[i]!;
-    if (entry !== taken) parts.push({ kind: 'skip', entry });
+    if (entry === taken) seen = true;
+    else (seen ? after : parts).push({ kind: 'skip', entry });
   }
   parts.push({ kind: 'take', entry: taken });
   if (
@@ -118,6 +122,7 @@ export function partsOfStep(timeline: Steps, step: number): StepPart[] {
   }
   const rejected = timeline.expandedDegree[step]! - timeline.pushesAt[step]!;
   if (rejected > 0) parts.push({ kind: 'rejected', count: rejected });
+  parts.push(...after);
   if (step === timeline.steps && timeline.bidirectional) parts.push({ kind: 'stop' });
   return parts;
 }

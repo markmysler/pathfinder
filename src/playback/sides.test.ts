@@ -2,7 +2,7 @@ import fc from 'fast-check';
 import { algorithms, type AlgorithmInfo } from '../algorithms';
 import { runSearch } from '../algorithms/trace';
 import { randomGeoProblem, type RandomProblem } from '../test/arbitraries';
-import { undirectedGraphFrom } from '../test/fixtures';
+import { graphFrom, undirectedGraphFrom } from '../test/fixtures';
 import { solve as solveWith } from '../test/timelines';
 import { climbStopCheck, meetingSplit, sideNext, stopCheck } from './sides';
 import { buildTimeline, meetingAt } from './timeline';
@@ -63,6 +63,25 @@ describe('stopCheck', () => {
     expect(stopCheck(t, 2)).toEqual({ next: [1, 1], sum: 2, best: Infinity, canStop: false });
     // The last step meets at node 2: 2 + 2 = 4 reaches the 4-road route, so it is final.
     expect(stopCheck(t, t.steps)).toEqual({ next: [2, 2], sum: 4, best: 4, canStop: true });
+  });
+
+  it('can stop once a side throws away its last, outdated entry', () => {
+    // A reaches 1 twice and B is reached only from 3: no route. The search ends when A skips the
+    // dearer way to 1 and has nothing left, while 3 still waits on B's side.
+    const apart = graphFrom([
+      [0, 1, 2],
+      [0, 1, 1],
+      [3, 2, 3],
+    ]);
+    const trace = runSearch(algorithms.bidijkstra.search, { graph: apart, source: 0, target: 2 });
+    expect(trace.events.at(-1)?.type).toBe('skip');
+    const t = buildTimeline(apart, trace);
+    expect(stopCheck(t, t.steps)).toEqual({
+      next: [Infinity, 3],
+      sum: Infinity,
+      best: Infinity,
+      canStop: true,
+    });
   });
 
   it('is only sure of the route at the last step', () => {

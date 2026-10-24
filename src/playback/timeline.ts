@@ -186,8 +186,9 @@ function buildEntries(
       if (open[slot] === event.entry) open[slot] = -1;
       leaveOrder[left++] = event.entry;
     } else {
-      // Skips happen while the next step looks for a node to expand.
-      entryLeave[event.entry] = step + 1;
+      // Skips happen while the next step looks for a node to expand. After the last expansion
+      // there is no next step: the search threw them away on its way to stopping.
+      entryLeave[event.entry] = Math.min(step + 1, steps);
       if (entryStale[event.entry] === NEVER) entryStale[event.entry] = step;
       if (open[slot] === event.entry) open[slot] = -1;
       leaveOrder[left++] = event.entry;

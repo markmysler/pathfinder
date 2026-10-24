@@ -9,6 +9,38 @@
   gap: 8px;
 }
 
+/* Under A and B while both are empty: a route that runs without downloading anything. */
+.sample {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.sampleButton {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sampleButton:hover {
+  background: var(--raised);
+}
+
+.sample .caption {
+  flex: 1 1 220px;
+}
+
 /* Offline, under A and B: how to plan without address search. */
 .offline {
   flex-basis: 100%;

@@ -1,7 +1,13 @@
 import type { Dispatch, ReactNode } from 'react';
 import { algorithms } from '../algorithms';
 import type { Geocoder, Place } from '../geo/nominatim';
-import { boxAround, MAX_ROUTE_METERS, RouteTooLongError, searchArea } from '../osm/area';
+import {
+  boxAround,
+  CrossesDateLineError,
+  MAX_ROUTE_METERS,
+  RouteTooLongError,
+  searchArea,
+} from '../osm/area';
 import { covers, type SavedArea } from '../osm/saved';
 import { PHONE, useMediaQuery } from '../app/hooks';
 import type { Objective } from '../osm/network';
@@ -39,6 +45,9 @@ function routeProblem(start: Place | null, target: Place | null): string | null 
     searchArea(start, target);
     return null;
   } catch (error) {
+    if (error instanceof CrossesDateLineError) {
+      return 'A and B are on either side of the 180° meridian. Pathfinder can’t route across it, so move them to the same side.';
+    }
     if (!(error instanceof RouteTooLongError)) throw error;
     return `A and B are ${(error.meters / 1000).toFixed(1)} km apart. Pathfinder handles trips up to ${MAX_ROUTE_METERS / 1000} km, so move them closer.`;
   }
@@ -112,6 +121,22 @@ export function PlanPanel({ state, dispatch, geocoder, offline }: Props) {
         >
           <SwapIcon size={20} />
         </button>
+        {!start && !target && (
+          <div className={styles.sample}>
+            <button
+              type="button"
+              className={styles.sampleButton}
+              onClick={() => dispatch({ type: 'sampleChosen' })}
+            >
+              <PlayIcon />
+              Try a sample route
+            </button>
+            <p className={styles.caption}>
+              Cabildo to Casa Rosada, Buenos Aires. Its streets come with the app, so it runs at
+              once.
+            </p>
+          </div>
+        )}
         {offline && (
           <p className={`${styles.caption} ${styles.offline}`}>
             Searching for places needs a connection. Offline, pick a saved route, or click the map
@@ -149,8 +174,8 @@ export function PlanPanel({ state, dispatch, geocoder, offline }: Props) {
           />
           <p className={`${styles.caption} ${styles.explain}`}>
             Fastest weighs each road by travel time at {SPEED_SOURCE[state.mode]}
-            {state.mode === 'car' && state.traffic.provider ? ', slowed by live traffic' : ''}.
-            Shortest weighs it by length.
+            {state.mode === 'car' && state.traffic.provider ? ', slowed by live traffic' : ''},
+            without stopping at lights or junctions. Shortest weighs it by length.
           </p>
         </div>
 

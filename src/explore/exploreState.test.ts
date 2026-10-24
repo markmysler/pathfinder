@@ -8,6 +8,7 @@ import {
   toggleAlgorithm,
   type ExploreState,
 } from './exploreState';
+import { SAMPLE_ROUTE } from '../osm/sampleRoute';
 
 const casaRosada = { name: 'Casa Rosada', detail: 'Buenos Aires', lat: -34.608, lon: -58.3703 };
 const cabildo = { name: 'Cabildo', detail: 'Buenos Aires', lat: -34.6087, lon: -58.3738 };
@@ -31,6 +32,21 @@ const withPlaces = (): ExploreState => ({
 });
 
 describe('exploreReducer', () => {
+  it('plans the sample route, keeping the chosen algorithms', () => {
+    const state = exploreReducer(
+      { ...initialExplore, algorithms: ['bfs'] },
+      { type: 'sampleChosen' },
+    );
+    expect(state.start).toEqual(SAMPLE_ROUTE.start);
+    expect(state.target).toEqual(SAMPLE_ROUTE.target);
+    expect(state.algorithms).toEqual(['bfs']);
+  });
+
+  it('brings back the default algorithms for the sample when none are chosen', () => {
+    const state = exploreReducer({ ...initialExplore, algorithms: [] }, { type: 'sampleChosen' });
+    expect(state.algorithms).toEqual(initialExplore.algorithms);
+  });
+
   it('starts with no places, by car, fastest, comparing Greedy, Dijkstra and A*', () => {
     expect(initialExplore).toMatchObject({
       start: null,

@@ -29,6 +29,21 @@ export class RouteTooLongError extends Error {
   }
 }
 
+/**
+ * A and B are on either side of the 180° meridian. Boxes here run west to east without wrapping, so
+ * the box around them would span the whole world; such routes (Fiji, Kiribati, Chukotka) are
+ * refused instead of downloading everything in between.
+ */
+export class CrossesDateLineError extends Error {
+  constructor() {
+    super('A and B are on either side of the 180° meridian, which Pathfinder can’t route across');
+    this.name = 'CrossesDateLineError';
+  }
+}
+
+/** Whether the short way between two points crosses the 180° meridian. */
+export const crossesDateLine = (a: LatLon, b: LatLon) => Math.abs(a.lon - b.lon) > 180;
+
 const snapDown = (degrees: number) =>
   Number((Math.floor(degrees / GRID_DEGREES) * GRID_DEGREES).toFixed(3));
 const snapUp = (degrees: number) =>
@@ -50,6 +65,7 @@ export function boxAround(a: LatLon, b: LatLon): BBox {
  * so that searches between nearby points can reuse the same cached download.
  */
 export function searchArea(a: LatLon, b: LatLon): BBox {
+  if (crossesDateLine(a, b)) throw new CrossesDateLineError();
   const meters = haversineMeters(a.lat, a.lon, b.lat, b.lon);
   if (meters > MAX_ROUTE_METERS) throw new RouteTooLongError(meters);
 
@@ -63,8 +79,9 @@ export function searchArea(a: LatLon, b: LatLon): BBox {
 
   return {
     south: snapDown(south),
-    west: snapDown(Math.min(a.lon, b.lon) - lonMargin),
+    // Near the meridian the margin stops at it: Overpass boxes don't wrap around.
+    west: Math.max(-180, snapDown(Math.min(a.lon, b.lon) - lonMargin)),
     north: snapUp(north),
-    east: snapUp(Math.max(a.lon, b.lon) + lonMargin),
+    east: Math.min(180, snapUp(Math.max(a.lon, b.lon) + lonMargin)),
   };
 }

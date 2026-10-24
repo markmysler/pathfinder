@@ -17,6 +17,7 @@ import type { JobError } from '../worker/protocol';
 import type { TrafficSettings } from '../traffic/settings';
 import type { TrafficFailure, TrafficProvider } from '../traffic/types';
 import { totalSteps } from './comparison';
+import { SAMPLE_ROUTE } from '../osm/sampleRoute';
 
 export type Role = 'start' | 'target';
 
@@ -76,6 +77,8 @@ export type ExploreAction =
   | { type: 'placeChosen'; role: Role; place: Place }
   /** A and B together, such as a saved route. */
   | { type: 'routeChosen'; start: Place; target: Place }
+  /** "Try a sample route": the bundled route, run at once (see ExplorePage). */
+  | { type: 'sampleChosen' }
   | { type: 'mapClicked'; point: LatLon }
   | { type: 'pinMoved'; role: Role; point: LatLon }
   | { type: 'placeNamed'; role: Role; place: Place }
@@ -171,6 +174,13 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
       return { ...state, [action.role]: action.place, nextPick: other(action.role) };
     case 'routeChosen':
       return { ...state, start: action.start, target: action.target, nextPick: 'start' };
+    case 'sampleChosen':
+      return {
+        ...state,
+        ...SAMPLE_ROUTE,
+        nextPick: 'start',
+        algorithms: state.algorithms.length > 0 ? state.algorithms : initialExplore.algorithms,
+      };
     case 'mapClicked':
       return {
         ...state,

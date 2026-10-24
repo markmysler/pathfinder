@@ -49,6 +49,7 @@ import { PROVIDER_NAME } from './trafficText';
 import { fetchedTime, trafficSummary } from './trafficText';
 import { SlowDrawingNotice } from './SlowDrawingNotice';
 import { TrafficKey, TrafficNotice } from './TrafficViews';
+import { isSampleRoute } from '../osm/sampleRoute';
 
 const MODE_LABEL = { car: 'Car', bike: 'Bike', walk: 'Walk' };
 const OBJECTIVE_LABEL = { fastest: 'Fastest', shortest: 'Shortest' };
@@ -132,18 +133,21 @@ export function ExplorePage() {
   const [sync] = useState(createCameraSync);
   useEffect(() => sync.setLinked(state.mapsLinked), [sync, state.mapsLinked]);
 
-  function startRun() {
-    if (!state.start || !state.target) return;
+  /** Runs the planned route, or `route` when given (the sample, chosen in the same click). */
+  function startRun(route?: Pick<ExploreState, 'start' | 'target' | 'algorithms'>) {
+    const { start, target, algorithms } = route ?? state;
+    if (!start || !target) return;
     dispatch({ type: 'runRequested' });
     const running = searchClient.run(
       {
-        start: state.start,
-        target: state.target,
-        names: { start: state.start.name, target: state.target.name },
+        start,
+        target,
+        names: { start: start.name, target: target.name },
         mode: state.mode,
         objective: state.objective,
-        algorithms: state.algorithms,
+        algorithms,
         astarWeight: state.astarWeight,
+        sample: isSampleRoute(start, target),
         traffic: trafficSource,
       },
       (stage, server) => {
@@ -169,8 +173,17 @@ export function ExplorePage() {
     dispatch({ type: 'runFailed', error: { kind: 'cancelled', message: 'Cancelled' } });
   }
 
-  const planDispatch = (action: ExploreAction) =>
-    action.type === 'runRequested' ? startRun() : dispatch(action);
+  function trySample() {
+    const sample = exploreReducer(state, { type: 'sampleChosen' });
+    dispatch({ type: 'sampleChosen' });
+    startRun(sample);
+  }
+
+  const planDispatch = (action: ExploreAction) => {
+    if (action.type === 'runRequested') startRun();
+    else if (action.type === 'sampleChosen') trySample();
+    else dispatch(action);
+  };
 
   useDroppedPinNames(state, dispatch, geocoder);
 
@@ -340,7 +353,7 @@ export function ExplorePage() {
               {run.status === 'failed' && (
                 <ErrorPanel
                   error={run.error}
-                  onRetry={startRun}
+                  onRetry={() => startRun()}
                   onBack={edit}
                   saved={saved.areas.length}
                   onShowSaved={showSaved}

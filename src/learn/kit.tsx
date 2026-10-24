@@ -266,9 +266,22 @@ export function StreetsCompare({
       </div>
       <p className={styles.small}>
         A car&rsquo;s fastest route across about 800 m of central Buenos Aires, on real
-        OpenStreetMap data. Explored roads are tinted; the route is the thick line.
+        OpenStreetMap data. Explored roads are tinted; the route is the thick line. <OsmCredit />
       </p>
     </Section>
+  );
+}
+
+/** The credit OpenStreetMap's licence asks for, under anything drawn from the recorded streets. */
+export function OsmCredit() {
+  return (
+    <>
+      Map data ©{' '}
+      <a href="https://www.openstreetmap.org/copyright" className={styles.credit}>
+        OpenStreetMap contributors
+      </a>
+      , ODbL.
+    </>
   );
 }
 

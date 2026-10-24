@@ -1,5 +1,11 @@
 import { haversineMeters } from '../graph/geo';
-import { MAX_ROUTE_METERS, RouteTooLongError, searchArea } from './area';
+import {
+  crossesDateLine,
+  CrossesDateLineError,
+  MAX_ROUTE_METERS,
+  RouteTooLongError,
+  searchArea,
+} from './area';
 
 const plaza = { lat: -34.6083, lon: -58.3712 };
 const nearby = { lat: -34.6037, lon: -58.3816 }; // ≈ 1 km away
@@ -56,5 +62,23 @@ describe('searchArea', () => {
     } catch (error) {
       expect((error as RouteTooLongError).meters).toBeGreaterThan(MAX_ROUTE_METERS);
     }
+  });
+});
+
+describe('the 180° meridian', () => {
+  // Taveuni, Fiji: the meridian runs through the island.
+  const west = { lat: -16.8, lon: 179.99 };
+  const east = { lat: -16.8, lon: -179.99 };
+
+  it('refuses a route across it instead of boxing the whole world', () => {
+    expect(crossesDateLine(west, east)).toBe(true);
+    expect(() => searchArea(west, east)).toThrow(CrossesDateLineError);
+  });
+
+  it('keeps a route beside it inside -180..180', () => {
+    const near = { lat: -16.8, lon: 179.998 };
+    const box = searchArea(west, near);
+    expect(box.east).toBeLessThanOrEqual(180);
+    expect(box.west).toBeGreaterThan(179.9);
   });
 });

@@ -10,6 +10,7 @@ import type { JobError } from '../worker/protocol';
 import type { SavedArea } from '../osm/saved';
 import { cabildo, casaRosada } from '../test/fakes';
 import { ExplorePage } from './ExplorePage';
+import { SAMPLE_ROUTE } from '../osm/sampleRoute';
 
 // The real map needs WebGL; this stand-in lets tests "click" it.
 vi.mock('../map/LazyMapCanvas', () => ({
@@ -150,6 +151,27 @@ describe('ExplorePage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Edit setup' }));
     expect(screen.getByRole('textbox', { name: 'Start' })).toHaveValue('Casa Rosada');
     expect(screen.getByRole('button', { name: 'Run A* search' })).toBeEnabled();
+  });
+
+  it('runs the sample route in one click', async () => {
+    const { client } = setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'Try a sample route' }));
+    expect(client.run).toHaveBeenCalledTimes(1);
+    const [request] = client.run.mock.calls[0]!;
+    expect(request).toMatchObject({
+      start: { name: SAMPLE_ROUTE.start.name },
+      target: { name: SAMPLE_ROUTE.target.name },
+    });
+    expect(request.algorithms.length).toBeGreaterThan(0);
+    expect(request.sample).toBe(true);
+  });
+
+  it('downloads a searched route near Plaza de Mayo like any other', async () => {
+    const { client } = setup();
+    await choosePlaces();
+    await chooseOnly('A* search');
+    await userEvent.click(screen.getByRole('button', { name: 'Run A* search' }));
+    expect(client.run.mock.calls[0]![0].sample).toBe(false);
   });
 
   it('explains failures and can try again', async () => {

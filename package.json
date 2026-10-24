@@ -1,9 +1,13 @@
 {
   "name": "pathfinder",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Learn graph traversal algorithms by watching them route across real maps",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

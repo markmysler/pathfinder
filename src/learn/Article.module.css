@@ -147,6 +147,11 @@
   color: var(--muted);
 }
 
+.credit {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .glance {
   margin: 0;
   display: grid;

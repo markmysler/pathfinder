@@ -57,6 +57,17 @@ describe('PlanPanel', () => {
     expect(screen.getByText(/search for B or click the map/i)).toBeInTheDocument();
   });
 
+  it('offers a sample route while A and B are both empty', async () => {
+    const dispatch = renderPanel({ ...initialExplore });
+    await userEvent.click(screen.getByRole('button', { name: 'Try a sample route' }));
+    expect(dispatch).toHaveBeenCalledWith({ type: 'sampleChosen' });
+  });
+
+  it('stops offering the sample once a place is chosen', () => {
+    renderPanel({ ...ready, target: null });
+    expect(screen.queryByRole('button', { name: 'Try a sample route' })).not.toBeInTheDocument();
+  });
+
   it('starts a run', async () => {
     const dispatch = renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Run A* search' }));

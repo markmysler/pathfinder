@@ -14,12 +14,21 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Linux on the Node CI deploys with, and Windows on the oldest Node the project supports.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: 24
+          - os: windows-latest
+            node: 22.18
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run lint

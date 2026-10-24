@@ -1,18 +1,14 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeGeocoder, fakeTraffic } from '../test/fakes';
+import { serviceWorker } from '../test/pwaRegister';
 import { App } from './App';
 
 vi.mock('../map/LazyMapCanvas', () => ({ LazyMapCanvas: () => <div>map</div> }));
 
-// The service worker, as vite-plugin-pwa reports it: whether a new version is waiting.
-const worker = { needRefresh: false, updateServiceWorker: vi.fn() };
-vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({
-    needRefresh: [worker.needRefresh, () => {}],
-    updateServiceWorker: worker.updateServiceWorker,
-  }),
-}));
+// The service worker, as vite-plugin-pwa reports it: whether a new version is waiting. The test
+// stand-in for its module is aliased for every test in vite.config.ts.
+const worker = serviceWorker;
 
 // Explore loads lazily; the first test to show it waits for its modules to be compiled.
 const lazily = { timeout: 10_000 };

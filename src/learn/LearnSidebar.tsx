@@ -3,9 +3,9 @@ import { learnHref } from '../app/routes';
 import { algoColor } from '../ui/algorithmStyle';
 import { SearchIcon } from '../ui/icons';
 import styles from './LearnSidebar.module.css';
-import { COMING_LATER, GROUP_TITLE, TOPICS, type TopicGroup } from './topics';
+import { GROUP_TITLE, TOPICS, type TopicGroup } from './topics';
 
-const GROUPS: TopicGroup[] = ['foundations', 'algorithms', 'guides'];
+const GROUPS: TopicGroup[] = ['foundations', 'algorithms', 'advanced', 'guides'];
 
 export function LearnSidebar({ current }: { current: string | null }) {
   const [query, setQuery] = useState('');
@@ -52,17 +52,6 @@ export function LearnSidebar({ current }: { current: string | null }) {
           </div>
         );
       })}
-      {!q && (
-        <div className={styles.group}>
-          <h2 className={styles.heading}>Advanced</h2>
-          {COMING_LATER.map((title) => (
-            <span key={title} className={styles.soon}>
-              {title}
-              <span className={styles.soonTag}>Soon</span>
-            </span>
-          ))}
-        </div>
-      )}
     </nav>
   );
 }

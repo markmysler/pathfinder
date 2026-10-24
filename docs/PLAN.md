@@ -97,6 +97,8 @@ Phase 1 can run in parallel with the design review in phase 2.
 
 - [x] Phase 8 — Traffic (the user's own TomTom or HERE key, kept in their browser and sent only to that provider, straight from the browser; TomTom flow tiles and HERE flow read into one model, the current speed as a share of free flow; matched to OSM edges by distance and direction; car edges scaled by that share and closed roads dropped, so A* stays exact; any failure falls back to speed limits and says why; slow, jammed and closed roads and the route without traffic on the map; the traffic story in the inspector; a Live traffic section with a rush hour in Learn; design boards on the canvas under "Phase 8")
 
+- [x] Phase 9 — Advanced algorithms (design approved 2026-10-24; boards on the canvas under "Phase 9"). Bellman-Ford, ALT and contraction hierarchies in Explore and Learn. ALT's landmarks and CH's shortcuts are prepared in the worker as a step of their own, timed, and kept in memory for the next run on the same roads (area, mode, objective and traffic snapshot). CH on its own plays its contraction first, node by node with the shortcuts each one leaves, then climbs from both ends with its own stop rule. Bellman-Ford plays round by round, rings its corrections, and stops recording at 400,000 steps, saying how many the whole search needs. ALT shows the landmark behind each estimate and the arithmetic. Comparisons add search and preparing times and when preparing pays. Learn has an Advanced group: Bellman-Ford with negative costs and a negative loop (the core now detects them), ALT's triangle trick, and contraction step by step, all driven by the real code.
+
 Follow-ups noted during phase 4:
 
 - The JS bundle is about 560 KB gzipped (mostly deck.gl and MapLibre); split it in phase 10.
@@ -116,3 +118,9 @@ Follow-ups noted during phase 8:
 - Checked with a real TomTom key on 2026-10-23, around Plaza de Mayo: zoom-14 tiles carry local streets (96% of residential and 93% of living-street directions got a reading, every main road did, service roads 15%), and a line's point order is its direction of travel (on one-way streets 1,973 of 2,119 directions matched as drawn, 110 when reversed). Responses carry CORS for the site. HERE is still unchecked with a real key.
 - HERE sends its 401s without CORS headers, so a wrong HERE key reads as "HERE didn't answer"; the messages say so.
 - Matching ignores road type: a service road within 15 m of a jammed avenue, and running the same way, would take the avenue's speed.
+
+Follow-ups noted during phase 9:
+
+- The playback speed tops out at 100×; Bellman-Ford's 400,000 steps then take about 20 s. The boards showed 300×.
+- CH's road-by-road traffic notes are left out: its events name shortcuts, which have no single road's traffic.
+- An existing property test, "stopCheck is only sure of the route at the last step", fails now and then for bidirectional A* on graphs with weights near 1e-155 (seed -1531813667); it fails the same way on the commit before phase 9.

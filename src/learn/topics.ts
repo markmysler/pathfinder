@@ -1,6 +1,6 @@
 import { algorithms, type AlgorithmId } from '../algorithms';
 
-export type TopicGroup = 'foundations' | 'algorithms' | 'guides';
+export type TopicGroup = 'foundations' | 'algorithms' | 'advanced' | 'guides';
 
 export interface Topic {
   slug: string;
@@ -85,6 +85,27 @@ const LIST: TopicInfo[] = [
     summary: 'From both ends, meeting in the middle',
   },
   {
+    slug: 'bellmanford',
+    title: 'Bellman-Ford',
+    group: 'advanced',
+    algorithm: 'bellmanford',
+    summary: 'Corrects itself until nothing improves',
+  },
+  {
+    slug: 'alt',
+    title: 'ALT (landmarks)',
+    group: 'advanced',
+    algorithm: 'alt',
+    summary: 'A* with a sharper, measured estimate',
+  },
+  {
+    slug: 'ch',
+    title: 'Contraction hierarchies',
+    group: 'advanced',
+    algorithm: 'ch',
+    summary: 'Prepare once, then search only uphill',
+  },
+  {
     slug: 'which',
     title: 'Which algorithm when?',
     group: 'guides',
@@ -103,20 +124,18 @@ export const TOPICS: Topic[] = LIST.map((topic) => {
   return { ...topic, index: group.indexOf(topic) + 1, of: group.length };
 });
 
-/** Topics still to be written, shown as "Soon". */
-export const COMING_LATER = ['Bellman-Ford', 'ALT (landmarks)', 'Contraction hierarchies'];
-
 export const GROUP_TITLE: Record<TopicGroup, string> = {
   foundations: 'Foundations',
   algorithms: 'Algorithms',
+  advanced: 'Advanced',
   guides: 'Guides',
 };
 
 export const topicBySlug = (slug: string) => TOPICS.find((t) => t.slug === slug);
 
-/** The article about an algorithm. Every search from both ends shares one. */
+/** The article about an algorithm. Every search from both ends but CH shares one. */
 export const topicFor = (algorithm: AlgorithmId) =>
-  algorithms[algorithm].bidirectional
+  algorithms[algorithm].bidirectional && !algorithms[algorithm].advanced
     ? topicBySlug('bidirectional')
     : TOPICS.find((t) => t.algorithm === algorithm);
 

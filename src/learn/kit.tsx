@@ -29,9 +29,14 @@ export function ArticleHeader({
   race?: AlgorithmId;
 }) {
   const style = topic.algorithm ? ALGORITHM_STYLE[topic.algorithm] : null;
-  // The bidirectional article covers three searches, so its links say "it".
+  // The bidirectional article covers three searches, and the advanced ones have long names, so
+  // their links say "it".
   const short =
-    topic.algorithm === 'astar' ? 'A*' : topic.slug === 'bidirectional' ? 'it' : topic.title;
+    topic.algorithm === 'astar'
+      ? 'A*'
+      : topic.slug === 'bidirectional' || topic.group === 'advanced'
+        ? 'it'
+        : topic.title;
   return (
     <header className={styles.header}>
       <p className={styles.breadcrumb}>

@@ -1,0 +1,285 @@
+.aside {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+
+.panelTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.badge {
+  min-width: 36px;
+  padding: 2px 4px;
+  text-align: center;
+  border-radius: 4px;
+  background: var(--algo);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.panelCaption {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.panelCaption b {
+  color: var(--text);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-sans);
+}
+
+.road path {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.road text {
+  fill: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.road[data-state='on'] path {
+  stroke: var(--algo-a, var(--algo));
+  stroke-width: 5;
+}
+
+.road[data-state='on'] text {
+  fill: var(--algo-a, var(--algo));
+}
+
+.road[data-state='dashed'] path {
+  stroke: var(--text);
+  stroke-dasharray: 8 6;
+}
+
+.road[data-state='dashed'] text {
+  fill: var(--text);
+}
+
+.road[data-state='faint'] path {
+  stroke: var(--border);
+}
+
+.road[data-state='shortcut'] path,
+.road[data-state='shortcutOld'] path {
+  stroke: var(--algo-a, var(--algo));
+  stroke-width: 3;
+  stroke-dasharray: 9 6;
+}
+
+.road[data-state='shortcutOld'] path {
+  stroke-opacity: 0.5;
+  stroke-width: 2.5;
+}
+
+.road[data-state='shortcut'] text,
+.road[data-state='shortcutOld'] text {
+  fill: var(--algo-a, var(--algo));
+  font-weight: 600;
+}
+
+.arrow {
+  fill: var(--muted);
+}
+
+.node circle,
+.node path {
+  fill: var(--raised);
+  stroke: #5c6b7a;
+  stroke-width: 2;
+}
+
+.node text {
+  fill: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.node[data-kind='start'] circle {
+  fill: #f4f6f8;
+  stroke: #090c10;
+}
+
+.node[data-kind='start'] text {
+  fill: var(--bg);
+  font-weight: 700;
+}
+
+.node[data-kind='goal'] circle {
+  fill: var(--bg);
+  stroke: #f4f6f8;
+  stroke-width: 2.5;
+}
+
+.node[data-kind='reached'] circle {
+  stroke: var(--algo);
+}
+
+.node[data-kind='climbed'] circle {
+  fill: var(--algo-a, var(--algo));
+  stroke: #090c10;
+}
+
+.node[data-kind='climbed'] text,
+.node[data-kind='landmark'] text {
+  fill: var(--bg);
+  font-weight: 700;
+}
+
+.node[data-kind='landmark'] path {
+  fill: var(--algo);
+  stroke: #fff;
+}
+
+.node[data-kind='gone'] circle {
+  fill: var(--map-land);
+  stroke: var(--border);
+  stroke-dasharray: 4 4;
+}
+
+.node[data-kind='gone'] text {
+  fill: #5c6b7a;
+}
+
+.node .note {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.node[data-kind='gone'] .note {
+  fill: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.ring {
+  fill: none !important;
+  stroke: #fff !important;
+  stroke-width: 2.5 !important;
+}
+
+.label {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.choices button {
+  min-height: 40px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.choices button[aria-checked='true'] {
+  background: var(--border);
+  color: #fff;
+  font-weight: 600;
+}
+
+.sums {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.sums div {
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+
+.sums dt {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.sums dd {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.sums dd[data-best] {
+  color: var(--algo);
+}
+
+.rank line {
+  stroke: #232b35;
+}
+
+.rank text {
+  fill: var(--faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.mapLandmark path {
+  fill: var(--panel);
+  stroke: var(--algo);
+  stroke-width: 2;
+}
+
+.mapLandmark text {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mapLandmark[data-best] path {
+  fill: var(--algo);
+  stroke: #fff;
+}
+
+.mapLandmark[data-best] text {
+  fill: var(--bg);
+}

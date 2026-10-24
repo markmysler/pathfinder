@@ -5,13 +5,45 @@ import { learnHref } from '../app/routes';
 import { algoColor, ALGORITHM_STYLE } from '../ui/algorithmStyle';
 import { ChevronRightIcon, SearchIcon } from '../ui/icons';
 import styles from './LearnHome.module.css';
-import { COMING_LATER, TOPICS } from './topics';
+import { TOPICS, type Topic } from './topics';
 import { WhichTable } from './WhichTable';
 
 const foundations = TOPICS.filter((t) => t.group === 'foundations');
 const algorithmTopics = TOPICS.filter((t) => t.group === 'algorithms');
+const advancedTopics = TOPICS.filter((t) => t.group === 'advanced');
 
 const yes = (value: boolean) => (value ? 'Yes' : 'No');
+
+/** An algorithm's card: what it does, and whether it finds the cheapest route and guesses. */
+function AlgorithmCard({ topic: t }: { topic: Topic }) {
+  const info = algorithms[t.algorithm!];
+  const style = ALGORITHM_STYLE[t.algorithm!];
+  return (
+    <a
+      href={learnHref(t.slug)}
+      className={`${styles.card} ${styles.algoCard}`}
+      style={algoColor(t.algorithm!)}
+    >
+      <span className={styles.cardTitle}>
+        <AlgorithmBadge algorithm={t.algorithm!} className={styles.badge} />
+        {t.title}
+      </span>
+      <span className={styles.cardText}>{style.blurb}</span>
+      <span className={styles.phoneSummary}>{t.summary}</span>
+      <dl className={styles.facts}>
+        <div>
+          <dt>Cheapest route</dt>
+          <dd data-yes={info.optimal}>{yes(info.optimal)}</dd>
+        </div>
+        <div>
+          <dt>Uses an estimate</dt>
+          <dd data-yes={info.informed}>{yes(info.informed)}</dd>
+        </div>
+      </dl>
+      <ChevronRightIcon className={styles.chevron} />
+    </a>
+  );
+}
 
 export function LearnHome() {
   const [query, setQuery] = useState('');
@@ -91,36 +123,25 @@ export function LearnHome() {
               Algorithms
             </h2>
             <div className={styles.algoGrid}>
-              {algorithmTopics.map((t) => {
-                const info = algorithms[t.algorithm!];
-                const style = ALGORITHM_STYLE[t.algorithm!];
-                return (
-                  <a
-                    key={t.slug}
-                    href={learnHref(t.slug)}
-                    className={`${styles.card} ${styles.algoCard}`}
-                    style={algoColor(t.algorithm!)}
-                  >
-                    <span className={styles.cardTitle}>
-                      <AlgorithmBadge algorithm={t.algorithm!} className={styles.badge} />
-                      {t.title}
-                    </span>
-                    <span className={styles.cardText}>{style.blurb}</span>
-                    <span className={styles.phoneSummary}>{t.summary}</span>
-                    <dl className={styles.facts}>
-                      <div>
-                        <dt>Cheapest route</dt>
-                        <dd data-yes={info.optimal}>{yes(info.optimal)}</dd>
-                      </div>
-                      <div>
-                        <dt>Uses an estimate</dt>
-                        <dd data-yes={info.informed}>{yes(info.informed)}</dd>
-                      </div>
-                    </dl>
-                    <ChevronRightIcon className={styles.chevron} />
-                  </a>
-                );
-              })}
+              {algorithmTopics.map((t) => (
+                <AlgorithmCard key={t.slug} topic={t} />
+              ))}
+            </div>
+          </section>
+
+          <section aria-labelledby="advanced" className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2 id="advanced" className={styles.h2}>
+                Advanced
+              </h2>
+              <p className={styles.note}>
+                Built for other jobs: costs below zero, or one map answering many routes.
+              </p>
+            </div>
+            <div className={styles.algoGrid}>
+              {advancedTopics.map((t) => (
+                <AlgorithmCard key={t.slug} topic={t} />
+              ))}
             </div>
           </section>
 
@@ -134,20 +155,6 @@ export function LearnHome() {
               </a>
             </div>
             <WhichTable />
-          </section>
-
-          <section aria-labelledby="later" className={styles.section}>
-            <h2 id="later" className={styles.h2}>
-              Coming later
-            </h2>
-            <div className={styles.soonRow}>
-              {COMING_LATER.map((title) => (
-                <span key={title} className={styles.soon}>
-                  {title}
-                  <span className={styles.soonTag}>Soon</span>
-                </span>
-              ))}
-            </div>
           </section>
         </>
       )}

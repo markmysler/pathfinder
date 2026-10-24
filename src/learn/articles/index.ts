@@ -1,7 +1,10 @@
 import type { ComponentType } from 'react';
+import alt from './alt';
 import astar from './astar';
+import bellmanford from './bellmanford';
 import bfs from './bfs';
 import bidirectional from './bidirectional';
+import ch from './ch';
 import dfs from './dfs';
 import dijkstra from './dijkstra';
 import frontier from './frontier';
@@ -24,6 +27,9 @@ export const ARTICLES: Record<string, ComponentType> = {
   dijkstra,
   astar,
   bidirectional,
+  bellmanford,
+  alt,
+  ch,
   which,
   glossary,
 };

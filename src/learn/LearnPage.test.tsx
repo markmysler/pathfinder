@@ -29,6 +29,9 @@ describe('LearnPage', () => {
     expect(
       within(screen.getByRole('region', { name: 'Algorithms' })).getAllByRole('link'),
     ).toHaveLength(6);
+    expect(
+      within(screen.getByRole('region', { name: 'Advanced' })).getAllByRole('link'),
+    ).toHaveLength(3);
     expect(screen.getByRole('table')).toHaveTextContent('Lowest g + h');
     expect(screen.getByRole('link', { name: 'Bidirectional' })).toHaveAttribute(
       'href',
@@ -44,7 +47,11 @@ describe('LearnPage', () => {
       'aria-current',
       'page',
     );
-    expect(within(nav).getAllByText('Soon')).toHaveLength(3);
+    expect(within(nav).queryByText('Soon')).not.toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: /Contraction hierarchies/ })).toHaveAttribute(
+      'href',
+      '#/learn/ch',
+    );
   });
 
   it('filters the sidebar as you search', async () => {

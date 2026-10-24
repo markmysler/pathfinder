@@ -50,4 +50,25 @@ export const WHICH: readonly {
     finds: 'The same as the one-way search',
     goodFor: 'Routes with a known destination, about half of Dijkstra’s work',
   },
+  {
+    id: 'bellmanford',
+    name: 'Bellman-Ford',
+    takes: 'Queue: oldest first, round after round',
+    finds: 'The cheapest, even with negative costs',
+    goodFor: 'Costs below zero, and spotting loops that pay out',
+  },
+  {
+    id: 'alt',
+    name: 'ALT',
+    takes: 'Lowest g + h, h from landmarks',
+    finds: 'The cheapest',
+    goodFor: 'Many routes on a big map whose costs rarely change',
+  },
+  {
+    id: 'ch',
+    name: 'Contraction hierarchies',
+    takes: 'Two frontiers, each only climbing',
+    finds: 'The cheapest',
+    goodFor: 'Answering millions of routes on one prepared map',
+  },
 ];

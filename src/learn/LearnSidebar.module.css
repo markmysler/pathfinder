@@ -75,23 +75,6 @@
   background: var(--algo-fill, var(--algo));
 }
 
-.soon {
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.soonTag {
-  padding: 1px 7px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  font-size: 11px;
-}
-
 .visuallyHidden {
   position: absolute;
   width: 1px;

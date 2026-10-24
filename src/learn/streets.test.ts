@@ -1,4 +1,4 @@
-import { streetSearch, STREETS_FROM, STREETS_TO } from './streets';
+import { streetLandmarks, streetSearch, STREETS_FROM, STREETS_TO } from './streets';
 
 describe('streetSearch', () => {
   it('runs a real search on recorded streets and keeps what the map needs', () => {
@@ -30,5 +30,22 @@ describe('streetSearch', () => {
     // B's side starts at B, so its first roads lead away from it.
     expect(backward[0]![0]).toEqual(both.target);
     expect(both.roads.find(([, , side]) => side === 0)![0]).toEqual(both.start);
+  });
+
+  it('prepares for ALT and contraction hierarchies, drawing shortcuts from end to end', () => {
+    const dijkstra = streetSearch('dijkstra');
+    for (const id of ['alt', 'ch'] as const) {
+      const run = streetSearch(id);
+      expect(run.route!.cost).toBeCloseTo(dijkstra.route!.cost, 6);
+      expect(run.expanded).toBeLessThan(dijkstra.expanded);
+      for (const [a, b] of run.roads) expect([...a, ...b].every(Number.isFinite)).toBe(true);
+    }
+  });
+
+  it('places ALT’s landmarks on the streets, and finds the one used most', () => {
+    const { points, mostUsed, size } = streetLandmarks();
+    expect(points).toHaveLength(8);
+    expect(points.every(([x, y]) => x >= 0 && x <= size[0] && y >= 0 && y <= size[1])).toBe(true);
+    expect(mostUsed).toBeGreaterThanOrEqual(0);
   });
 });

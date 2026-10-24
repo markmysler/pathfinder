@@ -56,7 +56,18 @@ test('goes from an article to the map with its algorithms ticked', async ({ page
 });
 
 test('does not scroll sideways on any article', async ({ page }) => {
-  for (const slug of ['', '/graphs', '/roads', '/astar', '/bidirectional', '/which', '/glossary']) {
+  for (const slug of [
+    '',
+    '/graphs',
+    '/roads',
+    '/astar',
+    '/bidirectional',
+    '/bellmanford',
+    '/alt',
+    '/ch',
+    '/which',
+    '/glossary',
+  ]) {
     await page.goto(`/#/learn${slug}`);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const overflow = await page.evaluate(
@@ -72,4 +83,22 @@ test('switches on rush hour and watches Dijkstra take the other way', async ({ p
   await page.getByRole('button', { name: 'Rush hour' }).click();
   await expect(page.getByText(/At rush hour A–B moves at a quarter of its speed/)).toBeVisible();
   await expect(page.getByText('Its route on clear roads · 6')).toBeVisible();
+});
+
+test('shows Bellman-Ford correcting a cost Dijkstra got wrong, and catching a negative loop', async ({
+  page,
+}) => {
+  await page.goto('/#/learn/bellmanford');
+  const figure = page.getByRole('figure').filter({ hasText: 'Add the loop' });
+  await figure.getByRole('button', { name: 'Next step' }).click();
+  await figure.getByRole('button', { name: 'Next step' }).click();
+  await expect(figure).toContainText('Wrong: it never looked past B.');
+  await expect(figure).toContainText('Right.');
+  await figure.getByRole('button', { name: 'Add the loop' }).click();
+  for (let i = 0; i < 12; i++) {
+    const next = figure.getByRole('button', { name: 'Next step' });
+    if (await next.isDisabled()) break;
+    await next.click();
+  }
+  await expect(figure).toContainText('no cheapest route');
 });

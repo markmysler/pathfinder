@@ -70,4 +70,22 @@ describe('PlaceInput', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Start' })).toHaveValue('Cabildo de Buenos Aires');
   });
+
+  it('offline, says searching needs a connection instead of asking', async () => {
+    const geocoder = fakeGeocoder();
+    render(
+      <PlaceInput
+        role="start"
+        place={null}
+        geocoder={geocoder}
+        online={false}
+        onChoose={() => {}}
+      />,
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Start' }), 'palermo{Enter}');
+    expect(geocoder.search).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Searching needs a connectionPick a saved route below, or click the map inside a saved area to place A.',
+    );
+  });
 });

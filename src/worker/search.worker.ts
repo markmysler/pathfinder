@@ -1,6 +1,7 @@
 import { indexedDbCache } from '../osm/cache';
 import { loadRoadNetwork } from '../osm/load';
 import type { RoadNetwork } from '../osm/network';
+import { savedAreas, type SavedArea } from '../osm/saved';
 import { fetchTraffic, recentTraffic } from '../traffic/fetch';
 import { runJob, transferablesOf } from './job';
 import { preparationCache } from './preparations';
@@ -12,8 +13,15 @@ const scope = self as unknown as {
   onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
 };
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const cache = indexedDbCache<RoadNetwork>({ name: 'pathfinder-roads', ttlMs: WEEK_MS });
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Streets are kept a week from the last run on them, which the index of saved areas tracks and
+// enforces; the cache's own limit, from when they were stored, is only a backstop.
+const cache = indexedDbCache<RoadNetwork>({ name: 'pathfinder-roads', ttlMs: 30 * DAY_MS });
+const saved = savedAreas({
+  index: indexedDbCache<SavedArea[]>({ name: 'pathfinder-saved', ttlMs: Infinity }),
+  roads: cache,
+  keepMs: 7 * DAY_MS,
+});
 // Traffic changes by the minute, but re-running moments later should not cost the user's quota.
 const recent = recentTraffic({ ttlMs: 2 * 60 * 1000 });
 // Landmarks and shortcuts for the last roads used, so the next route on them starts at once.
@@ -26,13 +34,20 @@ scope.onmessage = async ({ data }) => {
     running.delete(data.id);
     return;
   }
+  if (data.type === 'saved' || data.type === 'forget') {
+    if (data.type === 'forget') await saved.forget(data.key).catch(() => undefined);
+    const areas = await saved.list().catch(() => []);
+    scope.postMessage({ type: 'saved', id: data.id, areas });
+    return;
+  }
 
   const { id } = data;
   const controller = new AbortController();
   running.set(id, controller);
   try {
     const result = await runJob(data.request, {
-      loadRoadNetwork: (area, options) => loadRoadNetwork(area, { cache, ...options }),
+      loadRoadNetwork: (area, options) =>
+        loadRoadNetwork(area, { cache, saved, offline: !navigator.onLine, ...options }),
       fetchTraffic: (source, area, options) =>
         fetchTraffic(source, area, { cache: recent, ...options }),
       onProgress: (stage, server) => scope.postMessage({ type: 'progress', id, stage, server }),

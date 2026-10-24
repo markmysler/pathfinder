@@ -127,6 +127,17 @@ describe('loadRoadNetwork with saved areas', () => {
     expect(fromCache).toBe(true);
   });
 
+  it('lets a saved area stand in when it holds A and B, though not all the margin around them', async () => {
+    const { cache, saved } = setup();
+    await loadRoadNetwork(box, { fetchOverpass: async () => response, cache, saved, route });
+    const wider = { south: -0.005, west: -0.005, north: 0.015, east: 0.015 };
+    const ends = { south: 0.001, west: 0.001, north: 0.009, east: 0.009 };
+    const offline = { cache, saved, offline: true };
+    await expect(loadRoadNetwork(wider, offline)).rejects.toBeInstanceOf(NotSavedError);
+    const loaded = await loadRoadNetwork(wider, { ...offline, ends });
+    expect(loaded).toMatchObject({ fromCache: true, box });
+  });
+
   it('offline, with no saved area around, says these streets are not on the device', async () => {
     const { cache, saved } = setup();
     await expect(

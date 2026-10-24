@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { fakeGeocoder, fakeTraffic } from '../test/fakes';
 import { App } from './App';
@@ -19,7 +19,11 @@ const lazily = { timeout: 10_000 };
 
 const services = {
   geocoder: fakeGeocoder(),
-  searchClient: { run: vi.fn() },
+  searchClient: {
+    run: vi.fn(),
+    savedAreas: vi.fn(async () => []),
+    forgetArea: vi.fn(async () => []),
+  },
   traffic: fakeTraffic(),
 };
 
@@ -54,6 +58,18 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reload' }));
     expect(worker.updateServiceWorker).toHaveBeenCalledWith(true);
     worker.needRefresh = false;
+  });
+
+  it('says when the connection comes back', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    render(<App services={services} />);
+    await screen.findByRole('textbox', { name: 'Start' }, lazily);
+    act(() => {
+      onLine.mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Back online.');
+    onLine.mockRestore();
   });
 
   it('switches to Learn', async () => {

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
-import { useHashRoute } from './hooks';
+import { BackOnlineNote } from './Connection';
+import { useHashRoute, useOnline } from './hooks';
 import { RunOpenContext, useServiceWorkerUpdate } from './pwa';
 import { ServicesProvider, type Services } from './services';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -17,12 +18,14 @@ export function App({ services }: { services: Services }) {
   const route = useHashRoute();
   const update = useServiceWorkerUpdate();
   const [runOpen, setRunOpen] = useState(false);
+  const online = useOnline();
   return (
     <ServicesProvider value={services}>
       <RunOpenContext.Provider value={setRunOpen}>
         <Suspense fallback={null}>{route === 'learn' ? <LearnPage /> : <ExplorePage />}</Suspense>
       </RunOpenContext.Provider>
       <UpdatePrompt ready={update.ready} holding={runOpen} onReload={update.reload} />
+      <BackOnlineNote online={online} />
     </ServicesProvider>
   );
 }

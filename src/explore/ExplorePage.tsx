@@ -2,9 +2,10 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from
 import type { Timeline } from '../playback/timeline';
 import { formatCost, formatCount, formatMs } from '../ui/format';
 import { algorithms } from '../algorithms';
-import { PHONE, useAnimationClock, useElementHeight, useMediaQuery } from '../app/hooks';
+import { PHONE, useAnimationClock, useElementHeight, useMediaQuery, useOnline } from '../app/hooks';
+import { OfflineChip } from '../app/Connection';
 import { parseHash } from '../app/routes';
-import { useServices } from '../app/services';
+import { useServices, type Services } from '../app/services';
 import { useRunOpen } from '../app/pwa';
 import { TopBar } from '../app/TopBar';
 import { SkipLink } from '../ui/SkipLink';
@@ -15,10 +16,11 @@ import { explorationColors } from '../map/colors';
 import type { SnapLink } from '../map/explorationLayers';
 import { LazyMapCanvas as MapCanvas } from '../map/LazyMapCanvas';
 import type { Padding } from '../map/MapCanvas';
-import { searchArea, type BBox } from '../osm/area';
+import { boxAround, searchArea, type BBox } from '../osm/area';
+import { covers, type SavedArea } from '../osm/saved';
 import { tick, type PlaybackState } from '../playback/playback';
 import type { RunPart } from './exploreState';
-import { ChevronDownIcon, ChevronUpIcon, EditIcon, PointBadge } from '../ui/icons';
+import { ChevronDownIcon, ChevronUpIcon, CloudOffIcon, EditIcon, PointBadge } from '../ui/icons';
 import type { RunningJob } from '../worker/client';
 import { CompareView, LinkToggle } from './CompareView';
 import styles from './ExplorePage.module.css';
@@ -60,6 +62,29 @@ function previewArea(start: Place | null, target: Place | null): BBox | null {
   }
 }
 
+/** The saved area A and B are in, if any: offline, its streets are the ones a run uses. */
+function savedAreaAround(areas: SavedArea[], start: Place | null, target: Place | null) {
+  if (!start || !target) return undefined;
+  const ends = boxAround(start, target);
+  return areas.find((area) => covers(area.box, ends));
+}
+
+/** The routes whose streets are on this device, fetched while offline and after each run. */
+function useSavedAreas(client: Services['searchClient'], offline: boolean, runStatus: string) {
+  const [saved, setSaved] = useState<{ areas: SavedArea[]; now: number }>({ areas: [], now: 0 });
+  useEffect(() => {
+    if (!offline) return;
+    let current = true;
+    void client.savedAreas().then((areas) => current && setSaved({ areas, now: Date.now() }));
+    return () => {
+      current = false;
+    };
+  }, [client, offline, runStatus]);
+  const forget = (area: SavedArea) =>
+    void client.forgetArea(area.key).then((areas) => setSaved({ areas, now: Date.now() }));
+  return { ...saved, forget };
+}
+
 /** Map space hidden behind panels, kept clear when framing A, B or the download area. */
 /** Algorithms linked to from Learn (`#/?algorithms=astar`) are ticked from the start. */
 function startingState(): ExploreState {
@@ -88,14 +113,20 @@ export function ExplorePage() {
     traffic: traffic.load(),
   }));
   useEffect(() => traffic.save(state.traffic), [traffic, state.traffic]);
+  const online = useOnline();
   // Traffic only changes cars' roads, so other modes never spend the user's quota.
-  const trafficSource = state.mode === 'car' ? activeSource(state.traffic) : undefined;
+  const trafficSource = state.mode === 'car' && online ? activeSource(state.traffic) : undefined;
   const phone = useMediaQuery(PHONE);
   const job = useRef<RunningJob | null>(null);
   const planSheet = useRef<HTMLElement>(null);
   const planSheetHeight = useElementHeight(planSheet);
   const run = state.run;
   const watching = run.status === 'ready';
+  const saved = useSavedAreas(searchClient, !online, run.status);
+  const offline = online
+    ? undefined
+    : { areas: saved.areas, now: saved.now, onForget: saved.forget };
+  const savedArea = online ? undefined : savedAreaAround(saved.areas, state.start, state.target);
   useRunOpen(watching);
   const comparing = watching && run.result.runs.length > 1;
   const [sync] = useState(createCameraSync);
@@ -108,6 +139,7 @@ export function ExplorePage() {
       {
         start: state.start,
         target: state.target,
+        names: { start: state.start.name, target: state.target.name },
         mode: state.mode,
         objective: state.objective,
         algorithms: state.algorithms,
@@ -238,7 +270,7 @@ export function ExplorePage() {
     <MapCanvas
       start={state.start}
       target={state.target}
-      area={watching ? null : previewArea(state.start, state.target)}
+      area={watching ? null : (savedArea?.box ?? previewArea(state.start, state.target))}
       exploration={exploration}
       padding={mapPadding(phone, watching, planSheetHeight)}
       draggable={!watching && run.status !== 'loading'}
@@ -250,6 +282,10 @@ export function ExplorePage() {
   );
 
   const edit = () => dispatch({ type: 'editRequested' });
+  const showSaved = () => {
+    edit();
+    setTimeout(() => document.getElementById('saved-routes')?.focus());
+  };
 
   return (
     <div className={styles.page} data-view={watching ? 'run' : 'plan'}>
@@ -302,20 +338,48 @@ export function ExplorePage() {
                 />
               )}
               {run.status === 'failed' && (
-                <ErrorPanel error={run.error} onRetry={startRun} onBack={edit} />
+                <ErrorPanel
+                  error={run.error}
+                  onRetry={startRun}
+                  onBack={edit}
+                  saved={saved.areas.length}
+                  onShowSaved={showSaved}
+                />
               )}
-              <PlanPanel state={state} dispatch={planDispatch} geocoder={geocoder} />
+              <PlanPanel
+                state={state}
+                dispatch={planDispatch}
+                geocoder={geocoder}
+                offline={offline}
+              />
             </aside>
           )}
 
           <main className={styles.mapArea} aria-label="Map">
             <h1 className="visually-hidden">Explore</h1>
             {map}
-            {!watching && (
+            {!watching && online && (
               <p className={styles.hint}>
                 Click the map to place {state.nextPick === 'start' ? 'A' : 'B'}. Drag A or B to
                 fine-tune.
               </p>
+            )}
+            {!watching && !online && (
+              <p className={`${styles.hint} ${styles.offlineHint}`}>
+                <CloudOffIcon size={18} />
+                <span>
+                  Offline, the map shows only places you have run before.
+                  {savedArea &&
+                    " The dashed box is this route's saved area: A and B can move anywhere inside it."}
+                </span>
+              </p>
+            )}
+            {!watching && phone && (
+              <OfflineChip
+                online={online}
+                detail="saved routes only"
+                className={styles.phoneOffline}
+              />
             )}
             {watching && single && !phone && (
               <>

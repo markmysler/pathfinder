@@ -87,6 +87,14 @@ describe('exploreReducer', () => {
     expect(state.nextPick).toBe(withPlaces().nextPick);
   });
 
+  it('places A and B at once from a saved route', () => {
+    const state = exploreReducer(
+      { ...initialExplore, nextPick: 'target' },
+      { type: 'routeChosen', start: casaRosada, target: cabildo },
+    );
+    expect(state).toMatchObject({ start: casaRosada, target: cabildo, nextPick: 'start' });
+  });
+
   it('swaps A and B', () => {
     expect(exploreReducer(withPlaces(), { type: 'swapped' })).toMatchObject({
       start: cabildo,

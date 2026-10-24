@@ -12,14 +12,28 @@ interface Props {
   problem: TrafficFailure | null;
   onOpen(): void;
   onSwitch(on: boolean): void;
+  /** Offline, traffic can't be fetched, and keys can't be checked. */
+  offline?: boolean;
 }
 
 const PROVIDERS: readonly TrafficProvider[] = ['tomtom', 'here'];
 
 /** The plan's live traffic setting: add a key, switch traffic on or off, or see what went wrong. */
-export function TrafficRow({ settings, mode, problem, onOpen, onSwitch }: Props) {
+export function TrafficRow({ settings, mode, problem, onOpen, onSwitch, offline }: Props) {
   const saved = PROVIDERS.find((provider) => settings.keys[provider]);
   const on = settings.provider !== null && saved !== undefined;
+
+  if (offline && mode === 'car') {
+    return (
+      <div className={styles.row} data-variant="empty">
+        <KeyIcon size={20} className={styles.icon} />
+        <p className={styles.text}>
+          <b>Live traffic needs a connection.</b> Until then routes use speed limits
+          {saved ? `; your ${PROVIDER_NAME[saved]} key stays saved.` : '.'}
+        </p>
+      </div>
+    );
+  }
 
   if (mode !== 'car') {
     return (

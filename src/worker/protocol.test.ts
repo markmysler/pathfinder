@@ -1,4 +1,5 @@
 import { RouteTooLongError } from '../osm/area';
+import { NotSavedError } from '../osm/load';
 import { OverpassError } from '../osm/overpass';
 import { NoRoadNearbyError } from '../osm/prepare';
 import { describeError } from './protocol';
@@ -15,6 +16,7 @@ describe('describeError', () => {
         kind: 'download',
       },
     );
+    expect(describeError(new NotSavedError())).toMatchObject({ kind: 'not-saved' });
     expect(describeError(new DOMException('Aborted', 'AbortError'))).toMatchObject({
       kind: 'cancelled',
     });

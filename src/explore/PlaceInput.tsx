@@ -11,12 +11,14 @@ interface Props {
   geocoder: Geocoder;
   /** Results near this point rank higher. */
   near?: LatLon;
+  /** Offline, searching can't reach the address service. */
+  online?: boolean;
   onChoose(place: Place): void;
 }
 
-type Status = 'idle' | 'searching' | 'empty' | 'error';
+type Status = 'idle' | 'searching' | 'empty' | 'error' | 'offline';
 
-const MESSAGES: Record<Status, string> = {
+const MESSAGES: Record<Exclude<Status, 'offline'>, string> = {
   idle: '',
   searching: 'Searching…',
   empty: 'No places found. Try another name, or click the map.',
@@ -24,7 +26,7 @@ const MESSAGES: Record<Status, string> = {
 };
 
 /** An address field that searches when submitted (Nominatim does not allow search-as-you-type). */
-export function PlaceInput({ role, place, geocoder, near, onChoose }: Props) {
+export function PlaceInput({ role, place, geocoder, near, online = true, onChoose }: Props) {
   const label = role === 'start' ? 'Start' : 'Destination';
   const [query, setQuery] = useState(place?.name ?? '');
   const [results, setResults] = useState<Place[] | null>(null);
@@ -42,6 +44,10 @@ export function PlaceInput({ role, place, geocoder, near, onChoose }: Props) {
   async function search(event: FormEvent) {
     event.preventDefault();
     if (!query.trim()) return;
+    if (!online) {
+      setResults(null);
+      return setStatus('offline');
+    }
     setStatus('searching');
     try {
       const found = await geocoder.search(query, { near });
@@ -95,7 +101,16 @@ export function PlaceInput({ role, place, geocoder, near, onChoose }: Props) {
           ))}
         </ul>
       )}
-      {status !== 'idle' && (
+      {status === 'offline' && (
+        <p className={`${styles.status} ${styles.offline}`} role="status">
+          <b>Searching needs a connection</b>
+          <span>
+            Pick a saved route below, or click the map inside a saved area to place{' '}
+            {role === 'start' ? 'A' : 'B'}.
+          </span>
+        </p>
+      )}
+      {status !== 'idle' && status !== 'offline' && (
         <p className={styles.status} role="status">
           {MESSAGES[status]}
         </p>

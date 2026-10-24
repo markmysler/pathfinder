@@ -1,7 +1,9 @@
 import type { Dispatch, ReactNode } from 'react';
 import { algorithms } from '../algorithms';
 import type { Geocoder, Place } from '../geo/nominatim';
-import { MAX_ROUTE_METERS, RouteTooLongError, searchArea } from '../osm/area';
+import { boxAround, MAX_ROUTE_METERS, RouteTooLongError, searchArea } from '../osm/area';
+import { covers, type SavedArea } from '../osm/saved';
+import { PHONE, useMediaQuery } from '../app/hooks';
 import type { Objective } from '../osm/network';
 import type { TravelMode } from '../osm/roads';
 import { BikeIcon, CarIcon, PlayIcon, SwapIcon, WalkIcon } from '../ui/icons';
@@ -9,6 +11,7 @@ import { Segmented } from '../ui/Segmented';
 import { AlgorithmPicker } from './AlgorithmPicker';
 import type { ExploreAction, ExploreState } from './exploreState';
 import { PlaceInput } from './PlaceInput';
+import { SavedRoutes } from './SavedRoutes';
 import { TrafficRow } from './TrafficRow';
 import styles from './PlanPanel.module.css';
 
@@ -47,16 +50,38 @@ function runLabel(chosen: ExploreState['algorithms']) {
   return `Run ${chosen.length} algorithms`;
 }
 
+/** What the panel needs while the browser is offline: the routes whose streets are saved. */
+export interface Offline {
+  areas: SavedArea[];
+  now: number;
+  onForget(area: SavedArea): void;
+}
+
 interface Props {
   state: ExploreState;
   dispatch: Dispatch<ExploreAction>;
   geocoder: Geocoder;
+  /** Set while offline. */
+  offline?: Offline;
 }
 
-export function PlanPanel({ state, dispatch, geocoder }: Props) {
+export function PlanPanel({ state, dispatch, geocoder, offline }: Props) {
+  const phone = useMediaQuery(PHONE);
   const problem = routeProblem(state.start, state.target);
   const missing = !state.start ? 'A' : !state.target ? 'B' : null;
   const unchosen = state.algorithms.length === 0;
+  const { start, target } = state;
+  const onDevice =
+    offline &&
+    start &&
+    target &&
+    offline.areas.some((area) => covers(area.box, boxAround(start, target)));
+  const chooseSaved = ({ start, target }: SavedArea) =>
+    dispatch({
+      type: 'routeChosen',
+      start: { ...start, detail: '' },
+      target: { ...target, detail: '' },
+    });
 
   return (
     <div className={styles.plan}>
@@ -67,6 +92,7 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
             place={state.start}
             geocoder={geocoder}
             near={state.target ?? undefined}
+            online={!offline}
             onChoose={(place) => dispatch({ type: 'placeChosen', role: 'start', place })}
           />
           <PlaceInput
@@ -74,6 +100,7 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
             place={state.target}
             geocoder={geocoder}
             near={state.start ?? undefined}
+            online={!offline}
             onChoose={(place) => dispatch({ type: 'placeChosen', role: 'target', place })}
           />
         </div>
@@ -85,9 +112,27 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
         >
           <SwapIcon size={20} />
         </button>
+        {offline && (
+          <p className={`${styles.caption} ${styles.offline}`}>
+            Searching for places needs a connection. Offline, pick a saved route, or click the map
+            to move A and B anywhere inside a saved area.
+          </p>
+        )}
       </section>
 
       <section aria-label="Run settings" className={styles.settings} data-part="settings">
+        {offline && (
+          <SavedRoutes
+            areas={offline.areas}
+            start={start}
+            target={target}
+            now={offline.now}
+            phone={phone}
+            onChoose={chooseSaved}
+            onForget={offline.onForget}
+          />
+        )}
+
         <div className={styles.travel}>
           <h2 className={styles.sectionTitle}>How you travel</h2>
           <Segmented
@@ -115,6 +160,7 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
           problem={state.trafficProblem}
           onOpen={() => dispatch({ type: 'trafficDialogOpened' })}
           onSwitch={(on) => dispatch({ type: 'trafficSwitched', on })}
+          offline={Boolean(offline)}
         />
 
         <AlgorithmPicker
@@ -134,6 +180,9 @@ export function PlanPanel({ state, dispatch, geocoder }: Props) {
             <p className={styles.caption}>Search for {missing} or click the map to drop it.</p>
           )}
           {!missing && unchosen && <p className={styles.caption}>Choose at least one algorithm.</p>}
+          {onDevice && !unchosen && (
+            <p className={styles.caption}>Streets for this route are on this device.</p>
+          )}
           <button
             type="button"
             className={styles.run}

@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { cabildo, casaRosada, fakeGeocoder } from '../test/fakes';
 import { initialExplore, type ExploreState } from './exploreState';
-import { PlanPanel } from './PlanPanel';
+import { PlanPanel, type Offline } from './PlanPanel';
+import type { SavedArea } from '../osm/saved';
 
 const ready: ExploreState = {
   ...initialExplore,
@@ -11,11 +12,27 @@ const ready: ExploreState = {
   algorithms: ['astar'],
 };
 
-function renderPanel(state: ExploreState = ready) {
+function renderPanel(state: ExploreState = ready, offline?: Partial<Offline>) {
   const dispatch = vi.fn();
-  render(<PlanPanel state={state} dispatch={dispatch} geocoder={fakeGeocoder()} />);
+  render(
+    <PlanPanel
+      state={state}
+      dispatch={dispatch}
+      geocoder={fakeGeocoder()}
+      offline={offline && { areas: [], now: Date.now(), onForget: () => {}, ...offline }}
+    />,
+  );
   return dispatch;
 }
+
+const savedHere: SavedArea = {
+  key: 'roads-v1:here',
+  box: { south: -34.62, west: -58.38, north: -34.6, east: -58.36 },
+  savedAt: Date.now(),
+  bytes: 4_100_000,
+  start: { name: casaRosada.name, lat: casaRosada.lat, lon: casaRosada.lon },
+  target: { name: cabildo.name, lat: cabildo.lat, lon: cabildo.lon },
+};
 
 describe('PlanPanel', () => {
   it('names the algorithm on the run button', () => {
@@ -87,5 +104,51 @@ describe('PlanPanel', () => {
     expect(screen.getByText(/slowed by live traffic/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('switch', { name: 'Live traffic' }));
     expect(dispatch).toHaveBeenCalledWith({ type: 'trafficSwitched', on: false });
+  });
+
+  describe('offline', () => {
+    it('lists the saved routes, and places A and B from one', async () => {
+      const dispatch = renderPanel({ ...ready, start: null, target: null }, { areas: [savedHere] });
+      expect(screen.getByText(/Searching for places needs a connection/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /Casa Rosada → Cabildo/ }));
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'routeChosen',
+        start: { ...savedHere.start, detail: '' },
+        target: { ...savedHere.target, detail: '' },
+      });
+    });
+
+    it('removes a saved route', async () => {
+      const onForget = vi.fn();
+      renderPanel(ready, { areas: [savedHere], onForget });
+      await userEvent.click(screen.getByRole('button', { name: /^Remove the saved streets/ }));
+      expect(onForget).toHaveBeenCalledWith(savedHere);
+    });
+
+    it("says when the route's streets are on this device", () => {
+      renderPanel(ready, { areas: [savedHere] });
+      expect(screen.getByText('Streets for this route are on this device.')).toBeInTheDocument();
+    });
+
+    it('says live traffic needs a connection, and the key stays', () => {
+      renderPanel(
+        {
+          ...ready,
+          mode: 'car',
+          traffic: { provider: 'tomtom', keys: { tomtom: 'k' } },
+        },
+        {},
+      );
+      expect(screen.queryByRole('switch', { name: 'Live traffic' })).toBeNull();
+      expect(screen.getByText(/Live traffic needs a connection\./).parentElement).toHaveTextContent(
+        'Until then routes use speed limits; your TomTom key stays saved.',
+      );
+    });
+
+    it('shows none of this online', () => {
+      renderPanel(ready);
+      expect(screen.queryByText(/Searching for places needs a connection/)).toBeNull();
+      expect(screen.queryByRole('region', { name: /Saved on this/ })).toBeNull();
+    });
   });
 });

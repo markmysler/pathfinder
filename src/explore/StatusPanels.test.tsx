@@ -175,4 +175,41 @@ describe('ErrorPanel', () => {
     expect(onRetry).toHaveBeenCalled();
     expect(onBack).toHaveBeenCalled();
   });
+
+  it('offline, says the streets are not on this device and offers the saved routes', async () => {
+    const onShowSaved = vi.fn();
+    const onRetry = vi.fn();
+    render(
+      <ErrorPanel
+        error={{ kind: 'not-saved', message: '' }}
+        saved={3}
+        onRetry={onRetry}
+        onBack={() => {}}
+        onShowSaved={onShowSaved}
+      />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent("These streets aren't on this device");
+    expect(alert).toHaveTextContent(/outside every area you have run before/);
+    expect(alert).toHaveTextContent('pick one of your 3 saved routes');
+    await userEvent.click(screen.getByRole('button', { name: 'Show saved routes' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(onShowSaved).toHaveBeenCalled();
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('offline with nothing saved, only says to connect', () => {
+    render(
+      <ErrorPanel
+        error={{ kind: 'not-saved', message: '' }}
+        saved={0}
+        onRetry={() => {}}
+        onBack={() => {}}
+        onShowSaved={() => {}}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/Connect to download the streets\.$/);
+    expect(screen.queryByRole('button', { name: 'Show saved routes' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
+  });
 });

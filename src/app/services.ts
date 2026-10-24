@@ -6,7 +6,7 @@ import type { SearchClient } from '../worker/client';
 /** Everything that talks to the outside world, so tests can swap in fakes. */
 export interface Services {
   geocoder: Geocoder;
-  searchClient: Pick<SearchClient, 'run'>;
+  searchClient: Pick<SearchClient, 'run' | 'savedAreas' | 'forgetArea'>;
   traffic: TrafficService;
 }
 

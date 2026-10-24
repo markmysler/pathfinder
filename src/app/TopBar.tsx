@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BookIcon, LogoIcon, MapIcon } from '../ui/icons';
-import type { Route } from './hooks';
+import { useOnline, type Route } from './hooks';
+import { OfflineChip } from './Connection';
 import styles from './TopBar.module.css';
 
 interface Props {
@@ -31,6 +32,11 @@ export function TopBar({ route, children, immersive = false }: Props) {
           </a>
         </nav>
         {children && <div className={styles.extra}>{children}</div>}
+        <OfflineChip
+          online={useOnline()}
+          detail="saved routes and Learn still work"
+          className={styles.offline}
+        />
       </header>
       <nav aria-label="Main" className={styles.tabs} data-hidden={immersive}>
         <a href="#/" className={styles.tab} aria-current={current(route, 'explore')}>

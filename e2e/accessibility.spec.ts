@@ -17,6 +17,22 @@ test.beforeEach(async ({ context }) => {
   await fakeTheInternet(context);
 });
 
+test('offline, Explore has nothing axe can fault', async ({ page, context }) => {
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await page.getByRole('button', { name: 'Edit setup' }).filter({ visible: true }).click();
+  await context.setOffline(true);
+  await expect(page.getByRole('region', { name: /Saved on this/ })).toBeVisible();
+  await expectNothingToFault(page, 'offline plan');
+
+  await page.getByRole('textbox', { name: 'Start' }).fill('palermo');
+  await page.getByRole('textbox', { name: 'Start' }).press('Enter');
+  await expect(page.getByText('Searching needs a connection')).toBeVisible();
+  await expectNothingToFault(page, 'offline search');
+});
+
 test('Explore has nothing axe can fault, from planning to comparing', async ({
   page,
   isMobile,

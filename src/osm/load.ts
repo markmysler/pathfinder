@@ -24,6 +24,11 @@ export interface LoadOptions {
   route?: { start: SavedPlace; target: SavedPlace };
   /** Known to be offline: don't try to download. */
   offline?: boolean;
+  /**
+   * The box just around A and B. A saved area holding it stands in, though it may not hold all
+   * the margin downloaded around them; by default a saved area must hold the whole box.
+   */
+  ends?: BBox;
 }
 
 /** Offline, and the streets asked for are in no area saved on this device. */
@@ -65,8 +70,14 @@ export async function loadRoadNetwork(
     saved,
     route,
     offline = false,
+    ends = box,
   }: LoadOptions = {},
-): Promise<{ network: RoadNetwork; fromCache: boolean }> {
+): Promise<{
+  network: RoadNetwork;
+  fromCache: boolean;
+  /** The area the streets cover, when a saved area stood in for the one asked for. */
+  box?: BBox;
+}> {
   const query = overpassQuery(box);
   const key = `roads-v${CACHE_VERSION}:${query}`;
   const cached = await cache?.get(key).catch(() => undefined);
@@ -81,11 +92,11 @@ export async function loadRoadNetwork(
     network = buildRoadNetwork(await download(query, { signal, onAttempt }));
   } catch (error) {
     if (signal?.aborted) throw error;
-    const around = await saved?.containing(box).catch(() => undefined);
+    const around = await saved?.containing(ends).catch(() => undefined);
     const standIn = around && (await cache?.get(around.key).catch(() => undefined));
     if (around && standIn) {
       await saved!.touch(around.key).catch(() => undefined);
-      return { network: standIn, fromCache: true };
+      return { network: standIn, fromCache: true, box: around.box };
     }
     throw error;
   }

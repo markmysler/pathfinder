@@ -3,11 +3,12 @@ import { straightLineHeuristic } from '../algorithms/heuristics';
 import { hierarchyEdges } from '../algorithms/hierarchy';
 import { landmarkHeuristic } from '../algorithms/landmarks';
 import { runSearch, summarize, type SearchStats } from '../algorithms/trace';
-import { searchArea, type BBox, type LatLon } from '../osm/area';
+import { boxAround, searchArea, type BBox, type LatLon } from '../osm/area';
 import type { Graph } from '../graph/graph';
 import type { Objective, RoadNetwork } from '../osm/network';
 import { nodeLabels, type NodeLabels } from '../osm/places';
 import { prepareSearch, type PreparedSearch } from '../osm/prepare';
+import type { SavedPlace } from '../osm/saved';
 import type { TravelMode } from '../osm/roads';
 import { buildTimeline, entryTraffic, type Timeline } from '../playback/timeline';
 import type { TimedTraffic, TrafficSource } from '../traffic/fetch';
@@ -33,6 +34,8 @@ import {
 export interface JobRequest {
   start: LatLon;
   target: LatLon;
+  /** What the user called the places, to list the route's streets under once saved. */
+  names?: { start: string; target: string };
   mode: TravelMode;
   objective: Objective;
   /** Run in this order, all on the same roads between the same snapped points. */
@@ -134,8 +137,13 @@ export interface JobResult {
 export interface JobDeps {
   loadRoadNetwork(
     area: BBox,
-    options: { signal?: AbortSignal; onAttempt?: (endpoint: string, index: number) => void },
-  ): Promise<{ network: RoadNetwork; fromCache: boolean }>;
+    options: {
+      signal?: AbortSignal;
+      onAttempt?: (endpoint: string, index: number) => void;
+      route?: { start: SavedPlace; target: SavedPlace };
+      ends?: BBox;
+    },
+  ): Promise<{ network: RoadNetwork; fromCache: boolean; box?: BBox }>;
   /** Live traffic over the area, straight from the user's provider. */
   fetchTraffic?(
     source: TrafficSource,
@@ -172,8 +180,21 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
         )
       : undefined;
   deps.onProgress('download');
-  const { network, fromCache } = await deps.loadRoadNetwork(area, {
+  const { names } = request;
+  const place = (name: string, { lat, lon }: LatLon) => ({ name, lat, lon });
+  const {
+    network,
+    fromCache,
+    box: streets = area,
+  } = await deps.loadRoadNetwork(area, {
     signal,
+    ends: boxAround(request.start, request.target),
+    ...(names && {
+      route: {
+        start: place(names.start, request.start),
+        target: place(names.target, request.target),
+      },
+    }),
     onAttempt: (endpoint, index) => {
       if (index > 0)
         deps.onProgress('download', { host: new URL(endpoint).host, attempt: index + 1 });
@@ -224,7 +245,7 @@ export async function runJob(request: JobRequest, deps: JobDeps): Promise<JobRes
     deps.onProgress('prepare');
     made = prepareGraph(graph, needs, {
       source: prepared.source,
-      key: roadsKey(area, request, live?.fetchedAt),
+      key: roadsKey(streets, request, live?.fetchedAt),
       cache: deps.preparations,
       onProgress: deps.onPrepare,
     });

@@ -74,6 +74,8 @@ export interface ExploreState {
 
 export type ExploreAction =
   | { type: 'placeChosen'; role: Role; place: Place }
+  /** A and B together, such as a saved route. */
+  | { type: 'routeChosen'; start: Place; target: Place }
   | { type: 'mapClicked'; point: LatLon }
   | { type: 'pinMoved'; role: Role; point: LatLon }
   | { type: 'placeNamed'; role: Role; place: Place }
@@ -167,6 +169,8 @@ export function exploreReducer(state: ExploreState, action: ExploreAction): Expl
   switch (action.type) {
     case 'placeChosen':
       return { ...state, [action.role]: action.place, nextPick: other(action.role) };
+    case 'routeChosen':
+      return { ...state, start: action.start, target: action.target, nextPick: 'start' };
     case 'mapClicked':
       return {
         ...state,

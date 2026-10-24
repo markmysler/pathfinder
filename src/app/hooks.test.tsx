@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { useAnimationClock, useElementHeight, useHashRoute } from './hooks';
+import { useAnimationClock, useElementHeight, useHashRoute, useOnline } from './hooks';
 
 describe('useHashRoute', () => {
   afterEach(() => {
@@ -60,5 +60,27 @@ describe('useElementHeight', () => {
     );
     expect(result.current).toBe(420);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('useOnline', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('says whether the browser has a connection, and follows it', () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const { result } = renderHook(() => useOnline());
+    expect(result.current).toBe(false);
+    act(() => {
+      onLine.mockReturnValue(true);
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(result.current).toBe(true);
+    act(() => {
+      onLine.mockReturnValue(false);
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(result.current).toBe(false);
   });
 });

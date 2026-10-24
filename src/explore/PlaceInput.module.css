@@ -75,3 +75,23 @@
   font-size: 13px;
   color: var(--muted);
 }
+
+/* Takes the place of the results, so nothing waits on a reply that can't come. */
+.offline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: var(--raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.offline b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}

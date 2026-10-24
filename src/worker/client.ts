@@ -1,3 +1,4 @@
+import type { SavedArea } from '../osm/saved';
 import type { JobRequest, JobResult, ServerAttempt, Stage } from './job';
 import type { PrepareProgress } from './preparations';
 import type { JobError, WorkerReply, WorkerRequest } from './protocol';
@@ -25,8 +26,19 @@ interface Pending {
 export function createSearchClient(worker: WorkerLike) {
   let lastId = 0;
   const pending = new Map<number, Pending>();
+  const asked = new Map<number, (areas: SavedArea[]) => void>();
+  const ask = (message: { type: 'saved' } | { type: 'forget'; key: string }) => {
+    const id = ++lastId;
+    worker.postMessage({ ...message, id });
+    return new Promise<SavedArea[]>((resolve) => asked.set(id, resolve));
+  };
 
   worker.onmessage = ({ data }) => {
+    if (data.type === 'saved') {
+      asked.get(data.id)?.(data.areas);
+      asked.delete(data.id);
+      return;
+    }
     const job = pending.get(data.id);
     if (!job) return;
     if (data.type === 'progress') return job.onProgress(data.stage, data.server);
@@ -62,6 +74,10 @@ export function createSearchClient(worker: WorkerLike) {
         },
       };
     },
+    /** The areas saved on this device, most recently used first. */
+    savedAreas: () => ask({ type: 'saved' }),
+    /** Deletes a saved area's streets; answers with the areas left. */
+    forgetArea: (key: string) => ask({ type: 'forget', key }),
   };
 }
 

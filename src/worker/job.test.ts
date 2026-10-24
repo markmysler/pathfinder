@@ -3,7 +3,7 @@ import { RouteTooLongError } from '../osm/area';
 import { buildRoadNetwork, type OverpassResponse } from '../osm/network';
 import { NoRoadNearbyError } from '../osm/prepare';
 import { TrafficError, type TrafficReading } from '../traffic/types';
-import { runJob, transferablesOf, type JobRequest, type Stage } from './job';
+import { runJob, transferablesOf, type JobDeps, type JobRequest, type Stage } from './job';
 import { preparationCache, type PrepareProgress } from './preparations';
 
 const network = buildRoadNetwork(plazaDeMayo as unknown as OverpassResponse);
@@ -128,6 +128,46 @@ describe('runJob', () => {
   it('passes on whether the roads came from the cache', async () => {
     const { deps: d } = deps({ loadRoadNetwork: async () => ({ network, fromCache: true }) });
     expect((await runJob(request, d)).fromCache).toBe(true);
+  });
+
+  it('names the route to the loader, so its streets are listed as saved under those names', async () => {
+    const loadRoadNetwork = vi.fn<JobDeps['loadRoadNetwork']>(async () => ({
+      network,
+      fromCache: false,
+    }));
+    await runJob(
+      { ...request, names: { start: 'Casa Rosada', target: 'Cabildo' } },
+      deps({ loadRoadNetwork }).deps,
+    );
+    expect(loadRoadNetwork.mock.calls[0]![1]).toMatchObject({
+      route: {
+        start: { name: 'Casa Rosada', ...request.start },
+        target: { name: 'Cabildo', ...request.target },
+      },
+    });
+  });
+
+  it('tells the loader where A and B are, for a saved area to stand in offline', async () => {
+    const loadRoadNetwork = vi.fn<JobDeps['loadRoadNetwork']>(async () => ({
+      network,
+      fromCache: false,
+    }));
+    await runJob(request, deps({ loadRoadNetwork }).deps);
+    expect(loadRoadNetwork.mock.calls[0]![1].ends).toEqual({
+      south: request.target.lat,
+      west: request.target.lon,
+      north: request.start.lat,
+      east: request.start.lon,
+    });
+  });
+
+  it('names no route when the places have no names', async () => {
+    const loadRoadNetwork = vi.fn<JobDeps['loadRoadNetwork']>(async () => ({
+      network,
+      fromCache: false,
+    }));
+    await runJob(request, deps({ loadRoadNetwork }).deps);
+    expect(loadRoadNetwork.mock.calls[0]![1]).not.toHaveProperty('route');
   });
 
   it('refuses trips that are too long before downloading anything', async () => {
@@ -437,6 +477,18 @@ describe('runJob with the advanced algorithms', () => {
       deps({ preparations }).deps,
     );
     expect(shortest.preparation.hierarchy!.reused).toBe(false);
+  });
+
+  it("doesn't reuse what it prepared on a saved area's streets for a fresh download", async () => {
+    const preparations = preparationCache();
+    const saved = { south: -34.62, west: -58.39, north: -34.6, east: -58.36 };
+    const standIn = deps({
+      preparations,
+      loadRoadNetwork: async () => ({ network, fromCache: true, box: saved }),
+    });
+    await runJob(advanced, standIn.deps);
+    const fresh = await runJob(advanced, deps({ preparations }).deps);
+    expect(fresh.preparation.hierarchy!.reused).toBe(false);
   });
 
   it('stops Bellman-Ford at the step limit, saying how many steps it would need', async () => {

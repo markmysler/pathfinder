@@ -7,6 +7,8 @@ import type { AlgorithmId } from '../algorithms';
 import { liveTraffic } from '../test/traffic';
 import type { JobRequest, JobResult, Stage, TrafficOutcome } from '../worker/job';
 import type { JobError } from '../worker/protocol';
+import type { SavedArea } from '../osm/saved';
+import { cabildo, casaRosada } from '../test/fakes';
 import { ExplorePage } from './ExplorePage';
 
 // The real map needs WebGL; this stand-in lets tests "click" it.
@@ -18,7 +20,7 @@ vi.mock('../map/LazyMapCanvas', () => ({
   ),
 }));
 
-function fakeSearchClient() {
+function fakeSearchClient(saved: SavedArea[] = []) {
   const jobs: {
     request: JobRequest;
     progress(stage: Stage): void;
@@ -47,13 +49,19 @@ function fakeSearchClient() {
           return { result, cancel };
         },
       ),
+      savedAreas: vi.fn(async () => saved),
+      forgetArea: vi.fn(async (key: string) => (saved = saved.filter((a) => a.key !== key))),
     },
   };
 }
 
-function setup(traffic = fakeTraffic(), onRunOpen: (open: boolean) => void = () => {}) {
+function setup(
+  traffic = fakeTraffic(),
+  onRunOpen: (open: boolean) => void = () => {},
+  saved: SavedArea[] = [],
+) {
   const geocoder = fakeGeocoder();
-  const search = fakeSearchClient();
+  const search = fakeSearchClient(saved);
   render(
     <ServicesProvider value={{ geocoder, searchClient: search.client, traffic }}>
       <RunOpenContext.Provider value={onRunOpen}>
@@ -105,6 +113,7 @@ describe('ExplorePage', () => {
       objective: 'fastest',
       algorithms: ['dijkstra'],
       astarWeight: 1,
+      names: { start: 'Casa Rosada', target: 'Cabildo de Buenos Aires' },
     });
 
     jobs[0]!.progress('download');
@@ -265,6 +274,62 @@ describe('ExplorePage', () => {
       jobs[0]!.succeed(fakeJobResult('astar'));
       expect(await screen.findByText('Inspector')).toBeInTheDocument();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('offline', () => {
+    const here: SavedArea = {
+      key: 'roads-v1:here',
+      box: { south: -34.62, west: -58.38, north: -34.6, east: -58.36 },
+      savedAt: Date.now(),
+      bytes: 4_100_000,
+      start: { name: casaRosada.name, lat: casaRosada.lat, lon: casaRosada.lon },
+      target: { name: cabildo.name, lat: cabildo.lat, lon: cabildo.lon },
+    };
+
+    beforeEach(() => {
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('runs a saved route, without live traffic', async () => {
+      const tomtom = { provider: 'tomtom' as const, keys: { tomtom: 'my-key' } };
+      const { jobs } = setup(fakeTraffic(tomtom), undefined, [here]);
+      expect(screen.getAllByRole('status')[0]).toHaveTextContent(
+        'Offline · saved routes and Learn still work',
+      );
+      await userEvent.click(await screen.findByRole('button', { name: /Casa Rosada → Cabildo/ }));
+      expect(screen.getByRole('textbox', { name: 'Start' })).toHaveValue('Casa Rosada');
+      await chooseOnly('A* search');
+      await userEvent.click(screen.getByRole('button', { name: 'Run A* search' }));
+      expect(jobs[0]!.request).toMatchObject({ mode: 'car', traffic: undefined });
+    });
+
+    it('removes a saved route', async () => {
+      const { client } = setup(undefined, undefined, [here]);
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^Remove the saved streets for Casa Rosada/ }),
+      );
+      expect(client.forgetArea).toHaveBeenCalledWith('roads-v1:here');
+      expect(await screen.findByText(/Nothing is saved on this device yet/)).toBeInTheDocument();
+    });
+
+    it("says when the streets aren't on this device, and shows the saved routes", async () => {
+      const { jobs } = setup(undefined, undefined, [here]);
+      await screen.findByRole('button', { name: /Casa Rosada → Cabildo/ });
+      await userEvent.click(screen.getByRole('button', { name: 'Click the map' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Click the map' }));
+      await userEvent.click(screen.getByRole('button', { name: /^Run/ }));
+      jobs[0]!.fail({ kind: 'not-saved', message: '' });
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "These streets aren't on this device",
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Show saved routes' }));
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByRole('region', { name: /Saved on this device/ })).toHaveFocus();
     });
   });
 

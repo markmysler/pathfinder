@@ -33,7 +33,8 @@ export interface SavedAreas {
 
 const INDEX = 'saved-areas';
 
-const covers = (outer: BBox, inner: BBox) =>
+/** Whether `outer` holds all of `inner`. */
+export const covers = (outer: BBox, inner: BBox) =>
   outer.south <= inner.south &&
   outer.west <= inner.west &&
   outer.north >= inner.north &&

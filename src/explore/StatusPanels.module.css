@@ -210,3 +210,30 @@
 .waiting {
   color: var(--faint);
 }
+
+/* Not a failure as such, e.g. offline: a stronger border and an icon beside the words. */
+.panel[data-variant='notice'] {
+  border-color: var(--notice-border);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.noticeIcon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-2);
+}
+
+.title {
+  display: block;
+  font-weight: 600;
+}
+
+.notice .detail {
+  line-height: 1.55;
+  color: var(--text-2);
+}

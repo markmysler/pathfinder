@@ -7,7 +7,7 @@ import { MAX_ROUTE_METERS } from '../osm/area';
 import { DEFAULT_ENDPOINTS } from '../osm/overpass';
 import { formatDuration } from '../ui/format';
 import type { TrafficProvider } from '../traffic/types';
-import { CheckIcon } from '../ui/icons';
+import { CheckIcon, CloudOffIcon } from '../ui/icons';
 import type { ServerAttempt, Stage } from '../worker/job';
 import { PROVIDER_NAME } from './trafficText';
 import type { JobError } from '../worker/protocol';
@@ -287,6 +287,8 @@ function explain(error: JobError): string {
       return 'There are no connected roads for this travel mode near A and B. Try another mode, or move the points onto streets.';
     case 'download':
       return "Couldn't download the streets: the OpenStreetMap servers are busy or unreachable. Try again in a minute.";
+    case 'not-saved':
+      return "You're offline, and these streets aren't on this device.";
     case 'cancelled':
       return 'Cancelled.';
     case 'unknown':
@@ -298,9 +300,48 @@ interface ErrorProps {
   error: JobError;
   onRetry(): void;
   onBack(): void;
+  /** How many routes are saved on this device, to offer offline. */
+  saved?: number;
+  onShowSaved?(): void;
 }
 
-export function ErrorPanel({ error, onRetry, onBack }: ErrorProps) {
+export function ErrorPanel({ error, onRetry, onBack, saved = 0, onShowSaved }: ErrorProps) {
+  if (error.kind === 'not-saved') {
+    const pick = saved === 1 ? 'pick your saved route' : `pick one of your ${saved} saved routes`;
+    return (
+      <div className={styles.panel} data-variant="notice">
+        <div className={styles.notice} role="alert">
+          <CloudOffIcon size={20} className={styles.noticeIcon} />
+          <p className={styles.message}>
+            <b className={styles.title}>These streets aren't on this device</b>
+            <span className={styles.detail}>
+              You're offline, and A or B is outside every area you have run before. Connect to
+              download the streets{saved > 0 ? `, or ${pick}` : ''}.
+            </span>
+          </p>
+        </div>
+        <div className={styles.actions}>
+          {saved > 0 && (
+            <button
+              type="button"
+              className={`${styles.button} ${styles.primary}`}
+              onClick={onShowSaved}
+            >
+              Show saved routes
+            </button>
+          )}
+          <button type="button" className={styles.button} onClick={onRetry}>
+            Try again
+          </button>
+          {saved === 0 && (
+            <button type="button" className={styles.button} onClick={onBack}>
+              Back
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={styles.panel}>
       <p className={styles.message} role="alert">

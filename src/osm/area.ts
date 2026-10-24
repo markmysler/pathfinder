@@ -34,6 +34,16 @@ const snapDown = (degrees: number) =>
 const snapUp = (degrees: number) =>
   Number((Math.ceil(degrees / GRID_DEGREES) * GRID_DEGREES).toFixed(3));
 
+/** The smallest box holding both points. */
+export function boxAround(a: LatLon, b: LatLon): BBox {
+  return {
+    south: Math.min(a.lat, b.lat),
+    west: Math.min(a.lon, b.lon),
+    north: Math.max(a.lat, b.lat),
+    east: Math.max(a.lon, b.lon),
+  };
+}
+
 /**
  * The area to download road data for: a box around both points with a margin that grows with
  * their distance (detours often leave the straight corridor), snapped outwards to a coarse grid

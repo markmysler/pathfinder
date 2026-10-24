@@ -1,6 +1,7 @@
 import { createSearchClient, type WorkerLike } from './client';
 import type { WorkerReply, WorkerRequest } from './protocol';
 import type { JobRequest } from './job';
+import type { SavedArea } from '../osm/saved';
 
 const request = {
   start: { lat: 0, lon: 0 },
@@ -9,6 +10,15 @@ const request = {
   objective: 'shortest',
   algorithms: ['bfs'],
 } satisfies JobRequest;
+
+const saved: SavedArea = {
+  key: 'roads-v1:a',
+  box: { south: 0, west: 0, north: 0.01, east: 0.01 },
+  savedAt: 1,
+  bytes: 1000,
+  start: { name: 'A', lat: 0, lon: 0 },
+  target: { name: 'B', lat: 0, lon: 0.01 },
+};
 
 function fakeWorker() {
   const sent: WorkerRequest[] = [];
@@ -109,6 +119,22 @@ describe('createSearchClient', () => {
     job.cancel();
     expect(sent.at(-1)).toEqual({ type: 'cancel', id: 1 });
     await expect(job.result).rejects.toMatchObject({ kind: 'cancelled' });
+  });
+
+  it('lists the areas saved on this device', async () => {
+    const { worker, sent } = fakeWorker();
+    const areas = createSearchClient(worker).savedAreas();
+    expect(sent).toEqual([{ type: 'saved', id: 1 }]);
+    worker.reply({ type: 'saved', id: 1, areas: [saved] });
+    await expect(areas).resolves.toEqual([saved]);
+  });
+
+  it('forgets a saved area and answers with what is left', async () => {
+    const { worker, sent } = fakeWorker();
+    const left = createSearchClient(worker).forgetArea('roads-v1:a');
+    expect(sent).toEqual([{ type: 'forget', id: 1, key: 'roads-v1:a' }]);
+    worker.reply({ type: 'saved', id: 1, areas: [] });
+    await expect(left).resolves.toEqual([]);
   });
 
   it('gives each job its own id', () => {

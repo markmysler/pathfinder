@@ -23,6 +23,24 @@ export function useHashRoute(): Route {
   return useSyncExternalStore(subscribeToHash, currentRoute, () => 'explore');
 }
 
+const subscribeToConnection = (onChange: () => void) => {
+  window.addEventListener('online', onChange);
+  window.addEventListener('offline', onChange);
+  return () => {
+    window.removeEventListener('online', onChange);
+    window.removeEventListener('offline', onChange);
+  };
+};
+
+/** Whether the browser says it has a connection; offline, only saved routes can run. */
+export function useOnline(): boolean {
+  return useSyncExternalStore(
+    subscribeToConnection,
+    () => navigator.onLine,
+    () => true,
+  );
+}
+
 /** Calls onFrame with the milliseconds since the previous animation frame while running. */
 export function useAnimationClock(running: boolean, onFrame: (elapsedMs: number) => void) {
   const callback = useRef(onFrame);

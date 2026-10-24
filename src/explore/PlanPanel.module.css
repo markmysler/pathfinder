@@ -4,8 +4,14 @@
 
 .route {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
+}
+
+/* Offline, under A and B: how to plan without address search. */
+.offline {
+  flex-basis: 100%;
 }
 
 .places {
@@ -97,7 +103,8 @@
 
 @media (max-width: 720px) {
   .sectionTitle,
-  .explain {
+  .explain,
+  .offline {
     display: none;
   }
 

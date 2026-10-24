@@ -124,3 +124,25 @@ Follow-ups noted during phase 9:
 - The playback speed tops out at 100×; Bellman-Ford's 400,000 steps then take about 20 s. The boards showed 300×.
 - CH's road-by-road traffic notes are left out: its events name shortcuts, which have no single road's traffic.
 - Fixed: the property test "stopCheck is only sure of the route at the last step" failed about one run in seventeen (seed -1531813667). The tiny weights were only fast-check shrinking; the cause was outdated entries a search throws away after its last expansion. They had no step to belong to, so the last step still counted them as waiting: the stop line could show a sum below the best route, and the final frontier listed entries already gone. They now leave at the last step, after its roads.
+
+## Phase 10 plan (boards waiting for approval)
+
+Measured on 2026-10-24 before starting, on the production build:
+
+- Lighthouse, phone profile: Explore performance 39 (first paint 4.8 s, 1.6 s blocked, layout shift 0.126), Learn 69 (first paint 4.8 s). Desktop 95–96. Accessibility 98–100, SEO 82 (no meta description, no robots.txt), best practices 96 (a 404 for the favicon).
+- The first download is one 629 KB (gzipped) bundle, mostly MapLibre and deck.gl, which Learn never uses.
+- axe: no contrast problems. Explore has no `h1`; Learn articles have no `main`; comparison maps all have the same name; on phones the algorithm checkboxes are labelled by a title only; Learn's scrolling tables can't be reached by keyboard.
+- Runtime, 9 km route: on a real GPU playback holds 60 fps, with one 0.8 s hitch when six maps start. Without GPU acceleration (software WebGL) the page freezes for 10–20 s whenever a big search is drawn.
+
+Already fixed during profiling: a lost WebGL context blanked the whole page; deck.gl kept every removed map's WebGL context and, through a resolution listener, its layers and their data (4–5 MB per round trip on a 3 km route).
+
+Work, each test-first:
+
+1. **Load less, sooner.** The map (MapLibre and deck.gl) loads on its own, after the page: Explore's panel is usable at once while a placeholder stands in for the map, and Learn never downloads it. Reserve the panel's space so it doesn't shift. Meta description, favicon, robots.txt.
+2. **Accessibility.** Fix everything axe finds above; a skip link on every page; maps named after their algorithm; keyboard access to scrolling tables; respect reduced motion for map moves. Check that a whole run can be done by keyboard.
+3. **Offline and installable (PWA).** A manifest and app icon, so browsers offer to install it. A service worker keeps the app and Learn available offline, and caches the map tiles of places you've run, up to a cap. Routes whose streets are saved on the device (kept a week, as now) are listed so they can be run offline; search, live traffic and new areas say they need a connection. When a new version is deployed, the app offers to reload.
+4. **Slow drawing and lost graphics.** When the browser has no graphics acceleration, say so once and why big searches stall. If the map's graphics don't come back by themselves after a few seconds, offer to redraw it.
+5. **Checks in CI.** axe on every page and state (plan, search results, running, comparing, traffic dialog, Learn home and every article), on desktop and phone: zero violations. Lighthouse on the built site with Playwright's Chromium and Lighthouse's Node API (the CLI misbehaves on WSL), phone profile: performance at least 90 for Learn and 70 for Explore, accessibility, best practices and SEO 100, layout shift at most 0.1.
+6. **Docs.** README for users (what it is, keys and privacy, offline) and contributors; `docs/ARCHITECTURE.md` (worker, event traces, timelines, playback, map layers); `docs/CONTRIBUTING.md` (TDD, design first, recording fixtures).
+
+Boards: on the canvas under "Phase 10".

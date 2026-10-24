@@ -65,6 +65,72 @@ test('steps through the search one expansion at a time', async ({ page, context 
   await expect(page.getByText(/Took the oldest node in the queue/).first()).toBeVisible();
 });
 
+/** How many pixels of the visible map show A*'s lavender (#B197FC), over the dark basemap. */
+async function lavenderPixels(page: Page) {
+  const png = (await page.getByTestId('map').filter({ visible: true }).screenshot()).toString(
+    'base64',
+  );
+  return page.evaluate(async (data) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext('2d')!;
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const [r, g, b] = [pixels[i]!, pixels[i + 1]!, pixels[i + 2]!];
+      if (b - r > 30 && b - g > 40 && r > g) count++;
+    }
+    return count;
+  }, png);
+}
+
+/** Loses, or gives back, every WebGL context on the page, as a GPU reset would. */
+async function graphicsContexts(page: Page, action: 'lose' | 'restore') {
+  await page.evaluate((action) => {
+    const holder = window as unknown as { lostContexts?: WEBGL_lose_context[] };
+    if (action === 'lose') {
+      holder.lostContexts = [...document.querySelectorAll('canvas')].flatMap((canvas) => {
+        const extension = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context');
+        extension?.loseContext();
+        return extension ? [extension] : [];
+      });
+    } else {
+      holder.lostContexts!.forEach((extension) => extension.restoreContext());
+    }
+  }, action);
+}
+
+test('survives losing the graphics context, and draws the search again once it is back', async ({
+  page,
+  context,
+}) => {
+  await fakeTheInternet(context);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(String(error)));
+  await page.goto('/');
+  await choosePlaces(page);
+  await chooseOnly(page, 'astar');
+  await page.getByRole('button', { name: 'Run A* search' }).click();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByText('Found route')).toBeVisible();
+  await page.waitForTimeout(500);
+  const before = await lavenderPixels(page);
+  expect(before).toBeGreaterThan(500);
+
+  // A GPU reset, or a phone reclaiming memory, takes the contexts away mid-session.
+  await graphicsContexts(page, 'lose');
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await page.getByRole('button', { name: 'Jump to end' }).click();
+  await expect(page.getByRole('heading', { name: 'A* search', exact: true })).toBeVisible();
+
+  await graphicsContexts(page, 'restore');
+  await expect.poll(() => lavenderPixels(page)).toBeGreaterThan(before * 0.8);
+  expect(errors).toEqual([]);
+});
+
 test('keeps the downloaded streets for the next run', async ({ page, context }) => {
   const { overpassRequests } = await fakeTheInternet(context);
   await page.goto('/');

@@ -103,6 +103,8 @@ export function MapCanvas(props: Props) {
   const overlay = useRef<MapboxOverlay | null>(null);
   const markers = useRef<Partial<Record<Role, maplibregl.Marker>>>({});
   const [loaded, setLoaded] = useState(false);
+  /** False while the browser has taken the map's WebGL context away, as a GPU reset does. */
+  const [drawable, setDrawable] = useState(true);
   /** Set when the map joined a shared view, which then takes the place of the first framing. */
   const adopted = useRef(false);
   const latest = useRef(props);
@@ -130,8 +132,12 @@ export function MapCanvas(props: Props) {
       instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     }
     // Overlaid, not interleaved: deck.gl's interleaved mode does not support MapLibre 6 yet.
-    const deck = new MapboxOverlay({ interleaved: false, layers: [] });
-    instance.addControl(deck);
+    const addOverlay = () => {
+      const deck = new MapboxOverlay({ interleaved: false, layers: [] });
+      instance.addControl(deck);
+      overlay.current = deck;
+    };
+    addOverlay();
 
     const member: SyncedMap = { setCamera: (camera) => instance.jumpTo(camera) };
     if (sync) {
@@ -141,6 +147,15 @@ export function MapCanvas(props: Props) {
         if (event.originalEvent) sync.moved(member, cameraOf(instance));
       });
     }
+    // While the context is lost MapLibre drops its style, and anything that reads it throws. It
+    // puts the style back once the context returns; the search is drawn again from there.
+    // deck.gl can't get a lost context back, so the search moves to a fresh overlay.
+    instance.on('webglcontextlost', () => setDrawable(false));
+    instance.on('webglcontextrestored', () => {
+      if (overlay.current) instance.removeControl(overlay.current);
+      addOverlay();
+      setDrawable(true);
+    });
     instance.on('click', (event: maplibregl.MapMouseEvent) =>
       latest.current.onMapClick({ lat: event.lngLat.lat, lon: event.lngLat.lng }),
     );
@@ -167,7 +182,6 @@ export function MapCanvas(props: Props) {
       setLoaded(true);
     });
     map.current = instance;
-    overlay.current = deck;
     const placed = markers.current;
     return () => {
       sync?.leave(member);
@@ -227,12 +241,13 @@ export function MapCanvas(props: Props) {
   }, [frameKey]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !drawable) return;
     const source = map.current?.getSource<maplibregl.GeoJSONSource>('area');
     source?.setData(area ? outline(area) : EMPTY);
-  }, [area, loaded]);
+  }, [area, loaded, drawable]);
 
   useEffect(() => {
+    if (!drawable) return;
     const contraction = exploration?.contraction;
     overlay.current?.setProps({
       layers: contraction
@@ -261,7 +276,7 @@ export function MapCanvas(props: Props) {
             ]
           : [],
     });
-  }, [exploration]);
+  }, [exploration, drawable]);
 
   return <div ref={container} className={styles.map} data-testid="map" />;
 }

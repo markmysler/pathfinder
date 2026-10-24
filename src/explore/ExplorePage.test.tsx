@@ -9,8 +9,8 @@ import type { JobError } from '../worker/protocol';
 import { ExplorePage } from './ExplorePage';
 
 // The real map needs WebGL; this stand-in lets tests "click" it.
-vi.mock('../map/MapCanvas', () => ({
-  MapCanvas: ({ onMapClick }: { onMapClick(point: { lat: number; lon: number }): void }) => (
+vi.mock('../map/LazyMapCanvas', () => ({
+  LazyMapCanvas: ({ onMapClick }: { onMapClick(point: { lat: number; lon: number }): void }) => (
     <button type="button" onClick={() => onMapClick({ lat: -34.61, lon: -58.38 })}>
       Click the map
     </button>

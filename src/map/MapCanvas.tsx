@@ -1,16 +1,17 @@
-import { MapboxOverlay } from '@deck.gl/mapbox';
+import type { MapboxOverlay } from '@deck.gl/mapbox';
 import * as maplibregl from 'maplibre-gl';
 // MapLibre looks for its worker next to its own module, which bundling moves; point it there.
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useRef, useState } from 'react';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import '../styles/maplibre.css';
 import type { Role } from '../explore/exploreState';
 import type { BBox, LatLon } from '../osm/area';
 import type { Timeline } from '../playback/timeline';
 import type { Camera, CameraSync, SyncedMap } from './cameraSync';
-import { contractionLayers } from './advancedLayers';
-import { explorationLayers, type AdvancedView, type Rgb, type SnapLink } from './explorationLayers';
+import type { AdvancedView, Rgb, SnapLink } from './explorationLayers';
 import type { ContractionReplay } from '../worker/preparations';
-import { trafficLayers, type LiveTraffic } from './trafficLayers';
+import type { LiveTraffic } from './trafficLayers';
 import styles from './MapCanvas.module.css';
 
 /** OpenFreeMap's dark style: free OpenStreetMap vector tiles with no API key. */
@@ -23,28 +24,31 @@ export interface Padding {
   right: number;
 }
 
-interface Props {
+/** The search a map draws, at one step. */
+export interface Exploration {
+  timeline: Timeline;
+  step: number;
+  /** One colour, or one per side of a search from both ends. */
+  colors: Rgb | readonly [Rgb, Rgb];
+  snaps: readonly SnapLink[];
+  /** Labels a bidirectional search's best meeting point, given its index. */
+  meetLabel?: (meeting: number) => string;
+  /** A node to ring, picked from the inspector's frontier list. */
+  highlight?: readonly [number, number] | null;
+  /** Live traffic the search ran with, and whether to draw its slow roads. */
+  traffic?: { live: LiveTraffic; bands: boolean } | null;
+  /** What an advanced algorithm adds to its search. */
+  advanced?: AdvancedView;
+  /** Watching contraction hierarchies prepare, at this step, instead of its search. */
+  contraction?: { replay: ContractionReplay; step: number } | null;
+}
+
+export interface MapCanvasProps {
   start: LatLon | null;
   target: LatLon | null;
   /** Outline of the area that will be downloaded, while planning. */
   area: BBox | null;
-  exploration: {
-    timeline: Timeline;
-    step: number;
-    /** One colour, or one per side of a search from both ends. */
-    colors: Rgb | readonly [Rgb, Rgb];
-    snaps: readonly SnapLink[];
-    /** Labels a bidirectional search's best meeting point, given its index. */
-    meetLabel?: (meeting: number) => string;
-    /** A node to ring, picked from the inspector's frontier list. */
-    highlight?: readonly [number, number] | null;
-    /** Live traffic the search ran with, and whether to draw its slow roads. */
-    traffic?: { live: LiveTraffic; bands: boolean } | null;
-    /** What an advanced algorithm adds to its search. */
-    advanced?: AdvancedView;
-    /** Watching contraction hierarchies prepare, at this step, instead of its search. */
-    contraction?: { replay: ContractionReplay; step: number } | null;
-  } | null;
+  exploration: Exploration | null;
   /** Space covered by panels, kept clear when fitting A and B into view. */
   padding: Padding;
   draggable: boolean;
@@ -97,32 +101,18 @@ function markerElement(role: Role) {
   return element;
 }
 
-/**
- * Takes deck.gl's overlay off the map and lets go of everything it held. deck.gl leaves both
- * behind: its WebGL context, which would hold on to the GPU (browsers allow about 16), and a
- * listener for screen-resolution changes, which keeps the whole overlay and its layers' data
- * reachable. So the layers go first, then the listener with the canvas context, then the context.
- */
-function removeOverlay(map: maplibregl.Map, overlay: MapboxOverlay) {
-  overlay.setProps({ layers: [] });
-  const canvas = overlay.getCanvas();
-  // The overlay keeps its Deck, and the Deck its device, to itself; reach in, but only as far as
-  // they are there.
-  const { _deck: deck } = overlay as unknown as {
-    _deck?: { device?: { canvasContext?: { destroy(): void } | null } | null };
-  };
-  const canvasContext = deck?.device?.canvasContext;
-  map.removeControl(overlay);
-  canvasContext?.destroy();
-  canvas?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
-}
+type OverlayModule = typeof import('./overlay');
+let overlayModule: Promise<OverlayModule> | undefined;
+/** deck.gl draws the searches; it loads with the first one, as planning never needs it. */
+const loadOverlay = () => (overlayModule ??= import('./overlay'));
 
 /** The MapLibre basemap with A and B markers and a deck.gl overlay for the search. */
-export function MapCanvas(props: Props) {
+export function MapCanvas(props: MapCanvasProps) {
   const { start, target, area, exploration, draggable } = props;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const overlay = useRef<MapboxOverlay | null>(null);
+  const deck = useRef<OverlayModule | null>(null);
   const markers = useRef<Partial<Record<Role, maplibregl.Marker>>>({});
   const [loaded, setLoaded] = useState(false);
   /** False while the browser has taken the map's WebGL context away, as a GPU reset does. */
@@ -154,14 +144,6 @@ export function MapCanvas(props: Props) {
     if (card !== 'bare') {
       instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     }
-    // Overlaid, not interleaved: deck.gl's interleaved mode does not support MapLibre 6 yet.
-    const addOverlay = () => {
-      const deck = new MapboxOverlay({ interleaved: false, layers: [] });
-      instance.addControl(deck);
-      overlay.current = deck;
-    };
-    addOverlay();
-
     const member: SyncedMap = { setCamera: (camera) => instance.jumpTo(camera) };
     if (sync) {
       adopted.current = sync.join(member);
@@ -175,8 +157,10 @@ export function MapCanvas(props: Props) {
     // deck.gl can't get a lost context back, so the search moves to a fresh overlay.
     instance.on('webglcontextlost', () => setDrawable(false));
     instance.on('webglcontextrestored', () => {
-      if (overlay.current) removeOverlay(instance, overlay.current);
-      addOverlay();
+      if (deck.current && overlay.current) {
+        deck.current.removeOverlay(instance, overlay.current);
+        overlay.current = deck.current.addOverlay(instance);
+      }
       setDrawable(true);
     });
     instance.on('click', (event: maplibregl.MapMouseEvent) =>
@@ -209,8 +193,15 @@ export function MapCanvas(props: Props) {
     return () => {
       sync?.leave(member);
       Object.values(placed).forEach((marker) => marker.remove());
-      if (overlay.current) removeOverlay(instance, overlay.current);
-      instance.remove();
+      const [module, drawn] = [deck.current, overlay.current];
+      if (module && drawn) {
+        void module.whenStarted(drawn).then(() => {
+          module.removeOverlay(instance, drawn);
+          instance.remove();
+        });
+      } else {
+        instance.remove();
+      }
       map.current = null;
       overlay.current = null;
     };
@@ -271,35 +262,19 @@ export function MapCanvas(props: Props) {
   }, [area, loaded, drawable]);
 
   useEffect(() => {
-    if (!drawable) return;
-    const contraction = exploration?.contraction;
-    overlay.current?.setProps({
-      layers: contraction
-        ? [
-            ...contractionLayers(contraction.replay, contraction.step),
-            ...explorationLayers(exploration.timeline, 0, exploration.colors, exploration.snaps),
-          ]
-        : exploration
-          ? [
-              // Traffic goes underneath, so the search stays readable on top of it.
-              ...(exploration.traffic
-                ? trafficLayers(exploration.traffic.live, {
-                    bands: exploration.traffic.bands,
-                    finished: exploration.step >= exploration.timeline.steps,
-                  })
-                : []),
-              ...explorationLayers(
-                exploration.timeline,
-                exploration.step,
-                exploration.colors,
-                exploration.snaps,
-                exploration.highlight,
-                exploration.meetLabel,
-                exploration.advanced,
-              ),
-            ]
-          : [],
+    const instance = map.current;
+    // Nothing drawn yet, and nothing to draw: no need for deck.gl.
+    if (!drawable || !instance || (!exploration && !overlay.current)) return;
+    let current = true;
+    void loadOverlay().then((module) => {
+      if (!current || map.current !== instance) return;
+      deck.current = module;
+      overlay.current ??= module.addOverlay(instance);
+      overlay.current.setProps({ layers: module.layersFor(exploration) });
     });
+    return () => {
+      current = false;
+    };
   }, [exploration, drawable]);
 
   return <div ref={container} className={styles.map} data-testid="map" />;

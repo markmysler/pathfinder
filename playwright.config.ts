@@ -8,8 +8,10 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: 'http://localhost:4173', trace: 'on-first-retry' },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] }, testIgnore: /lighthouse/ },
+    { name: 'mobile', use: { ...devices['Pixel 7'] }, testIgnore: /lighthouse/ },
+    // Lighthouse emulates a phone itself, and times the page: it runs alone, after the rest.
+    { name: 'lighthouse', testMatch: /lighthouse/, dependencies: ['desktop', 'mobile'] },
   ],
   webServer: {
     command: 'npm run build && npm run preview -- --port 4173 --strictPort',

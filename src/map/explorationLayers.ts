@@ -1,18 +1,12 @@
 import type { Layer } from '@deck.gl/core';
 import { DataFilterExtension } from '@deck.gl/extensions';
 import { IconLayer, LineLayer, PathLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
-import type { AlgorithmId } from '../algorithms';
 import { meetingAt, NEVER, type Timeline } from '../playback/timeline';
-import { sideColors } from '../ui/algorithmStyle';
 import { importantLayer, landmarkLayers, roundLayers, type AdvancedView } from './advancedLayers';
 import { hexToRgb, type Rgb } from './hexToRgb';
 
 export { hexToRgb, type Rgb };
 export type { AdvancedView };
-
-/** The colours to draw an algorithm's search in: one per side, the same twice if one-way. */
-export const explorationColors = (algorithm: AlgorithmId) =>
-  sideColors(algorithm).map(hexToRgb) as [Rgb, Rgb];
 
 interface BinaryData {
   length: number;

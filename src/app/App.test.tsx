@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { fakeGeocoder, fakeTraffic } from '../test/fakes';
 import { App } from './App';
 
-vi.mock('../map/MapCanvas', () => ({ MapCanvas: () => <div>map</div> }));
+vi.mock('../map/LazyMapCanvas', () => ({ LazyMapCanvas: () => <div>map</div> }));
 
 const services = {
   geocoder: fakeGeocoder(),
@@ -16,19 +16,18 @@ describe('App', () => {
     window.location.hash = '';
   });
 
-  it('opens on Explore with Explore and Learn in the navigation', () => {
+  it('opens on Explore with Explore and Learn in the navigation', async () => {
     render(<App services={services} />);
+    expect(await screen.findByRole('textbox', { name: 'Start' })).toBeInTheDocument();
     const nav = screen.getAllByRole('navigation', { name: 'Main' })[0]!;
     expect(nav).toHaveTextContent('Explore');
     expect(nav).toHaveTextContent('Learn');
-    expect(screen.getByRole('textbox', { name: 'Start' })).toBeInTheDocument();
   });
 
-  it('opens Explore with the algorithms a Learn article links to', () => {
+  it('opens Explore with the algorithms a Learn article links to', async () => {
     window.location.hash = '#/?algorithms=dijkstra,astar';
     render(<App services={services} />);
-    const ticked = screen
-      .getAllByRole('checkbox')
+    const ticked = (await screen.findAllByRole('checkbox'))
       .filter((box) => (box as HTMLInputElement).checked)
       .map((box) => (box as HTMLInputElement).value);
     expect(ticked).toEqual(['dijkstra', 'astar']);
@@ -36,7 +35,7 @@ describe('App', () => {
 
   it('switches to Learn', async () => {
     render(<App services={services} />);
-    await userEvent.click(screen.getAllByRole('link', { name: 'Learn' })[0]!);
+    await userEvent.click((await screen.findAllByRole('link', { name: 'Learn' }))[0]!);
     expect(await screen.findByRole('heading', { name: 'Learn', level: 1 })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Learn' })[0]).toHaveAttribute(
       'aria-current',

@@ -11,6 +11,30 @@
       name="description"
       content="Learn graph search by watching algorithms route across real streets: BFS, Dijkstra, A*, contraction hierarchies and more, step by step."
     />
+    <!-- The card shown when a link is shared. Crawlers need absolute URLs, so these name the live
+         site. The image is a JPEG so the service worker's precache, which takes PNGs, leaves it out. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pathfinder" />
+    <meta
+      property="og:title"
+      content="Pathfinder: watch graph-search algorithms route across real streets"
+    />
+    <meta
+      property="og:description"
+      content="BFS, Dijkstra, A* and more, racing side by side on OpenStreetMap, with an article for every algorithm."
+    />
+    <meta property="og:url" content="https://markmysler.github.io/pathfinder/" />
+    <meta
+      property="og:image"
+      content="https://markmysler.github.io/pathfinder/social-preview.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Greedy best-first, Dijkstra and A* searching from the Cabildo to the Casa Rosada side by side"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- The fonts the first screen uses, fetched with the page so text never reflows when they arrive. -->
     <link
       rel="preload"

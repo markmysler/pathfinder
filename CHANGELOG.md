@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Link previews:** a shared link to Pathfinder now shows a title, a description and a picture of
+  three algorithms racing, on LinkedIn, Slack, X and other sites that read Open Graph tags.
+
 ## 1.0.0
 
 The first release: watch graph search algorithms route across real streets, anywhere on Earth.
